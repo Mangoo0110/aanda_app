@@ -18,7 +18,12 @@ import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bl
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_feed_screen.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_form_screen.dart';
+import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
+import 'package:aanda/src/features/house/presentation/bloc/house_detail/house_detail_bloc.dart';
+import 'package:aanda/src/features/house/presentation/bloc/house_join/house_join_bloc.dart';
 import 'package:aanda/src/features/house/presentation/screens/house_create_screen.dart';
+import 'package:aanda/src/features/house/presentation/screens/house_detail_screen.dart';
+import 'package:aanda/src/features/house/presentation/screens/house_join_screen.dart';
 
 GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
   return GoRouter(
@@ -137,7 +142,50 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
           ),
         ),
       ),
-      
+
+      // ── Join Shared House ──────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.houseJoin,
+        name: 'house-join',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: AuthRouteGate(
+            policy: AuthRoutePolicy.signedInOnly,
+            child: BlocProvider(
+              create: (_) => HouseJoinBloc(
+                joinHouse: context.read<JoinHouse>(),
+              ),
+              child: const HouseJoinScreen(),
+            ),
+          ),
+        ),
+      ),
+
+      // ── House Detail ───────────────────────────────────────────────────────
+      GoRoute(
+        path: '/houses/:houseId',
+        name: 'house-detail',
+        pageBuilder: (context, state) {
+          final houseId = state.pathParameters['houseId'] ?? '';
+          return MaterialPage(
+            key: state.pageKey,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: BlocProvider(
+                create: (_) => HouseDetailBloc(
+                  houseId: houseId,
+                  getHouseDetail: context.read<GetHouseDetail>(),
+                  getHouseInvite: context.read<GetHouseInvite>(),
+                  regenerateInviteCode: context.read<RegenerateInviteCode>(),
+                  leaveHouse: context.read<LeaveHouse>(),
+                  removeMember: context.read<RemoveMember>(),
+                ),
+                child: HouseDetailScreen(houseId: houseId),
+              ),
+            ),
+          );
+        },
+      ),
     ],
     errorBuilder: (context, state) => const SizedBox.shrink(),
   );
