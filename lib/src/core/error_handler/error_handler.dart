@@ -39,6 +39,7 @@ mixin class ErrorHandler {
     return error;
   }
 
+  // ignore: unused_element
   String _friendlyStatusMessage(int? statusCode, String responseMessage) {
     switch (statusCode) {
       case 400:

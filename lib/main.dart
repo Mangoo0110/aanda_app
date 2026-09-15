@@ -1,122 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
+import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
+import 'package:aanda/src/app/routing/app_router.dart';
+import 'package:aanda/src/core/config/supabase_config.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
+import 'package:aanda/src/features/auth/data/datasources/supabase_auth_datasource.dart';
+import 'package:aanda/src/features/auth/data/repo/auth_repo_impl.dart';
+import 'package:aanda/src/features/auth/domain/repo/auth_repo.dart';
+import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 
-void main() {
-  runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: SupabaseConfig.url,
+    // ignore: deprecated_member_use
+    anonKey: SupabaseConfig.anonKey,
+  );
+
+  runApp(const AandaApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AandaApp extends StatelessWidget {
+  const AandaApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    final supabase = Supabase.instance.client;
+
+    // ── Data layer ────────────────────────────────────────────────────────
+    final authDatasource = SupabaseAuthDatasource(supabase: supabase);
+    final authRepo = AuthRepoImpl(datasource: authDatasource);
+
+    // ── Use cases ─────────────────────────────────────────────────────────
+    final watchAuthStatus = WatchAuthStatus(authRepo);
+    final signInWithEmail = SignInWithEmail(authRepo);
+    final signUpWithEmail = SignUpWithEmail(authRepo);
+    final logout = Logout(authRepo);
+    final getCurrentAccount = GetCurrentAccount(authRepo);
+
+    // ── Auth guard bloc ───────────────────────────────────────────────────
+    final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
+      ..add(const AppAuthGuardStarted());
+
+    return MultiRepositoryProvider(
+      providers: [
+        // Repos
+        RepositoryProvider<AuthRepo>.value(value: authRepo),
+        RepositoryProvider<SupabaseClient>.value(value: supabase),
+        // Use cases — exposed so router shell BlocProviders can read them
+        RepositoryProvider<SignInWithEmail>.value(value: signInWithEmail),
+        RepositoryProvider<SignUpWithEmail>.value(value: signUpWithEmail),
+        RepositoryProvider<Logout>.value(value: logout),
+        RepositoryProvider<GetCurrentAccount>.value(value: getCurrentAccount),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AppThemeCubit>(create: (_) => AppThemeCubit()),
+          BlocProvider<AppAuthGuardBloc>.value(value: authGuardBloc),
+        ],
+        child: _AppRoot(authGuardBloc: authGuardBloc),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class _AppRoot extends StatelessWidget {
+  const _AppRoot({required this.authGuardBloc});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  final AppAuthGuardBloc authGuardBloc;
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    final router = createAppRouter(authGuardBloc: authGuardBloc);
+    final appTheme = AppTheme();
+
+    return BlocBuilder<AppThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        return MaterialApp.router(
+          title: 'Aanda',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeMode,
+          theme: appTheme.lightTheme,
+          darkTheme: appTheme.darkTheme,
+          routerConfig: router,
+        );
+      },
     );
   }
 }
