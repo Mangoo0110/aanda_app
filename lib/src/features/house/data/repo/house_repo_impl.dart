@@ -1,0 +1,108 @@
+import 'package:aanda/src/core/async_handlers/async_request.dart';
+import 'package:aanda/src/core/async_handlers/response.dart';
+import 'package:aanda/src/core/error_handler/error_handler.dart';
+import 'package:aanda/src/features/house/data/datasources/house_remote_datasource.dart';
+import 'package:aanda/src/features/house/domain/entities/house.dart';
+import 'package:aanda/src/features/house/domain/entities/house_invite.dart';
+import 'package:aanda/src/features/house/domain/entities/house_member.dart';
+import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
+
+class HouseRepoImpl with ErrorHandler implements HouseRepo {
+  HouseRepoImpl({required HouseRemoteDatasource datasource})
+    : _datasource = datasource;
+
+  final HouseRemoteDatasource _datasource;
+
+  @override
+  AsyncRequest<House> createHouse({required String name}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final house = await _datasource.createHouse(name: name);
+        return SuccessRepoCall(data: house);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<House> joinHouse({required String inviteCode}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final house = await _datasource.joinHouse(inviteCode: inviteCode);
+        return SuccessRepoCall(data: house);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<List<House>> getMyHouses() {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final houses = await _datasource.getMyHouses();
+        return SuccessRepoCall(data: houses);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<House> getHouseDetail({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final house = await _datasource.getHouseDetail(houseId: houseId);
+        return SuccessRepoCall(data: house);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<List<HouseMember>> getHouseMembers({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final members = await _datasource.getHouseMembers(houseId: houseId);
+        return SuccessRepoCall(data: members);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> leaveHouse({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.leaveHouse(houseId: houseId);
+        return const SuccessRepoCall();
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> removeMember({
+    required String houseId,
+    required String userId,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.removeMember(houseId: houseId, userId: userId);
+        return const SuccessRepoCall();
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<HouseInvite> getHouseInvite({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final invite = await _datasource.getHouseInvite(houseId: houseId);
+        return SuccessRepoCall(data: invite);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<HouseInvite> regenerateInviteCode({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final invite = await _datasource.regenerateInviteCode(houseId: houseId);
+        return SuccessRepoCall(data: invite);
+      },
+    );
+  }
+}

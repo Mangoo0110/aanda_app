@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/usecases/base_usecase.dart';
+import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
@@ -37,6 +39,11 @@ class CostFeedScreen extends StatelessWidget {
             onPressed: () {
               context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
             },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout_rounded, color: colors.errorColor),
+            tooltip: 'Log Out',
+            onPressed: () => _confirmSignOut(context),
           ),
         ],
       ),
@@ -103,6 +110,7 @@ class CostFeedScreen extends StatelessWidget {
                           .read<CostFeedBloc>()
                           .add(CostFeedScopeFilterChanged(scope));
                     },
+                    onManageHouse: () => _openHouseDetails(context),
                   ),
                 ),
 
@@ -166,6 +174,63 @@ class CostFeedScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context) {
+    final colors = AppColors.context(context);
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: colors.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Log Out',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: colors.textColor,
+          ),
+        ),
+        content: Text(
+          email != null
+              ? 'Are you sure you want to log out of $email?'
+              : 'Are you sure you want to log out of your account?',
+          style: TextStyle(
+            color: colors.textColor.withValues(alpha: 0.8),
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: colors.grey, fontWeight: FontWeight.w600),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.errorColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              final logout = context.read<Logout>();
+              await logout(const NoParams());
+            },
+            child: const Text(
+              'Log Out',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -270,12 +335,114 @@ class CostFeedScreen extends StatelessWidget {
                     }
                   },
                 ),
+                const SizedBox(height: 6),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.group_add_rounded,
+                      color: Colors.indigo,
+                    ),
+                  ),
+                  title: Text(
+                    'Join a Shared House',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: colors.textColor,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Enter an invite code from your housemate',
+                    style: TextStyle(fontSize: 12, color: colors.grey),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: colors.iconColor,
+                  ),
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final result = await context.push(AppRoutes.houseJoin);
+                    if (result == true && context.mounted) {
+                      context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedRefreshRequested());
+                    }
+                  },
+                ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  void _openHouseDetails(BuildContext context) async {
+    final colors = AppColors.context(context);
+    try {
+      final supabase = Supabase.instance.client;
+      final data = await supabase.from('houses').select('id, name');
+      final houses = (data as List).cast<Map<String, dynamic>>();
+
+      if (!context.mounted) return;
+      if (houses.isEmpty) {
+        final res = await context.push(AppRoutes.houseCreate);
+        if (res == true && context.mounted) {
+          context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
+        }
+      } else if (houses.length == 1) {
+        context.push(AppRoutes.houseDetail(houses.first['id'] as String));
+      } else {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: colors.surfaceColor,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select a House',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...houses.map((h) => ListTile(
+                          leading: const Icon(Icons.home_work_rounded, color: Colors.teal),
+                          title: Text(
+                            h['name'] as String,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: colors.textColor,
+                            ),
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            context.push(AppRoutes.houseDetail(h['id'] as String));
+                          },
+                        )),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+    } catch (_) {}
   }
 }
 
@@ -506,6 +673,7 @@ class _ScopeDualCards extends StatelessWidget {
     required this.lastPersonal,
     required this.lastHouse,
     required this.onSelectScope,
+    required this.onManageHouse,
   });
 
   final double personalSpent;
@@ -514,6 +682,7 @@ class _ScopeDualCards extends StatelessWidget {
   final Cost? lastPersonal;
   final Cost? lastHouse;
   final ValueChanged<CostScope?> onSelectScope;
+  final VoidCallback onManageHouse;
 
   @override
   Widget build(BuildContext context) {
@@ -554,6 +723,8 @@ class _ScopeDualCards extends StatelessWidget {
               lastActivitySubtitle: lastHouse != null
                   ? '${lastHouse!.payerName ?? "Member"} • ৳ ${currencyFormat.format(lastHouse!.amount)}'
                   : 'Add shared cost',
+              actionLabel: 'Details ➔',
+              onActionTap: onManageHouse,
               onTap: () => onSelectScope(
                 selectedScope == CostScope.shared ? null : CostScope.shared,
               ),
@@ -575,6 +746,8 @@ class _ActivityCard extends StatelessWidget {
     required this.lastActivityTitle,
     required this.lastActivitySubtitle,
     required this.onTap,
+    this.actionLabel,
+    this.onActionTap,
   });
 
   final String title;
@@ -585,6 +758,8 @@ class _ActivityCard extends StatelessWidget {
   final String lastActivityTitle;
   final String lastActivitySubtitle;
   final VoidCallback onTap;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
@@ -691,6 +866,35 @@ class _ActivityCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (onActionTap != null) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: onActionTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        actionLabel ?? 'Details',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: colors.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 12,
+                        color: colors.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

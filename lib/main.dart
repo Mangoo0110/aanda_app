@@ -17,6 +17,11 @@ import 'package:aanda/src/features/cost/data/repo/cost_repo_impl.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
+// House
+import 'package:aanda/src/features/house/data/datasources/house_remote_datasource.dart';
+import 'package:aanda/src/features/house/data/repo/house_repo_impl.dart';
+import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
+import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +64,19 @@ class AandaApp extends StatelessWidget {
     final deleteCost = DeleteCost(costRepo);
     final getCostCategories = GetCostCategories(costRepo);
 
+    // ── House layer ───────────────────────────────────────────────────────
+    final houseDatasource = HouseRemoteDatasource(supabase: supabase);
+    final houseRepo = HouseRepoImpl(datasource: houseDatasource);
+
+    final createHouse = CreateHouse(houseRepo);
+    final getMyHouses = GetMyHouses(houseRepo);
+    final getHouseDetail = GetHouseDetail(houseRepo);
+    final getHouseInvite = GetHouseInvite(houseRepo);
+    final regenerateInviteCode = RegenerateInviteCode(houseRepo);
+    final joinHouse = JoinHouse(houseRepo);
+    final leaveHouse = LeaveHouse(houseRepo);
+    final removeMember = RemoveMember(houseRepo);
+
     // ── Auth guard bloc ───────────────────────────────────────────────────
     final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
       ..add(const AppAuthGuardStarted());
@@ -68,6 +86,7 @@ class AandaApp extends StatelessWidget {
         // Repos & Client
         RepositoryProvider<AuthRepo>.value(value: authRepo),
         RepositoryProvider<CostRepo>.value(value: costRepo),
+        RepositoryProvider<HouseRepo>.value(value: houseRepo),
         RepositoryProvider<SupabaseClient>.value(value: supabase),
 
         // Auth Use cases
@@ -82,6 +101,16 @@ class AandaApp extends StatelessWidget {
         RepositoryProvider<UpdateCost>.value(value: updateCost),
         RepositoryProvider<DeleteCost>.value(value: deleteCost),
         RepositoryProvider<GetCostCategories>.value(value: getCostCategories),
+
+        // House Use cases
+        RepositoryProvider<CreateHouse>.value(value: createHouse),
+        RepositoryProvider<GetMyHouses>.value(value: getMyHouses),
+        RepositoryProvider<GetHouseDetail>.value(value: getHouseDetail),
+        RepositoryProvider<GetHouseInvite>.value(value: getHouseInvite),
+        RepositoryProvider<RegenerateInviteCode>.value(value: regenerateInviteCode),
+        RepositoryProvider<JoinHouse>.value(value: joinHouse),
+        RepositoryProvider<LeaveHouse>.value(value: leaveHouse),
+        RepositoryProvider<RemoveMember>.value(value: removeMember),
       ],
       child: MultiBlocProvider(
         providers: [

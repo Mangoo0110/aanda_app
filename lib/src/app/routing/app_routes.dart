@@ -6,10 +6,12 @@ class AppRoutes {
   static const authLogin = '/auth/login';
   static const authRegister = '/auth/register';
 
-  // ── Home / Expenses (Phase 2) ─────────────────────────────────────────────
+  // ── Home / Expenses & Houses ──────────────────────────────────────────────
   static const home = '/home';
   static const costAdd = '/costs/add';
   static const houseCreate = '/houses/create';
+  static const houseJoin = '/houses/join';
+  static String houseDetail(String houseId) => '/houses/$houseId';
 
   static bool isAuthRoute(String path) {
     return path == auth || path.startsWith('$auth/');
