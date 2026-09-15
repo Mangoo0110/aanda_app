@@ -5,7 +5,7 @@ import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/presentation/bloc/register/register_bloc.dart';
 
-/// Registration screen: email, username, optional full name, and password.
+/// Registration screen: email, optional full name, and password.
 class CreateAccountView extends StatefulWidget {
   const CreateAccountView({super.key});
 
@@ -15,7 +15,6 @@ class CreateAccountView extends StatefulWidget {
 
 class _CreateAccountViewState extends State<CreateAccountView> {
   final _emailCtrl = TextEditingController();
-  final _usernameCtrl = TextEditingController();
   final _fullNameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscurePassword = true;
@@ -23,7 +22,6 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   @override
   void dispose() {
     _emailCtrl.dispose();
-    _usernameCtrl.dispose();
     _fullNameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -69,19 +67,6 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                     decoration: const InputDecoration(
                       labelText: 'Email *',
                       hintText: 'you@example.com',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Username
-                  TextField(
-                    controller: _usernameCtrl,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (v) => context
-                        .read<RegisterBloc>()
-                        .add(RegisterUsernameChanged(v)),
-                    decoration: const InputDecoration(
-                      labelText: 'Username *',
-                      hintText: 'e.g. john_doe',
                     ),
                   ),
                   const SizedBox(height: 16),

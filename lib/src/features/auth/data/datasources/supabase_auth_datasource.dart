@@ -71,11 +71,14 @@ class SupabaseAuthDatasource {
       throw Exception('Sign-up failed: no user returned.');
     }
 
-    // Upsert the profile row (trigger may not fire immediately on all plans).
+    // Upsert the profile row with default username derived from email.
+    final defaultUsername =
+        '${params.email.split('@').first}_${DateTime.now().millisecondsSinceEpoch % 10000}';
     await _supabase.from('profiles').upsert({
       'id': user.id,
-      'username': params.username,
-      if (params.fullName != null) 'full_name': params.fullName,
+      'username': defaultUsername,
+      if (params.fullName != null && params.fullName!.isNotEmpty)
+        'full_name': params.fullName,
     });
 
     final profile = await _fetchProfile(user.id);

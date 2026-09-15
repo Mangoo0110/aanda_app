@@ -30,7 +30,9 @@ abstract class AccountModel extends Account with _$AccountModel {
     return AccountModel(
       id: profile['id'] as String,
       email: email,
-      uniqueName: profile['username'] as String,
+      uniqueName: ((profile['username'] as String?)?.isNotEmpty == true
+          ? profile['username'] as String
+          : email.split('@').first),
       fullName: profile['full_name'] as String?,
       avatarUrl: profile['avatar_url'] as String?,
       token: token,

@@ -7,11 +7,6 @@ final class RegisterEmailChanged extends RegisterEvent {
   final String email;
 }
 
-final class RegisterUsernameChanged extends RegisterEvent {
-  RegisterUsernameChanged(this.username);
-  final String username;
-}
-
 final class RegisterFullNameChanged extends RegisterEvent {
   RegisterFullNameChanged(this.fullName);
   final String fullName;

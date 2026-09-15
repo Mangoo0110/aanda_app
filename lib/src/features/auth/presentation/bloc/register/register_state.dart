@@ -3,7 +3,6 @@ part of 'register_bloc.dart';
 final class RegisterState {
   const RegisterState({
     this.email = '',
-    this.username = '',
     this.fullName = '',
     this.password = '',
     this.isSubmitting = false,
@@ -11,7 +10,6 @@ final class RegisterState {
   });
 
   final String email;
-  final String username;
   final String fullName;
   final String password;
   final bool isSubmitting;
@@ -21,7 +19,6 @@ final class RegisterState {
 
   RegisterState copyWith({
     String? email,
-    String? username,
     String? fullName,
     String? password,
     bool? isSubmitting,
@@ -30,7 +27,6 @@ final class RegisterState {
   }) {
     return RegisterState(
       email: email ?? this.email,
-      username: username ?? this.username,
       fullName: fullName ?? this.fullName,
       password: password ?? this.password,
       isSubmitting: isSubmitting ?? this.isSubmitting,

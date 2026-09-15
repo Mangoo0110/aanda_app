@@ -10,7 +10,6 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     : _signUpWithEmail = signUpWithEmail,
       super(RegisterState.initial()) {
     on<RegisterEmailChanged>(_onEmailChanged);
-    on<RegisterUsernameChanged>(_onUsernameChanged);
     on<RegisterFullNameChanged>(_onFullNameChanged);
     on<RegisterPasswordChanged>(_onPasswordChanged);
     on<RegisterSubmitted>(_onSubmitted);
@@ -20,13 +19,6 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
 
   void _onEmailChanged(RegisterEmailChanged event, Emitter<RegisterState> emit) {
     emit(state.copyWith(email: event.email, clearError: true));
-  }
-
-  void _onUsernameChanged(
-    RegisterUsernameChanged event,
-    Emitter<RegisterState> emit,
-  ) {
-    emit(state.copyWith(username: event.username, clearError: true));
   }
 
   void _onFullNameChanged(
@@ -48,15 +40,10 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     Emitter<RegisterState> emit,
   ) async {
     final email = state.email.trim();
-    final username = state.username.trim();
     final password = state.password;
 
     if (email.isEmpty || !email.contains('@')) {
       emit(state.copyWith(errorMessage: 'Enter a valid email address.'));
-      return;
-    }
-    if (username.length < 3) {
-      emit(state.copyWith(errorMessage: 'Username must be at least 3 characters.'));
       return;
     }
     if (password.length < 6) {
@@ -71,7 +58,6 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
       SignUpParams(
         email: email,
         password: password,
-        username: username,
         fullName: state.fullName.trim().isEmpty ? null : state.fullName.trim(),
       ),
     );
