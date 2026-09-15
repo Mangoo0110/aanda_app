@@ -22,6 +22,34 @@ final class CostFeedPayerFilterChanged extends CostFeedEvent {
   final String? payerId; // null means All Payers
 }
 
+final class CostFeedCategoryFilterChanged extends CostFeedEvent {
+  const CostFeedCategoryFilterChanged(this.categoryId);
+  final String? categoryId; // null means All Categories
+}
+
+final class CostFeedSprintSelected extends CostFeedEvent {
+  const CostFeedSprintSelected(this.sprint);
+  final Sprint? sprint;
+}
+
+final class CostFeedFiltersApplied extends CostFeedEvent {
+  const CostFeedFiltersApplied({
+    this.sprint,
+    this.payerId,
+    this.categoryId,
+    this.scope,
+  });
+
+  final Sprint? sprint;
+  final String? payerId;
+  final String? categoryId;
+  final CostScope? scope;
+}
+
+final class CostFeedFiltersCleared extends CostFeedEvent {
+  const CostFeedFiltersCleared();
+}
+
 final class CostFeedMonthChanged extends CostFeedEvent {
   const CostFeedMonthChanged(this.month);
   final DateTime month;

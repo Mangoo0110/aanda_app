@@ -105,7 +105,7 @@ void main() {
       expect(state.myTotalSpent('u1'), 1500.0);
       expect(state.myPersonalSpent('u1'), 500.0);
       expect(state.mySharedSpent('u1'), 1000.0);
-      expect(state.myRecentCosts('u1').length, 2);
+      expect(state.myRecentCosts('u1').length, 1);
     });
 
     test('filters displayCosts by selectedPayerId', () {

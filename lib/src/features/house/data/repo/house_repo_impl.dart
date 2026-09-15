@@ -5,11 +5,12 @@ import 'package:aanda/src/features/house/data/datasources/house_remote_datasourc
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/entities/house_invite.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 
 class HouseRepoImpl with ErrorHandler implements HouseRepo {
   HouseRepoImpl({required HouseRemoteDatasource datasource})
-    : _datasource = datasource;
+      : _datasource = datasource;
 
   final HouseRemoteDatasource _datasource;
 
@@ -44,21 +45,21 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
   }
 
   @override
-  AsyncRequest<House> getHouseDetail({required String houseId}) {
-    return asyncTryCatch(
-      tryFunc: () async {
-        final house = await _datasource.getHouseDetail(houseId: houseId);
-        return SuccessRepoCall(data: house);
-      },
-    );
-  }
-
-  @override
   AsyncRequest<List<HouseMember>> getHouseMembers({required String houseId}) {
     return asyncTryCatch(
       tryFunc: () async {
         final members = await _datasource.getHouseMembers(houseId: houseId);
         return SuccessRepoCall(data: members);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<House> getHouseDetail({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final house = await _datasource.getHouseDetail(houseId: houseId);
+        return SuccessRepoCall(data: house);
       },
     );
   }
@@ -102,6 +103,72 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
       tryFunc: () async {
         final invite = await _datasource.regenerateInviteCode(houseId: houseId);
         return SuccessRepoCall(data: invite);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<List<Sprint>> getSprints({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final sprints = await _datasource.getSprints(houseId: houseId);
+        return SuccessRepoCall(data: sprints);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Sprint> createSprint({
+    required String houseId,
+    required String label,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final sprint = await _datasource.createSprint(
+          houseId: houseId,
+          label: label,
+          startDate: startDate,
+          endDate: endDate,
+        );
+        return SuccessRepoCall(data: sprint);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Sprint> closeSprint({
+    required String cycleId,
+    DateTime? closedAt,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final sprint = await _datasource.closeSprint(
+          cycleId: cycleId,
+          closedAt: closedAt,
+        );
+        return SuccessRepoCall(data: sprint);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Map<String, dynamic>> getSprintStats({
+    required String houseId,
+    required String cycleId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final stats = await _datasource.getSprintStats(
+          houseId: houseId,
+          cycleId: cycleId,
+          startDate: startDate,
+          endDate: endDate,
+        );
+        return SuccessRepoCall(data: stats);
       },
     );
   }

@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
-import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 

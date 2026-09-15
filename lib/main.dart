@@ -6,6 +6,7 @@ import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
 import 'package:aanda/src/app/routing/app_router.dart';
 import 'package:aanda/src/core/config/supabase_config.dart';
 import 'package:aanda/src/core/theme/app_theme.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
 // Auth
 import 'package:aanda/src/features/auth/data/datasources/supabase_auth_datasource.dart';
 import 'package:aanda/src/features/auth/data/repo/auth_repo_impl.dart';
@@ -15,13 +16,22 @@ import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:aanda/src/features/cost/data/datasources/cost_remote_datasource.dart';
 import 'package:aanda/src/features/cost/data/repo/cost_repo_impl.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
-import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 // House
 import 'package:aanda/src/features/house/data/datasources/house_remote_datasource.dart';
 import 'package:aanda/src/features/house/data/repo/house_repo_impl.dart';
 import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
+// Meal
+import 'package:aanda/src/features/meal/data/datasources/meal_remote_datasource.dart';
+import 'package:aanda/src/features/meal/data/repo/meal_repo_impl.dart';
+import 'package:aanda/src/features/meal/domain/repo/meal_repo.dart';
+import 'package:aanda/src/features/meal/domain/usecases/meal_usecases.dart';
+// Settlement
+import 'package:aanda/src/features/settlement/data/datasources/settlement_remote_datasource.dart';
+import 'package:aanda/src/features/settlement/data/repo/settlement_repo_impl.dart';
+import 'package:aanda/src/features/settlement/domain/repo/settlement_repo.dart';
+import 'package:aanda/src/features/settlement/domain/usecases/settlement_usecases.dart';
 // Dashboard
 import 'package:aanda/src/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 import 'package:aanda/src/features/dashboard/data/repo/dashboard_repo_impl.dart';
@@ -76,11 +86,29 @@ class AandaApp extends StatelessWidget {
     final createHouse = CreateHouse(houseRepo);
     final getMyHouses = GetMyHouses(houseRepo);
     final getHouseDetail = GetHouseDetail(houseRepo);
+    final getHouseMembers = GetHouseMembers(houseRepo);
     final getHouseInvite = GetHouseInvite(houseRepo);
     final regenerateInviteCode = RegenerateInviteCode(houseRepo);
     final joinHouse = JoinHouse(houseRepo);
     final leaveHouse = LeaveHouse(houseRepo);
     final removeMember = RemoveMember(houseRepo);
+    final getSprints = GetSprints(houseRepo);
+    final createSprint = CreateSprint(houseRepo);
+    final closeSprint = CloseSprint(houseRepo);
+    final getSprintStats = GetSprintStats(houseRepo);
+
+    // ── Meal layer ────────────────────────────────────────────────────────
+    final mealDatasource = MealRemoteDatasource(supabase: supabase);
+    final mealRepo = MealRepoImpl(datasource: mealDatasource);
+
+    final getMealLogs = GetMealLogs(mealRepo);
+    final upsertMealLog = UpsertMealLog(mealRepo);
+
+    // ── Settlement layer ──────────────────────────────────────────────────
+    final settlementDatasource = SettlementRemoteDatasource(supabase: supabase);
+    final settlementRepo = SettlementRepoImpl(datasource: settlementDatasource);
+
+    final computeSettlement = ComputeSettlement(settlementRepo);
 
     // ── Dashboard layer ───────────────────────────────────────────────────
     final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
@@ -98,6 +126,8 @@ class AandaApp extends StatelessWidget {
         RepositoryProvider<AuthRepo>.value(value: authRepo),
         RepositoryProvider<CostRepo>.value(value: costRepo),
         RepositoryProvider<HouseRepo>.value(value: houseRepo),
+        RepositoryProvider<MealRepo>.value(value: mealRepo),
+        RepositoryProvider<SettlementRepo>.value(value: settlementRepo),
         RepositoryProvider<SupabaseClient>.value(value: supabase),
 
         // Auth Use cases
@@ -117,11 +147,23 @@ class AandaApp extends StatelessWidget {
         RepositoryProvider<CreateHouse>.value(value: createHouse),
         RepositoryProvider<GetMyHouses>.value(value: getMyHouses),
         RepositoryProvider<GetHouseDetail>.value(value: getHouseDetail),
+        RepositoryProvider<GetHouseMembers>.value(value: getHouseMembers),
         RepositoryProvider<GetHouseInvite>.value(value: getHouseInvite),
         RepositoryProvider<RegenerateInviteCode>.value(value: regenerateInviteCode),
         RepositoryProvider<JoinHouse>.value(value: joinHouse),
         RepositoryProvider<LeaveHouse>.value(value: leaveHouse),
         RepositoryProvider<RemoveMember>.value(value: removeMember),
+        RepositoryProvider<GetSprints>.value(value: getSprints),
+        RepositoryProvider<CreateSprint>.value(value: createSprint),
+        RepositoryProvider<CloseSprint>.value(value: closeSprint),
+        RepositoryProvider<GetSprintStats>.value(value: getSprintStats),
+
+        // Meal Use cases
+        RepositoryProvider<GetMealLogs>.value(value: getMealLogs),
+        RepositoryProvider<UpsertMealLog>.value(value: upsertMealLog),
+
+        // Settlement Use cases
+        RepositoryProvider<ComputeSettlement>.value(value: computeSettlement),
 
         // Dashboard
         RepositoryProvider<DashboardRepo>.value(value: dashboardRepo),
@@ -145,18 +187,16 @@ class _AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final router = createAppRouter(authGuardBloc: authGuardBloc);
-    final appTheme = AppTheme();
-
     return BlocBuilder<AppThemeCubit, ThemeMode>(
       builder: (context, themeMode) {
+        final theme = AppTheme();
         return MaterialApp.router(
           title: 'Aanda',
-          debugShowCheckedModeBanner: false,
+          theme: theme.lightTheme,
+          darkTheme: theme.darkTheme,
           themeMode: themeMode,
-          theme: appTheme.lightTheme,
-          darkTheme: appTheme.darkTheme,
-          routerConfig: router,
+          routerConfig: createAppRouter(authGuardBloc: authGuardBloc),
+          debugShowCheckedModeBanner: false,
         );
       },
     );

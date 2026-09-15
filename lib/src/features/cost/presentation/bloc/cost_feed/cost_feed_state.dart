@@ -6,6 +6,10 @@ final class CostFeedState {
   CostFeedState({
     this.status = CostFeedStatus.initial,
     this.costs = const [],
+    this.sprints = const [],
+    this.selectedSprint,
+    this.categories = const [],
+    this.selectedCategoryId,
     this.selectedScope,
     DateTime? selectedMonth,
     this.selectedHouseId,
@@ -15,6 +19,10 @@ final class CostFeedState {
 
   final CostFeedStatus status;
   final List<Cost> costs;
+  final List<Sprint> sprints;
+  final Sprint? selectedSprint;
+  final List<CostCategory> categories;
+  final String? selectedCategoryId;
   final CostScope? selectedScope;
   final DateTime selectedMonth;
   final String? selectedHouseId;
@@ -23,10 +31,26 @@ final class CostFeedState {
 
   bool get isLoading => status == CostFeedStatus.loading;
 
-  /// Costs filtered by payer if selectedPayerId is set.
+  /// Costs filtered by payer and category if set.
   List<Cost> get displayCosts {
-    if (selectedPayerId == null) return costs;
-    return costs.where((c) => c.paidBy == selectedPayerId).toList();
+    var list = costs;
+    if (selectedPayerId != null) {
+      list = list.where((c) => c.paidBy == selectedPayerId).toList();
+    }
+    if (selectedCategoryId != null) {
+      list = list.where((c) => c.categoryId == selectedCategoryId).toList();
+    }
+    return list;
+  }
+
+  /// Number of active filters applied
+  int get activeFiltersCount {
+    int count = 0;
+    if (selectedPayerId != null) count++;
+    if (selectedCategoryId != null) count++;
+    if (selectedScope != null) count++;
+    if (selectedSprint != null) count++;
+    return count;
   }
 
   /// Total sum across all currently loaded costs.
@@ -75,14 +99,6 @@ final class CostFeedState {
         .toList();
   }
 
-  /// Last activity in Personal costs.
-  Cost? get lastPersonalActivity =>
-      costs.where((c) => c.costScope == CostScope.personal).firstOrNull;
-
-  /// Last activity in House (Shared) costs.
-  Cost? get lastHouseActivity =>
-      costs.where((c) => c.costScope == CostScope.shared).firstOrNull;
-
   /// Distinct list of payers in loaded costs (id and display name).
   List<({String id, String name})> get uniquePayers {
     final seen = <String>{};
@@ -101,6 +117,12 @@ final class CostFeedState {
   CostFeedState copyWith({
     CostFeedStatus? status,
     List<Cost>? costs,
+    List<Sprint>? sprints,
+    Sprint? selectedSprint,
+    bool clearSprint = false,
+    List<CostCategory>? categories,
+    String? selectedCategoryId,
+    bool clearCategory = false,
     CostScope? selectedScope,
     bool clearScope = false,
     DateTime? selectedMonth,
@@ -114,7 +136,13 @@ final class CostFeedState {
     return CostFeedState(
       status: status ?? this.status,
       costs: costs ?? this.costs,
-      selectedScope: clearScope ? null : (selectedScope ?? this.selectedScope),
+      sprints: sprints ?? this.sprints,
+      selectedSprint: clearSprint ? null : (selectedSprint ?? this.selectedSprint),
+      categories: categories ?? this.categories,
+      selectedCategoryId:
+          clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
+      selectedScope:
+          clearScope ? null : (selectedScope ?? this.selectedScope),
       selectedMonth: selectedMonth ?? this.selectedMonth,
       selectedHouseId:
           clearHouse ? null : (selectedHouseId ?? this.selectedHouseId),

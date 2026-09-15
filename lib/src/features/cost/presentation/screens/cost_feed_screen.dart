@@ -8,8 +8,10 @@ import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
 class CostFeedScreen extends StatelessWidget {
   const CostFeedScreen({super.key});
@@ -23,7 +25,7 @@ class CostFeedScreen extends StatelessWidget {
       backgroundColor: colors.appBackgroundColor,
       appBar: AppBar(
         title: Text(
-          'Dashboard',
+          'Expenses',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 22,
@@ -33,6 +35,41 @@ class CostFeedScreen extends StatelessWidget {
         backgroundColor: colors.surfaceColor,
         elevation: 0,
         actions: [
+          BlocBuilder<CostFeedBloc, CostFeedState>(
+            builder: (context, state) {
+              final activeCount = state.activeFiltersCount;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.tune_rounded, color: colors.iconColor),
+                    tooltip: 'Filter Expenses',
+                    onPressed: () => _showFilterSheet(context, state),
+                  ),
+                  if (activeCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: colors.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$activeCount',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: Icon(Icons.refresh_rounded, color: colors.iconColor),
             tooltip: 'Refresh',
@@ -65,7 +102,6 @@ class CostFeedScreen extends StatelessWidget {
         },
         builder: (context, state) {
           final displayCosts = state.displayCosts;
-          final myRecent = state.myRecentCosts(currentUserId, 3);
           final uniquePayers = state.uniquePayers;
 
           return RefreshIndicator(
@@ -75,17 +111,55 @@ class CostFeedScreen extends StatelessWidget {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // ── Month selector bar ──────────────────────────────────────
+                // ── Sprint Header or Month Navigator ─────────────────────────
                 SliverToBoxAdapter(
-                  child: _MonthNavigator(
-                    selectedMonth: state.selectedMonth,
-                    onMonthChanged: (month) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(CostFeedMonthChanged(month));
-                    },
-                  ),
+                  child: state.selectedSprint != null
+                      ? _SprintFeedHeader(
+                          selectedSprint: state.selectedSprint!,
+                          sprints: state.sprints,
+                          onSprintSelected: (s) {
+                            context
+                                .read<CostFeedBloc>()
+                                .add(CostFeedSprintSelected(s));
+                          },
+                          onSwitchToMonthly: () {
+                            context
+                                .read<CostFeedBloc>()
+                                .add(const CostFeedSprintSelected(null));
+                          },
+                        )
+                      : _MonthNavigator(
+                          selectedMonth: state.selectedMonth,
+                          onMonthChanged: (month) {
+                            context
+                                .read<CostFeedBloc>()
+                                .add(CostFeedMonthChanged(month));
+                          },
+                        ),
                 ),
+
+                // ── Active Filters Chip Bar ─────────────────────────────────
+                if (state.activeFiltersCount > 0)
+                  SliverToBoxAdapter(
+                    child: _ActiveFiltersChipBar(
+                      state: state,
+                      onRemoveSprint: () => context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedSprintSelected(null)),
+                      onRemovePayer: () => context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedPayerFilterChanged(null)),
+                      onRemoveCategory: () => context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedCategoryFilterChanged(null)),
+                      onRemoveScope: () => context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedScopeFilterChanged(null)),
+                      onClearAll: () => context
+                          .read<CostFeedBloc>()
+                          .add(const CostFeedFiltersCleared()),
+                    ),
+                  ),
 
                 // ── 1. Owner's Personal Expenses & Overview Card ────────────
                 SliverToBoxAdapter(
@@ -445,6 +519,542 @@ class CostFeedScreen extends StatelessWidget {
         );
       }
     } catch (_) {}
+  }
+
+  void _showFilterSheet(BuildContext context, CostFeedState state) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _FilterBottomSheet(
+        state: state,
+        onApply: (sprint, payerId, categoryId, scope) {
+          context.read<CostFeedBloc>().add(
+                CostFeedFiltersApplied(
+                  sprint: sprint,
+                  payerId: payerId,
+                  categoryId: categoryId,
+                  scope: scope,
+                ),
+              );
+        },
+        onReset: () {
+          context.read<CostFeedBloc>().add(const CostFeedFiltersCleared());
+        },
+      ),
+    );
+  }
+}
+
+// ── Sprint Feed Header ───────────────────────────────────────────────────────
+
+class _SprintFeedHeader extends StatelessWidget {
+  const _SprintFeedHeader({
+    required this.selectedSprint,
+    required this.sprints,
+    required this.onSprintSelected,
+    required this.onSwitchToMonthly,
+  });
+
+  final Sprint selectedSprint;
+  final List<Sprint> sprints;
+  final ValueChanged<Sprint> onSprintSelected;
+  final VoidCallback onSwitchToMonthly;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceColor,
+        border: Border(
+          bottom: BorderSide(color: colors.borderColor.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selectedSprint.isOpen) ...[
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Colors.greenAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  selectedSprint.isOpen ? 'RUNNING SPRINT' : 'SPRINT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: colors.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${selectedSprint.label} (${selectedSprint.dateRangeFormatted})',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: colors.textColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          PopupMenuButton<dynamic>(
+            icon: Icon(Icons.arrow_drop_down_rounded, color: colors.iconColor),
+            tooltip: 'Change Sprint',
+            onSelected: (val) {
+              if (val is Sprint) {
+                onSprintSelected(val);
+              } else if (val == 'monthly') {
+                onSwitchToMonthly();
+              }
+            },
+            itemBuilder: (ctx) => [
+              ...sprints.map((s) => PopupMenuItem(
+                    value: s,
+                    child: Row(
+                      children: [
+                        if (s.id == selectedSprint.id)
+                          Icon(Icons.check_rounded,
+                              size: 16, color: colors.primaryColor)
+                        else
+                          const SizedBox(width: 16),
+                        const SizedBox(width: 6),
+                        Text('${s.label} (${s.dateRangeFormatted})'),
+                      ],
+                    ),
+                  )),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'monthly',
+                child: Row(
+                  children: [
+                    SizedBox(width: 22),
+                    Text('Switch to Calendar Month'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Active Filters Chip Bar ──────────────────────────────────────────────────
+
+class _ActiveFiltersChipBar extends StatelessWidget {
+  const _ActiveFiltersChipBar({
+    required this.state,
+    required this.onRemoveSprint,
+    required this.onRemovePayer,
+    required this.onRemoveCategory,
+    required this.onRemoveScope,
+    required this.onClearAll,
+  });
+
+  final CostFeedState state;
+  final VoidCallback onRemoveSprint;
+  final VoidCallback onRemovePayer;
+  final VoidCallback onRemoveCategory;
+  final VoidCallback onRemoveScope;
+  final VoidCallback onClearAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      color: colors.surfaceColor.withValues(alpha: 0.6),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          if (state.selectedSprint != null)
+            _FilterTagChip(
+              label: 'Sprint: ${state.selectedSprint!.label}',
+              onDeleted: onRemoveSprint,
+            ),
+          if (state.selectedPayerId != null) ...[
+            const SizedBox(width: 6),
+            _FilterTagChip(
+              label: 'Payer: ${_payerName(state.selectedPayerId!, state.uniquePayers)}',
+              onDeleted: onRemovePayer,
+            ),
+          ],
+          if (state.selectedCategoryId != null) ...[
+            const SizedBox(width: 6),
+            _FilterTagChip(
+              label: 'Category: ${_catName(state.selectedCategoryId!, state.categories)}',
+              onDeleted: onRemoveCategory,
+            ),
+          ],
+          if (state.selectedScope != null) ...[
+            const SizedBox(width: 6),
+            _FilterTagChip(
+              label: state.selectedScope == CostScope.personal
+                  ? 'Personal Only'
+                  : 'Shared House Only',
+              onDeleted: onRemoveScope,
+            ),
+          ],
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onClearAll,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(40, 28),
+            ),
+            child: Text(
+              'Clear All',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colors.errorColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _payerName(String id, List<({String id, String name})> payers) {
+    return payers.where((p) => p.id == id).firstOrNull?.name ?? 'Member';
+  }
+
+  String _catName(String id, List<CostCategory> categories) {
+    return categories.where((c) => c.id == id).firstOrNull?.name ?? 'Category';
+  }
+}
+
+class _FilterTagChip extends StatelessWidget {
+  const _FilterTagChip({required this.label, required this.onDeleted});
+
+  final String label;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.primaryColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colors.primaryColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onDeleted,
+            child: Icon(Icons.close_rounded,
+                size: 14, color: colors.primaryColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Filter Bottom Sheet ──────────────────────────────────────────────────────
+
+class _FilterBottomSheet extends StatefulWidget {
+  const _FilterBottomSheet({
+    required this.state,
+    required this.onApply,
+    required this.onReset,
+  });
+
+  final CostFeedState state;
+  final void Function(
+    Sprint? sprint,
+    String? payerId,
+    String? categoryId,
+    CostScope? scope,
+  ) onApply;
+  final VoidCallback onReset;
+
+  @override
+  State<_FilterBottomSheet> createState() => _FilterBottomSheetState();
+}
+
+class _FilterBottomSheetState extends State<_FilterBottomSheet> {
+  Sprint? _selectedSprint;
+  String? _selectedPayerId;
+  String? _selectedCategoryId;
+  CostScope? _selectedScope;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSprint = widget.state.selectedSprint;
+    _selectedPayerId = widget.state.selectedPayerId;
+    _selectedCategoryId = widget.state.selectedCategoryId;
+    _selectedScope = widget.state.selectedScope;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      builder: (_, controller) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.surfaceColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: ListView(
+            controller: controller,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Filter Expenses',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: colors.textColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedSprint = null;
+                        _selectedPayerId = null;
+                        _selectedCategoryId = null;
+                        _selectedScope = null;
+                      });
+                      widget.onReset();
+                      Navigator.of(context).pop();
+                    },
+                    child: Text('Reset', style: TextStyle(color: colors.grey)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── 1. Sprints Section ────────────────────────────────────────
+              if (widget.state.sprints.isNotEmpty) ...[
+                _FilterSectionTitle(
+                  title: 'Sprint (Date-to-Date)',
+                  icon: Icons.timeline_rounded,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Calendar Month'),
+                      selected: _selectedSprint == null,
+                      onSelected: (_) => setState(() => _selectedSprint = null),
+                    ),
+                    ...widget.state.sprints.map((s) => ChoiceChip(
+                          label: Text('${s.label} (${s.dateRangeFormatted})'),
+                          selected: _selectedSprint?.id == s.id,
+                          onSelected: (sel) => setState(() {
+                            _selectedSprint = sel ? s : null;
+                          }),
+                        )),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── 2. Scope Section ──────────────────────────────────────────
+              const _FilterSectionTitle(
+                title: 'Expense Scope',
+                icon: Icons.pie_chart_outline_rounded,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('All'),
+                    selected: _selectedScope == null,
+                    onSelected: (_) => setState(() => _selectedScope = null),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Personal Only'),
+                    selected: _selectedScope == CostScope.personal,
+                    onSelected: (sel) => setState(() {
+                      _selectedScope = sel ? CostScope.personal : null;
+                    }),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Shared House Only'),
+                    selected: _selectedScope == CostScope.shared,
+                    onSelected: (sel) => setState(() {
+                      _selectedScope = sel ? CostScope.shared : null;
+                    }),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // ── 3. Payers / Members Section ───────────────────────────────
+              if (widget.state.uniquePayers.isNotEmpty) ...[
+                const _FilterSectionTitle(
+                  title: 'Paid By (Member)',
+                  icon: Icons.person_rounded,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All Payers'),
+                      selected: _selectedPayerId == null,
+                      onSelected: (_) =>
+                          setState(() => _selectedPayerId = null),
+                    ),
+                    ...widget.state.uniquePayers.map((p) => ChoiceChip(
+                          label: Text(p.name),
+                          selected: _selectedPayerId == p.id,
+                          onSelected: (sel) => setState(() {
+                            _selectedPayerId = sel ? p.id : null;
+                          }),
+                        )),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── 4. Categories / Labels Section ────────────────────────────
+              if (widget.state.categories.isNotEmpty) ...[
+                const _FilterSectionTitle(
+                  title: 'Category / Label',
+                  icon: Icons.label_rounded,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All Categories'),
+                      selected: _selectedCategoryId == null,
+                      onSelected: (_) =>
+                          setState(() => _selectedCategoryId = null),
+                    ),
+                    ...widget.state.categories.map((c) => ChoiceChip(
+                          label: Text(c.name),
+                          selected: _selectedCategoryId == c.id,
+                          onSelected: (sel) => setState(() {
+                            _selectedCategoryId = sel ? c.id : null;
+                          }),
+                        )),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // ── Apply Button ──────────────────────────────────────────────
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: () {
+                  widget.onApply(
+                    _selectedSprint,
+                    _selectedPayerId,
+                    _selectedCategoryId,
+                    _selectedScope,
+                  );
+                  Navigator.of(context).pop();
+                },
+                child: const Text(
+                  'Apply Filters',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FilterSectionTitle extends StatelessWidget {
+  const _FilterSectionTitle({required this.title, required this.icon});
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: colors.primaryColor),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: colors.textColor,
+          ),
+        ),
+      ],
+    );
   }
 }
 

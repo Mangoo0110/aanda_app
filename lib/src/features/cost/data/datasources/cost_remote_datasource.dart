@@ -4,7 +4,6 @@ import 'package:aanda/src/features/cost/data/models/cost_model.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
-import 'package:aanda/src/features/cost/domain/entities/cost_type.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 
 class CostRemoteDatasource {

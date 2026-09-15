@@ -2,6 +2,7 @@ import 'package:aanda/src/core/async_handlers/async_request.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/entities/house_invite.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
 abstract interface class HouseRepo {
   /// Creates a new house; the caller becomes the admin.
@@ -33,4 +34,29 @@ abstract interface class HouseRepo {
 
   /// Returns a single house with full member list.
   AsyncRequest<House> getHouseDetail({required String houseId});
+
+  /// Returns all sprints for [houseId].
+  AsyncRequest<List<Sprint>> getSprints({required String houseId});
+
+  /// Creates a new sprint for [houseId].
+  AsyncRequest<Sprint> createSprint({
+    required String houseId,
+    required String label,
+    required DateTime startDate,
+    required DateTime endDate,
+  });
+
+  /// Closes an open sprint with effective closed/end date.
+  AsyncRequest<Sprint> closeSprint({
+    required String cycleId,
+    DateTime? closedAt,
+  });
+
+  /// Quick stats for sprint header.
+  AsyncRequest<Map<String, dynamic>> getSprintStats({
+    required String houseId,
+    required String cycleId,
+    required DateTime startDate,
+    required DateTime endDate,
+  });
 }

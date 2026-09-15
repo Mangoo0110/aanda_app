@@ -2,8 +2,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
+import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 
 part 'cost_feed_event.dart';
 part 'cost_feed_state.dart';
@@ -12,13 +15,25 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
   CostFeedBloc({
     required GetCosts getCosts,
     required DeleteCost deleteCost,
+    GetCostCategories? getCostCategories,
+    GetSprints? getSprints,
+    String? initialHouseId,
+    String? initialCycleId,
   }) : _getCosts = getCosts,
        _deleteCost = deleteCost,
-       super(CostFeedState()) {
+       _getCostCategories = getCostCategories,
+       _getSprints = getSprints,
+       super(CostFeedState(
+         selectedHouseId: initialHouseId,
+       )) {
     on<CostFeedStarted>(_onStarted);
     on<CostFeedRefreshRequested>(_onRefresh);
     on<CostFeedScopeFilterChanged>(_onScopeChanged);
     on<CostFeedPayerFilterChanged>(_onPayerChanged);
+    on<CostFeedCategoryFilterChanged>(_onCategoryChanged);
+    on<CostFeedSprintSelected>(_onSprintSelected);
+    on<CostFeedFiltersApplied>(_onFiltersApplied);
+    on<CostFeedFiltersCleared>(_onFiltersCleared);
     on<CostFeedMonthChanged>(_onMonthChanged);
     on<CostFeedHouseFilterChanged>(_onHouseChanged);
     on<CostFeedDeleted>(_onDeleted);
@@ -26,6 +41,8 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
 
   final GetCosts _getCosts;
   final DeleteCost _deleteCost;
+  final GetCostCategories? _getCostCategories;
+  final GetSprints? _getSprints;
 
   Future<void> _onStarted(
     CostFeedStarted event,
@@ -55,11 +72,62 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     ));
   }
 
+  void _onCategoryChanged(
+    CostFeedCategoryFilterChanged event,
+    Emitter<CostFeedState> emit,
+  ) {
+    emit(state.copyWith(
+      selectedCategoryId: event.categoryId,
+      clearCategory: event.categoryId == null,
+    ));
+  }
+
+  Future<void> _onSprintSelected(
+    CostFeedSprintSelected event,
+    Emitter<CostFeedState> emit,
+  ) async {
+    emit(state.copyWith(
+      selectedSprint: event.sprint,
+      clearSprint: event.sprint == null,
+    ));
+    await _load(emit);
+  }
+
+  Future<void> _onFiltersApplied(
+    CostFeedFiltersApplied event,
+    Emitter<CostFeedState> emit,
+  ) async {
+    emit(state.copyWith(
+      selectedSprint: event.sprint,
+      clearSprint: event.sprint == null,
+      selectedPayerId: event.payerId,
+      clearPayer: event.payerId == null,
+      selectedCategoryId: event.categoryId,
+      clearCategory: event.categoryId == null,
+      selectedScope: event.scope,
+      clearScope: event.scope == null,
+    ));
+    await _load(emit);
+  }
+
+  Future<void> _onFiltersCleared(
+    CostFeedFiltersCleared event,
+    Emitter<CostFeedState> emit,
+  ) async {
+    emit(state.copyWith(
+      clearSprint: true,
+      clearPayer: true,
+      clearCategory: true,
+      clearScope: true,
+    ));
+    await _load(emit);
+  }
+
   Future<void> _onMonthChanged(
     CostFeedMonthChanged event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(selectedMonth: event.month));
+    emit(state.copyWith(selectedMonth: event.month, clearSprint: true));
     await _load(emit);
   }
 
@@ -67,7 +135,11 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedHouseFilterChanged event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(selectedHouseId: event.houseId, clearHouse: event.houseId == null));
+    emit(state.copyWith(
+      selectedHouseId: event.houseId,
+      clearHouse: event.houseId == null,
+      clearSprint: true,
+    ));
     await _load(emit);
   }
 
@@ -91,17 +163,53 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
   Future<void> _load(Emitter<CostFeedState> emit) async {
     emit(state.copyWith(status: CostFeedStatus.loading, clearError: true));
 
-    final month = state.selectedMonth;
-    final startDate = DateTime(month.year, month.month, 1);
-    final endDate = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    // 1. Load categories if not loaded
+    List<CostCategory> categories = state.categories;
+    if (categories.isEmpty && _getCostCategories != null) {
+      final cats = await handleFutureRequest<List<CostCategory>>(
+        request: () => _getCostCategories(GetCostCategoriesParams(houseId: state.selectedHouseId)),
+        debugger: ControllerDebugger(),
+      );
+      if (cats != null) categories = cats;
+    }
+
+    // 2. Load sprints if house selected or user has house
+    List<Sprint> sprints = state.sprints;
+    if (_getSprints != null && state.selectedHouseId != null && sprints.isEmpty) {
+      final sp = await handleFutureRequest<List<Sprint>>(
+        request: () => _getSprints(state.selectedHouseId!),
+        debugger: ControllerDebugger(),
+      );
+      if (sp != null) sprints = sp;
+    }
+
+    // Determine date filter: Sprint dates take precedence over calendar month
+    DateTime startDate;
+    DateTime endDate;
+
+    if (state.selectedSprint != null) {
+      startDate = state.selectedSprint!.startDate;
+      endDate = DateTime(
+        state.selectedSprint!.endDate.year,
+        state.selectedSprint!.endDate.month,
+        state.selectedSprint!.endDate.day,
+        23,
+        59,
+        59,
+      );
+    } else {
+      final month = state.selectedMonth;
+      startDate = DateTime(month.year, month.month, 1);
+      endDate = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    }
 
     final result = await handleFutureRequest<List<Cost>>(
       request: () => _getCosts(
         GetCostsParams(
-          houseId: state.selectedHouseId,
-          scope: state.selectedScope,
           startDate: startDate,
           endDate: endDate,
+          scope: state.selectedScope,
+          houseId: state.selectedHouseId,
         ),
       ),
       debugger: ControllerDebugger(),
@@ -113,19 +221,22 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
           ),
         );
       },
-      onSuccess: (costs) {
-        emit(
-          state.copyWith(
-            status: CostFeedStatus.loaded,
-            costs: costs,
-            clearError: true,
-          ),
-        );
-      },
     );
 
-    if (result == null && state.status == CostFeedStatus.loading) {
-      emit(state.copyWith(status: CostFeedStatus.failure));
+    if (result != null) {
+      emit(
+        state.copyWith(
+          status: CostFeedStatus.loaded,
+          costs: result,
+          categories: categories,
+          sprints: sprints,
+          clearError: true,
+        ),
+      );
+    } else {
+      if (state.status == CostFeedStatus.loading) {
+        emit(state.copyWith(status: CostFeedStatus.failure));
+      }
     }
   }
 }

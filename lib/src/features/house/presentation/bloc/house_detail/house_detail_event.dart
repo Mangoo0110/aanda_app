@@ -14,3 +14,27 @@ final class HouseDetailMemberRemoveRequested extends HouseDetailEvent {
 }
 
 final class HouseDetailLeaveRequested extends HouseDetailEvent {}
+
+final class HouseDetailSprintSelected extends HouseDetailEvent {
+  HouseDetailSprintSelected(this.sprint);
+  final Sprint sprint;
+}
+
+final class HouseDetailEndSprintRequested extends HouseDetailEvent {}
+
+final class HouseDetailConfirmCloseSprintRequested extends HouseDetailEvent {
+  HouseDetailConfirmCloseSprintRequested(this.cycleId);
+  final String cycleId;
+}
+
+final class HouseDetailCreateSprintRequested extends HouseDetailEvent {
+  HouseDetailCreateSprintRequested({
+    required this.label,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  final String label;
+  final DateTime startDate;
+  final DateTime endDate;
+}

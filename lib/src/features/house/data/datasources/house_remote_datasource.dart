@@ -2,9 +2,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/features/house/data/models/house_invite_model.dart';
 import 'package:aanda/src/features/house/data/models/house_member_model.dart';
 import 'package:aanda/src/features/house/data/models/house_model.dart';
+import 'package:aanda/src/features/house/data/models/sprint_model.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/entities/house_invite.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
 /// Supabase-backed datasource for the `houses` and `house_members` tables.
 class HouseRemoteDatasource {
@@ -144,6 +146,166 @@ class HouseRemoteDatasource {
         .delete()
         .eq('house_id', houseId)
         .eq('user_id', userId);
+  }
+
+  // ── Sprints (Billing Cycles) ───────────────────────────────────────────────
+
+  Future<List<Sprint>> getSprints({required String houseId}) async {
+    final rows = await _supabase
+        .from('billing_cycles')
+        .select()
+        .eq('house_id', houseId)
+        .order('start_date', ascending: false);
+
+    if (rows.isEmpty) {
+      final initial = await ensureRunningSprint(houseId: houseId);
+      return [initial];
+    }
+
+    return rows.map((r) => SprintModel.fromJson(r)).toList();
+  }
+
+  Future<Sprint> ensureRunningSprint({required String houseId}) async {
+    final openRows = await _supabase
+        .from('billing_cycles')
+        .select()
+        .eq('house_id', houseId)
+        .eq('status', 'open')
+        .order('start_date', ascending: false)
+        .limit(1);
+
+    if (openRows.isNotEmpty) {
+      return SprintModel.fromJson(openRows.first);
+    }
+
+    // Count existing cycles to generate label
+    final allRows = await _supabase
+        .from('billing_cycles')
+        .select('id')
+        .eq('house_id', houseId);
+    final count = allRows.length;
+
+    final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month, 1);
+    final endDate = DateTime(now.year, now.month + 1, 0);
+
+    return createSprint(
+      houseId: houseId,
+      label: 'Sprint ${count + 1}',
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  Future<Sprint> createSprint({
+    required String houseId,
+    required String label,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final data = await _supabase
+        .from('billing_cycles')
+        .insert({
+          'house_id': houseId,
+          'label': label,
+          'start_date': startDate.toIso8601String().substring(0, 10),
+          'end_date': endDate.toIso8601String().substring(0, 10),
+          'status': 'open',
+          'cycle_type': 'dynamic',
+          'created_by': _currentUserId,
+        })
+        .select()
+        .single();
+
+    return SprintModel.fromJson(data);
+  }
+
+  Future<Sprint> closeSprint({
+    required String cycleId,
+    DateTime? closedAt,
+  }) async {
+    final effectiveClose = closedAt ?? DateTime.now();
+    final data = await _supabase
+        .from('billing_cycles')
+        .update({
+          'status': 'closed',
+          'end_date': effectiveClose.toIso8601String().substring(0, 10),
+          'closed_at': effectiveClose.toIso8601String(),
+        })
+        .eq('id', cycleId)
+        .select()
+        .single();
+
+    return SprintModel.fromJson(data);
+  }
+
+  // ── Sprint Stats (Quick Summary for House Detail) ──────────────────────────
+
+  Future<Map<String, dynamic>> getSprintStats({
+    required String houseId,
+    required String cycleId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final startStr = startDate.toIso8601String().substring(0, 10);
+    final endStr = endDate.toIso8601String().substring(0, 10);
+
+    // 1. Costs in sprint
+    final costs = await _supabase
+        .from('costs')
+        .select('amount, paid_by, cost_type, cost_categories(is_food)')
+        .eq('house_id', houseId)
+        .eq('cost_scope', 'shared')
+        .gte('purchase_date', startStr)
+        .lte('purchase_date', endStr);
+
+    double totalSpent = 0;
+    double myContribution = 0;
+    double foodSpent = 0;
+
+    for (final c in costs) {
+      final amt = (c['amount'] as num?)?.toDouble() ?? 0.0;
+      totalSpent += amt;
+      if (c['paid_by'] == _currentUserId) {
+        myContribution += amt;
+      }
+      final cat = c['cost_categories'] as Map<String, dynamic>?;
+      if (cat?['is_food'] == true) {
+        foodSpent += amt;
+      }
+    }
+
+    // 2. Meals in sprint
+    final meals = await _supabase
+        .from('meal_logs')
+        .select('user_id, breakfast, lunch, dinner')
+        .eq('house_id', houseId)
+        .eq('cycle_id', cycleId);
+
+    double totalMeals = 0;
+    double myMeals = 0;
+
+    for (final m in meals) {
+      final b = (m['breakfast'] as num?)?.toDouble() ?? 0.0;
+      final l = (m['lunch'] as num?)?.toDouble() ?? 0.0;
+      final d = (m['dinner'] as num?)?.toDouble() ?? 0.0;
+      final count = b + l + d;
+      totalMeals += count;
+      if (m['user_id'] == _currentUserId) {
+        myMeals += count;
+      }
+    }
+
+    final estimatedMealRate = totalMeals > 0 && foodSpent > 0 ? foodSpent / totalMeals : 0.0;
+
+    return {
+      'totalSpent': totalSpent,
+      'myContribution': myContribution,
+      'foodSpent': foodSpent,
+      'totalMeals': totalMeals,
+      'myMeals': myMeals,
+      'estimatedMealRate': estimatedMealRate,
+    };
   }
 
   String _generateCode() {
