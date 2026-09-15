@@ -1,5 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_credentials.dart';
+import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 
 part 'login_event.dart';
@@ -39,26 +42,34 @@ final class LoginBloc extends Bloc<LoginEvent, LoginState> {
       return;
     }
     if (password.length < 6) {
-      emit(state.copyWith(errorMessage: 'Password must be at least 6 characters.'));
-      return;
-    }
-
-    emit(state.copyWith(isSubmitting: true, clearError: true));
-    final response = await _signInWithEmail(
-      SignInParams(email: email, password: password),
-    );
-
-    if (!response.success || response.data == null) {
       emit(
-        state.copyWith(
-          isSubmitting: false,
-          errorMessage: response.message,
-        ),
+        state.copyWith(errorMessage: 'Password must be at least 6 characters.'),
       );
       return;
     }
 
-    // On success the Supabase auth stream will emit Authenticated → router redirects.
-    emit(state.copyWith(isSubmitting: false, clearError: true));
+    emit(state.copyWith(isSubmitting: true, clearError: true));
+
+    final result = await handleFutureRequest<AuthStatus>(
+      request: () => _signInWithEmail(
+        SignInParams(email: email, password: password),
+      ),
+      debugger: AuthDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            isSubmitting: false,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      onSuccess: (status) {
+        emit(state.copyWith(isSubmitting: false, clearError: true));
+      },
+    );
+
+    if (result == null && state.isSubmitting) {
+      emit(state.copyWith(isSubmitting: false));
+    }
   }
 }

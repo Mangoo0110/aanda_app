@@ -15,10 +15,13 @@ import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:aanda/src/features/cost/data/datasources/cost_remote_datasource.dart';
 import 'package:aanda/src/features/cost/data/repo/cost_repo_impl.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  DebugService.instance(allowsOnly: DebugLabel.values.toSet());
 
   await Supabase.initialize(
     url: SupabaseConfig.url,

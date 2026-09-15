@@ -1,5 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_credentials.dart';
+import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 
 part 'register_event.dart';
@@ -54,22 +57,32 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
     }
 
     emit(state.copyWith(isSubmitting: true, clearError: true));
-    final response = await _signUpWithEmail(
-      SignUpParams(
-        email: email,
-        password: password,
-        fullName: state.fullName.trim().isEmpty ? null : state.fullName.trim(),
+
+    final result = await handleFutureRequest<AuthStatus>(
+      request: () => _signUpWithEmail(
+        SignUpParams(
+          email: email,
+          password: password,
+          fullName:
+              state.fullName.trim().isEmpty ? null : state.fullName.trim(),
+        ),
       ),
+      debugger: AuthDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            isSubmitting: false,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      onSuccess: (status) {
+        emit(state.copyWith(isSubmitting: false, clearError: true));
+      },
     );
 
-    if (!response.success || response.data == null) {
-      emit(
-        state.copyWith(isSubmitting: false, errorMessage: response.message),
-      );
-      return;
+    if (result == null && state.isSubmitting) {
+      emit(state.copyWith(isSubmitting: false));
     }
-
-    // On success the Supabase auth stream will emit Authenticated → router redirects.
-    emit(state.copyWith(isSubmitting: false, clearError: true));
   }
 }
