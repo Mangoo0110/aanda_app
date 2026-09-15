@@ -70,8 +70,8 @@ class CostModel extends Cost {
     'id': id,
     'name': name,
     'amount': amount,
-    'cost_type': costType.value,
-    'cost_scope': costScope.value,
+    'cost_type': costType.name,
+    'cost_scope': costScope.name,
     'paid_by': paidBy,
     'purchase_date':
         '${purchaseDate.year.toString().padLeft(4, '0')}-'

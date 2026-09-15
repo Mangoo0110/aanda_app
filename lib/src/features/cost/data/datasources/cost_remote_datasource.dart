@@ -4,6 +4,7 @@ import 'package:aanda/src/features/cost/data/models/cost_model.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_type.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 
 class CostRemoteDatasource {
@@ -44,29 +45,59 @@ class CostRemoteDatasource {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
+    final startStr = startDate != null
+        ? '${startDate.year.toString().padLeft(4, '0')}-'
+          '${startDate.month.toString().padLeft(2, '0')}-'
+          '${startDate.day.toString().padLeft(2, '0')}'
+        : null;
+
+    final endStr = endDate != null
+        ? '${endDate.year.toString().padLeft(4, '0')}-'
+          '${endDate.month.toString().padLeft(2, '0')}-'
+          '${endDate.day.toString().padLeft(2, '0')}'
+        : null;
+
+    // 1. Try Edge Function endpoint first
+    try {
+      final res = await _supabase.functions.invoke(
+        'costs',
+        body: {
+          'action': 'list',
+          if (scope != null) 'scope': scope.name,
+          if (houseId != null) 'house_id': houseId,
+          if (startStr != null) 'start_date': startStr,
+          if (endStr != null) 'end_date': endStr,
+        },
+      );
+
+      if (res.status == 200 &&
+          res.data is Map &&
+          (res.data as Map)['success'] == true) {
+        final list = (res.data['data'] as List);
+        return list
+            .map((r) => CostModel.fromJson(r as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {
+      // Fall back to direct query if edge function is not deployed yet
+    }
+
+    // 2. Direct query fallback
     var query = _supabase.from('costs').select(_selectQuery);
 
     if (scope != null) {
-      query = query.eq('cost_scope', scope.value);
+      query = query.eq('cost_scope', scope.name);
     }
 
     if (houseId != null) {
       query = query.eq('house_id', houseId);
     }
 
-    if (startDate != null) {
-      final startStr =
-          '${startDate.year.toString().padLeft(4, '0')}-'
-          '${startDate.month.toString().padLeft(2, '0')}-'
-          '${startDate.day.toString().padLeft(2, '0')}';
+    if (startStr != null) {
       query = query.gte('purchase_date', startStr);
     }
 
-    if (endDate != null) {
-      final endStr =
-          '${endDate.year.toString().padLeft(4, '0')}-'
-          '${endDate.month.toString().padLeft(2, '0')}-'
-          '${endDate.day.toString().padLeft(2, '0')}';
+    if (endStr != null) {
       query = query.lte('purchase_date', endStr);
     }
 
@@ -84,16 +115,47 @@ class CostRemoteDatasource {
         data.categoryId != null &&
         !data.categoryId!.startsWith('predefined_');
 
+    final dateStr =
+        '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
+        '${data.purchaseDate.month.toString().padLeft(2, '0')}-'
+        '${data.purchaseDate.day.toString().padLeft(2, '0')}';
+
+    // 1. Try Edge Function endpoint
+    try {
+      final res = await _supabase.functions.invoke(
+        'costs',
+        body: {
+          'action': 'create',
+          'name': data.name,
+          'amount': data.amount,
+          'cost_type': data.costType.name,
+          'cost_scope': data.costScope.name,
+          'purchase_date': dateStr,
+          if (data.costScope == CostScope.shared && data.houseId != null)
+            'house_id': data.houseId,
+          if (data.cycleId != null) 'cycle_id': data.cycleId,
+          if (isCustomCategory) 'category_id': data.categoryId,
+          if (data.note != null && data.note!.isNotEmpty) 'note': data.note,
+        },
+      );
+
+      if (res.status == 200 &&
+          res.data is Map &&
+          (res.data as Map)['success'] == true) {
+        return CostModel.fromJson(res.data['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    // 2. Direct insert fallback
     final payload = {
       'name': data.name,
       'amount': data.amount,
-      'cost_type': data.costType.value,
-      'cost_scope': data.costScope.value,
+      'cost_type': data.costType.name,
+      'cost_scope': data.costScope.name,
       'paid_by': _currentUserId,
-      'purchase_date':
-          '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
-          '${data.purchaseDate.month.toString().padLeft(2, '0')}-'
-          '${data.purchaseDate.day.toString().padLeft(2, '0')}',
+      'purchase_date': dateStr,
       if (data.costScope == CostScope.shared && data.houseId != null)
         'house_id': data.houseId,
       if (data.cycleId != null) 'cycle_id': data.cycleId,
@@ -115,15 +177,46 @@ class CostRemoteDatasource {
         data.categoryId != null &&
         !data.categoryId!.startsWith('predefined_');
 
+    final dateStr =
+        '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
+        '${data.purchaseDate.month.toString().padLeft(2, '0')}-'
+        '${data.purchaseDate.day.toString().padLeft(2, '0')}';
+
+    // 1. Try Edge Function endpoint
+    try {
+      final res = await _supabase.functions.invoke(
+        'costs',
+        body: {
+          'action': 'update',
+          'id': data.id,
+          'name': data.name,
+          'amount': data.amount,
+          'cost_type': data.costType.name,
+          'cost_scope': data.costScope.name,
+          'purchase_date': dateStr,
+          'house_id': data.costScope == CostScope.shared ? data.houseId : null,
+          'cycle_id': data.cycleId,
+          'category_id': isCustomCategory ? data.categoryId : null,
+          'note': data.note,
+        },
+      );
+
+      if (res.status == 200 &&
+          res.data is Map &&
+          (res.data as Map)['success'] == true) {
+        return CostModel.fromJson(res.data['data'] as Map<String, dynamic>);
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    // 2. Direct update fallback
     final payload = {
       'name': data.name,
       'amount': data.amount,
-      'cost_type': data.costType.value,
-      'cost_scope': data.costScope.value,
-      'purchase_date':
-          '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
-          '${data.purchaseDate.month.toString().padLeft(2, '0')}-'
-          '${data.purchaseDate.day.toString().padLeft(2, '0')}',
+      'cost_type': data.costType.name,
+      'cost_scope': data.costScope.name,
+      'purchase_date': dateStr,
       'house_id': data.costScope == CostScope.shared ? data.houseId : null,
       'cycle_id': data.cycleId,
       'category_id': isCustomCategory ? data.categoryId : null,
@@ -141,6 +234,22 @@ class CostRemoteDatasource {
   }
 
   Future<void> deleteCost({required String costId}) async {
+    // 1. Try Edge Function endpoint
+    try {
+      final res = await _supabase.functions.invoke(
+        'costs',
+        body: {'action': 'delete', 'cost_id': costId},
+      );
+      if (res.status == 200 &&
+          res.data is Map &&
+          (res.data as Map)['success'] == true) {
+        return;
+      }
+    } catch (_) {
+      // Fallback
+    }
+
+    // 2. Direct delete fallback
     await _supabase.from('costs').delete().eq('id', costId);
   }
 
@@ -148,6 +257,27 @@ class CostRemoteDatasource {
     final list = <CostCategory>[...CostCategory.predefinedCategories];
 
     if (houseId != null) {
+      // 1. Try Edge Function endpoint
+      try {
+        final res = await _supabase.functions.invoke(
+          'costs',
+          body: {'action': 'categories', 'house_id': houseId},
+        );
+        if (res.status == 200 &&
+            res.data is Map &&
+            (res.data as Map)['success'] == true) {
+          final rows = res.data['data'] as List;
+          final custom = rows
+              .map((r) => CostCategoryModel.fromJson(r as Map<String, dynamic>))
+              .toList();
+          list.addAll(custom);
+          return list;
+        }
+      } catch (_) {
+        // Fallback
+      }
+
+      // 2. Direct query fallback
       final rows = await _supabase
           .from('cost_categories')
           .select()
