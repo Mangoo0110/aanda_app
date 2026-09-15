@@ -27,6 +27,10 @@ Future<T?> handleFutureRequest<T>({
 
     if (data != null) {
       onSuccess?.call(data);
+    } else {
+      try {
+        onSuccess?.call(null as T);
+      } catch (_) {}
     }
 
     debugger?.log('Success:: ${response.message}');

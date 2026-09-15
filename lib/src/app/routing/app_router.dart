@@ -18,6 +18,9 @@ import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bl
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_feed_screen.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_form_screen.dart';
+import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
+import 'package:aanda/src/features/dashboard/presentation/bloc/dashboard_bloc.dart';
+import 'package:aanda/src/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 import 'package:aanda/src/features/house/presentation/bloc/house_detail/house_detail_bloc.dart';
 import 'package:aanda/src/features/house/presentation/bloc/house_join/house_join_bloc.dart';
@@ -91,11 +94,29 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
         ],
       ),
 
-      // ── Home / Expenses (authenticated) ───────────────────────────────────
+      // ── Dashboard (authenticated) ──────────────────────────────────────────
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
         pageBuilder: (context, state) => NoTransitionPage(
+          key: state.pageKey,
+          child: AuthRouteGate(
+            policy: AuthRoutePolicy.signedInOnly,
+            child: BlocProvider(
+              create: (_) => DashboardBloc(
+                getDashboardSummary: context.read<GetDashboardSummary>(),
+              )..add(const DashboardStarted()),
+              child: const DashboardScreen(),
+            ),
+          ),
+        ),
+      ),
+
+      // ── Expenses Feed (authenticated) ───────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.costs,
+        name: 'costs',
+        pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: AuthRouteGate(
             policy: AuthRoutePolicy.signedInOnly,

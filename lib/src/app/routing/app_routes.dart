@@ -8,6 +8,7 @@ class AppRoutes {
 
   // ── Home / Expenses & Houses ──────────────────────────────────────────────
   static const home = '/home';
+  static const costs = '/costs';
   static const costAdd = '/costs/add';
   static const houseCreate = '/houses/create';
   static const houseJoin = '/houses/join';

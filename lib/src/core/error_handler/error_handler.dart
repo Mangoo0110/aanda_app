@@ -25,8 +25,9 @@ mixin class ErrorHandler {
         stackTrace: s,
       );
     } catch (e, s) {
+      final msg = e.toString().replaceFirst(RegExp(r'^(Exception:\s*)+'), '').trim();
       error = FailedRepoCall<T>(
-        message: 'Something went wrong.',
+        message: msg.isNotEmpty ? msg : 'Something went wrong.',
         exception: Exception(e.toString()),
         stackTrace: s,
       );

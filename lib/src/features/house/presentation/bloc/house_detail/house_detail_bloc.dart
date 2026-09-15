@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/entities/house_invite.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
@@ -46,28 +48,41 @@ final class HouseDetailBloc
 
   Future<void> _load(Emitter<HouseDetailState> emit) async {
     emit(state.copyWith(status: HouseDetailStatus.loading, clearError: true));
-    final response = await _getHouseDetail(
-      GetHouseDetailParams(houseId: state.houseId),
+
+    final house = await handleFutureRequest<House>(
+      request: () => _getHouseDetail(
+        GetHouseDetailParams(houseId: state.houseId),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            status: HouseDetailStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+      },
     );
-    if (!response.success || response.data == null) {
-      emit(
-        state.copyWith(
-          status: HouseDetailStatus.failure,
-          errorMessage: response.message,
-        ),
-      );
+
+    if (house == null) {
+      if (state.status == HouseDetailStatus.loading) {
+        emit(state.copyWith(status: HouseDetailStatus.failure));
+      }
       return;
     }
 
-    final inviteResponse = await _getHouseInvite(
-      GetHouseInviteParams(houseId: state.houseId),
+    final invite = await handleFutureRequest<HouseInvite>(
+      request: () => _getHouseInvite(
+        GetHouseInviteParams(houseId: state.houseId),
+      ),
+      debugger: ControllerDebugger(),
     );
 
     emit(
       state.copyWith(
         status: HouseDetailStatus.loaded,
-        house: response.data,
-        invite: inviteResponse.data,
+        house: house,
+        invite: invite,
         clearError: true,
       ),
     );
@@ -78,16 +93,25 @@ final class HouseDetailBloc
     Emitter<HouseDetailState> emit,
   ) async {
     emit(state.copyWith(isActioning: true, clearError: true));
-    final response = await _regenerateInviteCode(
-      RegenerateInviteCodeParams(houseId: state.houseId),
+
+    final newInvite = await handleFutureRequest<HouseInvite>(
+      request: () => _regenerateInviteCode(
+        RegenerateInviteCodeParams(houseId: state.houseId),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(isActioning: false, errorMessage: failure.message),
+        );
+      },
+      onSuccess: (invite) {
+        emit(state.copyWith(isActioning: false, invite: invite));
+      },
     );
-    if (!response.success) {
-      emit(
-        state.copyWith(isActioning: false, errorMessage: response.message),
-      );
-      return;
+
+    if (newInvite == null && state.isActioning) {
+      emit(state.copyWith(isActioning: false));
     }
-    emit(state.copyWith(isActioning: false, invite: response.data));
   }
 
   Future<void> _onRemoveMember(
@@ -95,17 +119,29 @@ final class HouseDetailBloc
     Emitter<HouseDetailState> emit,
   ) async {
     emit(state.copyWith(isActioning: true, clearError: true));
-    final response = await _removeMember(
-      RemoveMemberParams(houseId: state.houseId, userId: event.userId),
+
+    bool isSuccess = false;
+    await handleFutureRequest<void>(
+      request: () => _removeMember(
+        RemoveMemberParams(houseId: state.houseId, userId: event.userId),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(isActioning: false, errorMessage: failure.message),
+        );
+      },
+      onSuccess: (_) {
+        isSuccess = true;
+        emit(state.copyWith(isActioning: false));
+      },
     );
-    if (!response.success) {
-      emit(
-        state.copyWith(isActioning: false, errorMessage: response.message),
-      );
-      return;
+
+    if (isSuccess) {
+      await _load(emit);
+    } else if (state.isActioning) {
+      emit(state.copyWith(isActioning: false));
     }
-    emit(state.copyWith(isActioning: false));
-    await _load(emit);
   }
 
   Future<void> _onLeave(
@@ -113,16 +149,24 @@ final class HouseDetailBloc
     Emitter<HouseDetailState> emit,
   ) async {
     emit(state.copyWith(isActioning: true, clearError: true));
-    final response = await _leaveHouse(
-      LeaveHouseParams(houseId: state.houseId),
+
+    await handleFutureRequest<void>(
+      request: () => _leaveHouse(
+        LeaveHouseParams(houseId: state.houseId),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(isActioning: false, errorMessage: failure.message),
+        );
+      },
+      onSuccess: (_) {
+        emit(state.copyWith(isActioning: false));
+      },
     );
-    if (!response.success) {
-      emit(
-        state.copyWith(isActioning: false, errorMessage: response.message),
-      );
-      return;
+
+    if (state.isActioning) {
+      emit(state.copyWith(isActioning: false));
     }
-    // Leaving is terminal — parent will pop this route.
-    emit(state.copyWith(isActioning: false));
   }
 }

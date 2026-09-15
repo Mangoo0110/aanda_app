@@ -66,11 +66,11 @@ final class CostFeedState {
         .fold(0.0, (sum, c) => sum + c.amount);
   }
 
-  /// The latest costs entered by the specified user.
+  /// The latest personal costs entered by the specified user for themselves.
   List<Cost> myRecentCosts(String? userId, [int count = 3]) {
     if (userId == null) return const [];
     return costs
-        .where((c) => c.paidBy == userId)
+        .where((c) => c.paidBy == userId && c.costScope == CostScope.personal)
         .take(count)
         .toList();
   }

@@ -22,6 +22,11 @@ import 'package:aanda/src/features/house/data/datasources/house_remote_datasourc
 import 'package:aanda/src/features/house/data/repo/house_repo_impl.dart';
 import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
+// Dashboard
+import 'package:aanda/src/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
+import 'package:aanda/src/features/dashboard/data/repo/dashboard_repo_impl.dart';
+import 'package:aanda/src/features/dashboard/domain/repo/dashboard_repo.dart';
+import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,6 +82,12 @@ class AandaApp extends StatelessWidget {
     final leaveHouse = LeaveHouse(houseRepo);
     final removeMember = RemoveMember(houseRepo);
 
+    // ── Dashboard layer ───────────────────────────────────────────────────
+    final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
+    final dashboardRepo = DashboardRepoImpl(datasource: dashboardDatasource);
+
+    final getDashboardSummary = GetDashboardSummary(dashboardRepo);
+
     // ── Auth guard bloc ───────────────────────────────────────────────────
     final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
       ..add(const AppAuthGuardStarted());
@@ -111,6 +122,10 @@ class AandaApp extends StatelessWidget {
         RepositoryProvider<JoinHouse>.value(value: joinHouse),
         RepositoryProvider<LeaveHouse>.value(value: leaveHouse),
         RepositoryProvider<RemoveMember>.value(value: removeMember),
+
+        // Dashboard
+        RepositoryProvider<DashboardRepo>.value(value: dashboardRepo),
+        RepositoryProvider<GetDashboardSummary>.value(value: getDashboardSummary),
       ],
       child: MultiBlocProvider(
         providers: [

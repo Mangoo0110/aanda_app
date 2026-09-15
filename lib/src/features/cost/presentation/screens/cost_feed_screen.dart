@@ -87,41 +87,43 @@ class CostFeedScreen extends StatelessWidget {
                   ),
                 ),
 
-                // ── 1. Owner's Life Impact & Overview Card ──────────────────
+                // ── 1. Owner's Personal Expenses & Overview Card ────────────
                 SliverToBoxAdapter(
                   child: _OwnerImpactCard(
-                    myTotalSpent: state.myTotalSpent(currentUserId),
                     myPersonalSpent: state.myPersonalSpent(currentUserId),
-                    mySharedSpent: state.mySharedSpent(currentUserId),
+                    myHouseContribution: state.mySharedSpent(currentUserId),
                     cycleMonth: state.selectedMonth,
                   ),
                 ),
 
-                // ── 2. Dual Cards (Personal vs House Pool) ──────────────────
+                // ── 2. Quick Access Stat Tiles (Your Expenses & Shared House) ──
                 SliverToBoxAdapter(
-                  child: _ScopeDualCards(
+                  child: _QuickAccessStatTiles(
                     personalSpent: state.personalSpent,
                     sharedSpent: state.sharedSpent,
+                    myHouseContribution: state.mySharedSpent(currentUserId),
                     selectedScope: state.selectedScope,
-                    lastPersonal: state.lastPersonalActivity,
-                    lastHouse: state.lastHouseActivity,
-                    onSelectScope: (scope) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(CostFeedScopeFilterChanged(scope));
+                    onOpenExpenses: () {
+                      context.read<CostFeedBloc>().add(
+                        CostFeedScopeFilterChanged(
+                          state.selectedScope == CostScope.personal
+                              ? null
+                              : CostScope.personal,
+                        ),
+                      );
                     },
                     onManageHouse: () => _openHouseDetails(context),
                   ),
                 ),
 
-                // ── 3. My Recent Expenses (Last 2-3 of oneself) ─────────────
-                if (myRecent.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: _MyRecentExpensesSection(
-                      recentCosts: myRecent,
-                      onCostTap: (cost) {},
-                    ),
+                // ── 3. Recent Activity Stream (Expenses & Meals) ────────────
+                SliverToBoxAdapter(
+                  child: _RecentActivitySection(
+                    recentCosts: state.costs.take(5).toList(),
+                    currentUserId: currentUserId,
+                    onCostTap: (cost) {},
                   ),
+                ),
 
                 // ── 4. Member / Owner Filter Bar (if multiple payers) ───────
                 if (uniquePayers.length > 1)
@@ -510,15 +512,13 @@ class _MonthNavigator extends StatelessWidget {
 
 class _OwnerImpactCard extends StatelessWidget {
   const _OwnerImpactCard({
-    required this.myTotalSpent,
     required this.myPersonalSpent,
-    required this.mySharedSpent,
+    required this.myHouseContribution,
     required this.cycleMonth,
   });
 
-  final double myTotalSpent;
   final double myPersonalSpent;
-  final double mySharedSpent;
+  final double myHouseContribution;
   final DateTime cycleMonth;
 
   @override
@@ -557,13 +557,13 @@ class _OwnerImpactCard extends StatelessWidget {
                 const Row(
                   children: [
                     Icon(
-                      Icons.account_circle_outlined,
+                      Icons.person_rounded,
                       color: Colors.white70,
                       size: 16,
                     ),
                     SizedBox(width: 6),
                     Text(
-                      'My Out-of-Pocket Spend',
+                      'Personal Expenses',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -578,9 +578,9 @@ class _OwnerImpactCard extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Active Cycle',
-                    style: TextStyle(
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(cycleMonth),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -591,7 +591,7 @@ class _OwnerImpactCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              '৳ ${currencyFormat.format(myTotalSpent)}',
+              '৳ ${currencyFormat.format(myPersonalSpent)}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 32,
@@ -609,7 +609,7 @@ class _OwnerImpactCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Personal Life',
+                        'Direct Personal',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
@@ -635,7 +635,7 @@ class _OwnerImpactCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'House Contribution',
+                        'Contribution to House',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 11,
@@ -644,7 +644,7 @@ class _OwnerImpactCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '৳ ${currencyFormat.format(mySharedSpent)}',
+                        '৳ ${currencyFormat.format(myHouseContribution)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
@@ -663,71 +663,62 @@ class _OwnerImpactCard extends StatelessWidget {
   }
 }
 
-// ── 2. Scope Dual Cards (Personal vs House) ─────────────────────────────────
+// ── 2. Quick Access Stat Tiles (Personal vs Shared House) ───────────────────
 
-class _ScopeDualCards extends StatelessWidget {
-  const _ScopeDualCards({
+class _QuickAccessStatTiles extends StatelessWidget {
+  const _QuickAccessStatTiles({
     required this.personalSpent,
     required this.sharedSpent,
+    required this.myHouseContribution,
     required this.selectedScope,
-    required this.lastPersonal,
-    required this.lastHouse,
-    required this.onSelectScope,
+    required this.onOpenExpenses,
     required this.onManageHouse,
   });
 
   final double personalSpent;
   final double sharedSpent;
+  final double myHouseContribution;
   final CostScope? selectedScope;
-  final Cost? lastPersonal;
-  final Cost? lastHouse;
-  final ValueChanged<CostScope?> onSelectScope;
+  final VoidCallback onOpenExpenses;
   final VoidCallback onManageHouse;
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
     final currencyFormat = NumberFormat('#,##0.00');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          // Personal Card
+          // Stat Tile 1: Your Expenses
           Expanded(
-            child: _ActivityCard(
-              title: 'Personal',
-              icon: Icons.person_rounded,
-              iconColor: Colors.blueAccent,
+            child: _StatTile(
+              title: 'Your Expenses',
+              badgeText: 'Personal',
+              stat: 'BDT ${currencyFormat.format(personalSpent)}',
+              subtitle: 'Direct personal spend',
+              icon: Icons.account_balance_wallet_rounded,
+              accentColor: Colors.blueAccent,
+              buttonLabel: 'View Expenses',
               isSelected: selectedScope == CostScope.personal,
-              total: '৳ ${currencyFormat.format(personalSpent)}',
-              lastActivityTitle: lastPersonal?.name ?? 'No entries yet',
-              lastActivitySubtitle: lastPersonal != null
-                  ? '৳ ${currencyFormat.format(lastPersonal!.amount)}'
-                  : 'Start tracking',
-              onTap: () => onSelectScope(
-                selectedScope == CostScope.personal ? null : CostScope.personal,
-              ),
+              onTap: onOpenExpenses,
             ),
           ),
           const SizedBox(width: 12),
-          // House Card
+          // Stat Tile 2: Shared House
           Expanded(
-            child: _ActivityCard(
-              title: 'House Pool',
+            child: _StatTile(
+              title: 'Shared House',
+              badgeText: 'House Pool',
+              stat: 'BDT ${currencyFormat.format(sharedSpent)}',
+              subtitle: myHouseContribution > 0
+                  ? 'Contributed: BDT ${currencyFormat.format(myHouseContribution)}'
+                  : 'Total house expenses',
               icon: Icons.home_work_rounded,
-              iconColor: Colors.teal,
+              accentColor: Colors.teal,
+              buttonLabel: 'Manage House',
               isSelected: selectedScope == CostScope.shared,
-              total: '৳ ${currencyFormat.format(sharedSpent)}',
-              lastActivityTitle: lastHouse?.name ?? 'No shared costs',
-              lastActivitySubtitle: lastHouse != null
-                  ? '${lastHouse!.payerName ?? "Member"} • ৳ ${currencyFormat.format(lastHouse!.amount)}'
-                  : 'Add shared cost',
-              actionLabel: 'Details ➔',
-              onActionTap: onManageHouse,
-              onTap: () => onSelectScope(
-                selectedScope == CostScope.shared ? null : CostScope.shared,
-              ),
+              onTap: onManageHouse,
             ),
           ),
         ],
@@ -736,50 +727,57 @@ class _ScopeDualCards extends StatelessWidget {
   }
 }
 
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({
+class _StatTile extends StatelessWidget {
+  const _StatTile({
     required this.title,
+    required this.badgeText,
+    required this.stat,
+    required this.subtitle,
     required this.icon,
-    required this.iconColor,
+    required this.accentColor,
+    required this.buttonLabel,
     required this.isSelected,
-    required this.total,
-    required this.lastActivityTitle,
-    required this.lastActivitySubtitle,
     required this.onTap,
-    this.actionLabel,
-    this.onActionTap,
   });
 
   final String title;
+  final String badgeText;
+  final String stat;
+  final String subtitle;
   final IconData icon;
-  final Color iconColor;
+  final Color accentColor;
+  final String buttonLabel;
   final bool isSelected;
-  final String total;
-  final String lastActivityTitle;
-  final String lastActivitySubtitle;
   final VoidCallback onTap;
-  final String? actionLabel;
-  final VoidCallback? onActionTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
       onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: colors.surfaceColor,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? colors.primaryColor
-                : colors.borderColor.withValues(alpha: 0.4),
-            width: isSelected ? 1.8 : 1.0,
+                ? accentColor
+                : colors.borderColor.withValues(alpha: 0.5),
+            width: isSelected ? 2 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? accentColor.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -787,114 +785,90 @@ class _ActivityCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.12),
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: accentColor),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, size: 16, color: iconColor),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
                   child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    badgeText,
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
                     ),
                   ),
                 ),
-                if (isSelected)
-                  Icon(
-                    Icons.check_circle_rounded,
-                    size: 14,
-                    color: colors.primaryColor,
-                  ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
-              total,
+              title,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.grey,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              stat,
+              style: TextStyle(
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: colors.textColor,
                 letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colors.tileColor.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: colors.grey,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Last Activity',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    lastActivityTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    buttonLabel,
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textColor,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
                     ),
                   ),
-                  Text(
-                    lastActivitySubtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: colors.grey,
-                    ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 12,
+                    color: accentColor,
                   ),
                 ],
               ),
             ),
-            if (onActionTap != null) ...[
-              const SizedBox(height: 8),
-              InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: onActionTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        actionLabel ?? 'Details',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: colors.primaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 12,
-                        color: colors.primaryColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -902,29 +876,63 @@ class _ActivityCard extends StatelessWidget {
   }
 }
 
-// ── 3. My Recent Expenses Section ───────────────────────────────────────────
+// ── 3. Recent Activity Section (Expenses & Meals) ───────────────────────────
 
-class _MyRecentExpensesSection extends StatelessWidget {
-  const _MyRecentExpensesSection({
+enum _ActivityType { expense, meal }
+
+class _ActivityItem {
+  const _ActivityItem({
+    required this.type,
+    required this.title,
+    required this.timestamp,
+    required this.tag,
+    this.cost,
+  });
+
+  final _ActivityType type;
+  final String title;
+  final DateTime timestamp;
+  final String tag;
+  final Cost? cost;
+}
+
+class _RecentActivitySection extends StatefulWidget {
+  const _RecentActivitySection({
     required this.recentCosts,
+    required this.currentUserId,
     required this.onCostTap,
   });
 
   final List<Cost> recentCosts;
+  final String? currentUserId;
   final ValueChanged<Cost> onCostTap;
 
-  IconData _iconForCategory(String? iconKey) {
-    return switch (iconKey) {
-      'restaurant' => Icons.restaurant_rounded,
-      'shopping_basket' => Icons.shopping_basket_rounded,
-      'directions_bus' => Icons.directions_bus_rounded,
-      'flash_on' => Icons.flash_on_rounded,
-      'home' => Icons.home_rounded,
-      'shopping_bag' => Icons.shopping_bag_rounded,
-      'medical_services' => Icons.medical_services_rounded,
-      'movie' => Icons.movie_rounded,
-      _ => Icons.receipt_long_rounded,
-    };
+  @override
+  State<_RecentActivitySection> createState() => _RecentActivitySectionState();
+}
+
+class _RecentActivitySectionState extends State<_RecentActivitySection> {
+  List<Map<String, dynamic>> _mealLogs = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentMealLogs();
+  }
+
+  Future<void> _loadRecentMealLogs() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('meal_logs')
+          .select('*, profiles(username, full_name)')
+          .order('updated_at', ascending: false)
+          .limit(5);
+      if (mounted) {
+        setState(() {
+          _mealLogs = (res as List).cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -932,66 +940,139 @@ class _MyRecentExpensesSection extends StatelessWidget {
     final colors = AppColors.context(context);
     final currencyFormat = NumberFormat('#,##0.00');
 
+    // Build unified activity list
+    final activities = <_ActivityItem>[];
+
+    // 1. Add cost activities
+    for (final cost in widget.recentCosts) {
+      final payer = (cost.paidBy == widget.currentUserId)
+          ? 'You'
+          : (cost.payerName?.isNotEmpty == true ? cost.payerName! : 'Member');
+
+      activities.add(_ActivityItem(
+        type: _ActivityType.expense,
+        title: 'Expense: BDT ${currencyFormat.format(cost.amount)} ${cost.name.toLowerCase()} by $payer',
+        timestamp: cost.purchaseDate,
+        tag: cost.isPersonal ? 'Personal' : 'Shared House',
+        cost: cost,
+      ));
+    }
+
+    // 2. Add meal activities
+    for (final meal in _mealLogs) {
+      final profile = meal['profiles'] as Map<String, dynamic>?;
+      final memberName =
+          profile?['full_name'] ?? profile?['username'] ?? 'Member';
+      final logDate = DateTime.tryParse(meal['log_date'] as String? ?? '');
+      final isToday = logDate != null &&
+          logDate.year == DateTime.now().year &&
+          logDate.month == DateTime.now().month &&
+          logDate.day == DateTime.now().day;
+      final dateStr = isToday
+          ? 'today'
+          : (logDate != null ? DateFormat('d MMM').format(logDate) : 'today');
+
+      final breakfast = (meal['breakfast'] as num?)?.toDouble() ?? 0;
+      final lunch = (meal['lunch'] as num?)?.toDouble() ?? 0;
+      final dinner = (meal['dinner'] as num?)?.toDouble() ?? 0;
+
+      final mealParts = <String>[];
+      if (dinner > 0) mealParts.add('${dinner == 1 ? "1" : dinner} dinner');
+      if (lunch > 0) mealParts.add('${lunch == 1 ? "1" : lunch} lunch');
+      if (breakfast > 0) {
+        mealParts.add('${breakfast == 1 ? "1" : breakfast} breakfast');
+      }
+      final mealStr = mealParts.isNotEmpty ? mealParts.join(', ') : 'meal';
+
+      activities.add(_ActivityItem(
+        type: _ActivityType.meal,
+        title: 'Meal: $mealStr added/updated for $dateStr for $memberName',
+        timestamp: DateTime.tryParse(meal['updated_at'] as String? ?? '') ??
+            DateTime.now(),
+        tag: 'House Meal',
+      ));
+    }
+
+    // Sort by timestamp descending
+    activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    if (activities.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final displayActivities = activities.take(5).toList();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
-                Icons.history_rounded,
-                size: 16,
-                color: colors.primaryColor,
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: colors.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.electric_bolt_rounded,
+                  size: 15,
+                  color: colors.primaryColor,
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Text(
-                'My Recent Expenses',
+                'Recent Activity',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: colors.textColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
               color: colors.surfaceColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: colors.borderColor.withValues(alpha: 0.4),
+                color: colors.borderColor.withValues(alpha: 0.5),
               ),
             ),
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: recentCosts.length,
+              itemCount: displayActivities.length,
               separatorBuilder: (_, __) => Divider(
                 color: colors.borderColor.withValues(alpha: 0.25),
                 height: 1,
               ),
               itemBuilder: (context, index) {
-                final cost = recentCosts[index];
+                final item = displayActivities[index];
+                final isExpense = item.type == _ActivityType.expense;
+
                 return ListTile(
                   dense: true,
                   leading: Container(
-                    width: 36,
-                    height: 36,
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: colors.tileColor.withValues(alpha: 0.5),
+                      color: (isExpense ? Colors.teal : Colors.deepPurple)
+                          .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      _iconForCategory(cost.categoryIcon),
-                      color: colors.primaryColor,
-                      size: 18,
+                      isExpense
+                          ? Icons.receipt_long_rounded
+                          : Icons.restaurant_rounded,
+                      color: isExpense ? Colors.teal : Colors.deepPurple,
+                      size: 16,
                     ),
                   ),
                   title: Text(
-                    cost.name,
+                    item.title,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -999,20 +1080,25 @@ class _MyRecentExpensesSection extends StatelessWidget {
                     ),
                   ),
                   subtitle: Text(
-                    '${DateFormat('d MMM').format(cost.purchaseDate)} • ${cost.isPersonal ? "Personal" : "Shared"}',
+                    DateFormat('d MMM, h:mm a').format(item.timestamp),
                     style: TextStyle(
                       fontSize: 11,
                       color: colors.grey,
                     ),
                   ),
-                  trailing: Text(
-                    '৳ ${currencyFormat.format(cost.amount)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textColor,
-                    ),
-                  ),
+                  trailing: item.cost != null
+                      ? Text(
+                          '৳ ${currencyFormat.format(item.cost!.amount)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: colors.textColor,
+                          ),
+                        )
+                      : null,
+                  onTap: item.cost != null
+                      ? () => widget.onCostTap(item.cost!)
+                      : null,
                 );
               },
             ),

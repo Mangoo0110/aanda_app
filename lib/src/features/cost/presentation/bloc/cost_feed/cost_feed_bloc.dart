@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
@@ -73,13 +75,17 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedDeleted event,
     Emitter<CostFeedState> emit,
   ) async {
-    final response = await _deleteCost(DeleteCostParams(costId: event.costId));
-    if (response.success) {
-      final updated = state.costs.where((c) => c.id != event.costId).toList();
-      emit(state.copyWith(costs: updated));
-    } else {
-      emit(state.copyWith(errorMessage: response.message));
-    }
+    await handleFutureRequest<void>(
+      request: () => _deleteCost(DeleteCostParams(costId: event.costId)),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(state.copyWith(errorMessage: failure.message));
+      },
+      onSuccess: (_) {
+        final updated = state.costs.where((c) => c.id != event.costId).toList();
+        emit(state.copyWith(costs: updated));
+      },
+    );
   }
 
   Future<void> _load(Emitter<CostFeedState> emit) async {
@@ -89,31 +95,37 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     final startDate = DateTime(month.year, month.month, 1);
     final endDate = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
 
-    final response = await _getCosts(
-      GetCostsParams(
-        houseId: state.selectedHouseId,
-        scope: state.selectedScope,
-        startDate: startDate,
-        endDate: endDate,
-      ),
-    );
-
-    if (!response.success || response.data == null) {
-      emit(
-        state.copyWith(
-          status: CostFeedStatus.failure,
-          errorMessage: response.message,
+    final result = await handleFutureRequest<List<Cost>>(
+      request: () => _getCosts(
+        GetCostsParams(
+          houseId: state.selectedHouseId,
+          scope: state.selectedScope,
+          startDate: startDate,
+          endDate: endDate,
         ),
-      );
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        status: CostFeedStatus.loaded,
-        costs: response.data,
-        clearError: true,
       ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            status: CostFeedStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      onSuccess: (costs) {
+        emit(
+          state.copyWith(
+            status: CostFeedStatus.loaded,
+            costs: costs,
+            clearError: true,
+          ),
+        );
+      },
     );
+
+    if (result == null && state.status == CostFeedStatus.loading) {
+      emit(state.copyWith(status: CostFeedStatus.failure));
+    }
   }
 }

@@ -1,4 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
+import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 
 part 'house_join_event.dart';
@@ -32,24 +35,31 @@ final class HouseJoinBloc extends Bloc<HouseJoinEvent, HouseJoinState> {
     }
 
     emit(state.copyWith(status: HouseJoinStatus.submitting, clearError: true));
-    final response = await _joinHouse(JoinHouseParams(inviteCode: code));
 
-    if (!response.success || response.data == null) {
-      emit(
-        state.copyWith(
-          status: HouseJoinStatus.failure,
-          errorMessage: response.message,
-        ),
-      );
-      return;
-    }
-
-    emit(
-      state.copyWith(
-        status: HouseJoinStatus.success,
-        joinedHouseId: response.data!.id,
-        clearError: true,
-      ),
+    final result = await handleFutureRequest<House>(
+      request: () => _joinHouse(JoinHouseParams(inviteCode: code)),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            status: HouseJoinStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      onSuccess: (house) {
+        emit(
+          state.copyWith(
+            status: HouseJoinStatus.success,
+            joinedHouseId: house.id,
+            clearError: true,
+          ),
+        );
+      },
     );
+
+    if (result == null && state.status == HouseJoinStatus.submitting) {
+      emit(state.copyWith(status: HouseJoinStatus.failure));
+    }
   }
 }

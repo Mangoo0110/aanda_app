@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
@@ -41,10 +43,12 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     Emitter<CostFormState> emit,
   ) async {
     // Load categories
-    final catResponse = await _getCostCategories(
-      GetCostCategoriesParams(houseId: event.defaultHouseId),
-    );
-    final categories = catResponse.data ?? CostCategory.predefinedCategories;
+    final categories = await handleFutureRequest<List<CostCategory>>(
+      request: () => _getCostCategories(
+        GetCostCategoriesParams(houseId: event.defaultHouseId),
+      ),
+      debugger: ControllerDebugger(),
+    ) ?? CostCategory.predefinedCategories;
 
     // Load user's houses
     List<({String id, String name})> houses = const [];
@@ -187,67 +191,81 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     emit(state.copyWith(status: CostFormStatus.submitting, clearError: true));
 
     if (state.isEditing && state.editCostId != null) {
-      final response = await _updateCost(
-        UpdateCostData(
-          id: state.editCostId!,
-          name: state.name.trim(),
-          amount: state.amount,
-          costType: state.costType,
-          costScope: state.costScope,
-          purchaseDate: state.purchaseDate,
-          houseId: state.costScope == CostScope.shared ? state.selectedHouseId : null,
-          categoryId: state.selectedCategory?.id,
-          categoryName: state.selectedCategory?.name,
-          categoryIcon: state.selectedCategory?.icon,
-          note: state.note.trim().isEmpty ? null : state.note.trim(),
+      final updatedCost = await handleFutureRequest<Cost>(
+        request: () => _updateCost(
+          UpdateCostData(
+            id: state.editCostId!,
+            name: state.name.trim(),
+            amount: state.amount,
+            costType: state.costType,
+            costScope: state.costScope,
+            purchaseDate: state.purchaseDate,
+            houseId: state.costScope == CostScope.shared ? state.selectedHouseId : null,
+            categoryId: state.selectedCategory?.id,
+            categoryName: state.selectedCategory?.name,
+            categoryIcon: state.selectedCategory?.icon,
+            note: state.note.trim().isEmpty ? null : state.note.trim(),
+          ),
         ),
+        debugger: ControllerDebugger(),
+        onError: (failure) {
+          emit(
+            state.copyWith(
+              status: CostFormStatus.failure,
+              errorMessage: failure.message,
+            ),
+          );
+        },
+        onSuccess: (cost) {
+          emit(
+            state.copyWith(
+              status: CostFormStatus.success,
+              createdCost: cost,
+            ),
+          );
+        },
       );
 
-      if (response.success && response.data != null) {
-        emit(
-          state.copyWith(
-            status: CostFormStatus.success,
-            createdCost: response.data,
-          ),
-        );
-      } else {
-        emit(
-          state.copyWith(
-            status: CostFormStatus.failure,
-            errorMessage: response.message,
-          ),
-        );
+      if (updatedCost == null && state.status == CostFormStatus.submitting) {
+        emit(state.copyWith(status: CostFormStatus.failure));
       }
     } else {
-      final response = await _addCost(
-        CreateCostData(
-          name: state.name.trim(),
-          amount: state.amount,
-          costType: state.costType,
-          costScope: state.costScope,
-          purchaseDate: state.purchaseDate,
-          houseId: state.costScope == CostScope.shared ? state.selectedHouseId : null,
-          categoryId: state.selectedCategory?.id,
-          categoryName: state.selectedCategory?.name,
-          categoryIcon: state.selectedCategory?.icon,
-          note: state.note.trim().isEmpty ? null : state.note.trim(),
+      final newCost = await handleFutureRequest<Cost>(
+        request: () => _addCost(
+          CreateCostData(
+            name: state.name.trim(),
+            amount: state.amount,
+            costType: state.costType,
+            costScope: state.costScope,
+            purchaseDate: state.purchaseDate,
+            houseId: state.costScope == CostScope.shared ? state.selectedHouseId : null,
+            categoryId: state.selectedCategory?.id,
+            categoryName: state.selectedCategory?.name,
+            categoryIcon: state.selectedCategory?.icon,
+            note: state.note.trim().isEmpty ? null : state.note.trim(),
+          ),
         ),
+        debugger: ControllerDebugger(),
+        onError: (failure) {
+          emit(
+            state.copyWith(
+              status: CostFormStatus.failure,
+              errorMessage: failure.message,
+            ),
+          );
+        },
+        onSuccess: (cost) {
+          emit(
+            state.copyWith(
+              status: CostFormStatus.success,
+              createdCost: cost,
+            ),
+          );
+        },
       );
 
-      if (response.success && response.data != null) {
-        emit(
-          state.copyWith(
-            status: CostFormStatus.success,
-            createdCost: response.data,
-          ),
-        );
-      } else {
-        emit(
-          state.copyWith(
-            status: CostFormStatus.failure,
-            errorMessage: response.message,
-          ),
-        );
+      if (newCost == null && state.status == CostFormStatus.submitting) {
+        emit(state.copyWith(status: CostFormStatus.failure));
       }
     }
   }
