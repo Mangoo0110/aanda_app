@@ -17,6 +17,11 @@ final class CostFeedScopeFilterChanged extends CostFeedEvent {
   final CostScope? scope; // null means All
 }
 
+final class CostFeedPayerFilterChanged extends CostFeedEvent {
+  const CostFeedPayerFilterChanged(this.payerId);
+  final String? payerId; // null means All Payers
+}
+
 final class CostFeedMonthChanged extends CostFeedEvent {
   const CostFeedMonthChanged(this.month);
   final DateTime month;

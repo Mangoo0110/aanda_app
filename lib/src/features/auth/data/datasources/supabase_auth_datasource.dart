@@ -58,11 +58,20 @@ class SupabaseAuthDatasource {
     );
   }
 
-  /// Registers a new user with email + password, then upserts a profile row.
+  /// Registers a new user with email + password.
+  /// Profile creation is handled automatically by database trigger `handle_new_user`.
   Future<AccountModel> signUpWithEmail(SignUpParams params) async {
+    final defaultUsername =
+        '${params.email.split('@').first}_${DateTime.now().millisecondsSinceEpoch % 10000}';
+
     final response = await _supabase.auth.signUp(
       email: params.email,
       password: params.password,
+      data: {
+        'username': defaultUsername,
+        if (params.fullName != null && params.fullName!.isNotEmpty)
+          'full_name': params.fullName,
+      },
     );
 
     final session = response.session;
@@ -71,22 +80,34 @@ class SupabaseAuthDatasource {
       throw Exception('Sign-up failed: no user returned.');
     }
 
-    // Upsert the profile row with default username derived from email.
-    final defaultUsername =
-        '${params.email.split('@').first}_${DateTime.now().millisecondsSinceEpoch % 10000}';
-    await _supabase.from('profiles').upsert({
-      'id': user.id,
-      'username': defaultUsername,
-      if (params.fullName != null && params.fullName!.isNotEmpty)
-        'full_name': params.fullName,
-    });
+    // If email confirmation is enabled in Supabase, session is null until confirmed.
+    if (session == null) {
+      return AccountModel(
+        id: user.id,
+        uniqueName: defaultUsername,
+        fullName: params.fullName,
+        email: user.email ?? params.email,
+        token: null,
+      );
+    }
 
-    final profile = await _fetchProfile(user.id);
-    return AccountModel.fromSupabase(
-      profile: profile,
-      email: user.email ?? params.email,
-      token: session?.accessToken,
-    );
+    // Try to fetch the trigger-created profile, fallback to basic AccountModel
+    try {
+      final profile = await _fetchProfile(user.id);
+      return AccountModel.fromSupabase(
+        profile: profile,
+        email: user.email ?? params.email,
+        token: session.accessToken,
+      );
+    } catch (_) {
+      return AccountModel(
+        id: user.id,
+        uniqueName: defaultUsername,
+        fullName: params.fullName,
+        email: user.email ?? params.email,
+        token: session.accessToken,
+      );
+    }
   }
 
   /// Signs the current user out.

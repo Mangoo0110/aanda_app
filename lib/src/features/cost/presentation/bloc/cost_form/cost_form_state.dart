@@ -12,6 +12,7 @@ final class CostFormState {
     this.costScope = CostScope.personal,
     this.selectedCategory,
     this.availableCategories = const [],
+    this.availableHouses = const [],
     DateTime? purchaseDate,
     this.selectedHouseId,
     this.note = '',
@@ -28,6 +29,7 @@ final class CostFormState {
   final CostScope costScope;
   final CostCategory? selectedCategory;
   final List<CostCategory> availableCategories;
+  final List<({String id, String name})> availableHouses;
   final DateTime purchaseDate;
   final String? selectedHouseId;
   final String note;
@@ -49,6 +51,7 @@ final class CostFormState {
     CostCategory? selectedCategory,
     bool clearCategory = false,
     List<CostCategory>? availableCategories,
+    List<({String id, String name})>? availableHouses,
     DateTime? purchaseDate,
     String? selectedHouseId,
     bool clearHouse = false,
@@ -68,6 +71,7 @@ final class CostFormState {
       selectedCategory:
           clearCategory ? null : (selectedCategory ?? this.selectedCategory),
       availableCategories: availableCategories ?? this.availableCategories,
+      availableHouses: availableHouses ?? this.availableHouses,
       purchaseDate: purchaseDate ?? this.purchaseDate,
       selectedHouseId:
           clearHouse ? null : (selectedHouseId ?? this.selectedHouseId),

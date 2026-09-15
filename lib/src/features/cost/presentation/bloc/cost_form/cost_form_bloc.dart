@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
@@ -20,6 +21,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
        super(CostFormState()) {
     on<CostFormStarted>(_onStarted);
     on<CostFormScopeChanged>(_onScopeChanged);
+    on<CostFormReferenceChanged>(_onReferenceChanged);
     on<CostFormNameChanged>(_onNameChanged);
     on<CostFormAmountChanged>(_onAmountChanged);
     on<CostFormTypeChanged>(_onTypeChanged);
@@ -44,6 +46,18 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     );
     final categories = catResponse.data ?? CostCategory.predefinedCategories;
 
+    // Load user's houses
+    List<({String id, String name})> houses = const [];
+    try {
+      final res = await Supabase.instance.client
+          .from('houses')
+          .select('id, name')
+          .order('name');
+      houses = (res as List)
+          .map((h) => (id: h['id'] as String, name: h['name'] as String))
+          .toList();
+    } catch (_) {}
+
     if (event.initialCost != null) {
       final c = event.initialCost!;
       final matchedCat = categories.where(
@@ -60,6 +74,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
           costScope: c.costScope,
           selectedCategory: matchedCat,
           availableCategories: categories,
+          availableHouses: houses,
           purchaseDate: c.purchaseDate,
           selectedHouseId: c.houseId,
           note: c.note ?? '',
@@ -69,11 +84,24 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
       emit(
         state.copyWith(
           availableCategories: categories,
+          availableHouses: houses,
+          selectedCategory: categories.firstOrNull,
           selectedHouseId: event.defaultHouseId,
           costScope: event.defaultHouseId != null ? CostScope.shared : CostScope.personal,
         ),
       );
     }
+  }
+
+  void _onReferenceChanged(
+    CostFormReferenceChanged event,
+    Emitter<CostFormState> emit,
+  ) {
+    emit(state.copyWith(
+      costScope: event.scope,
+      selectedHouseId: event.houseId,
+      clearHouse: event.houseId == null,
+    ));
   }
 
   void _onScopeChanged(

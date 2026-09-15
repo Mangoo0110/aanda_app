@@ -16,6 +16,7 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     on<CostFeedStarted>(_onStarted);
     on<CostFeedRefreshRequested>(_onRefresh);
     on<CostFeedScopeFilterChanged>(_onScopeChanged);
+    on<CostFeedPayerFilterChanged>(_onPayerChanged);
     on<CostFeedMonthChanged>(_onMonthChanged);
     on<CostFeedHouseFilterChanged>(_onHouseChanged);
     on<CostFeedDeleted>(_onDeleted);
@@ -40,6 +41,16 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
   ) async {
     emit(state.copyWith(selectedScope: event.scope, clearScope: event.scope == null));
     await _load(emit);
+  }
+
+  void _onPayerChanged(
+    CostFeedPayerFilterChanged event,
+    Emitter<CostFeedState> emit,
+  ) {
+    emit(state.copyWith(
+      selectedPayerId: event.payerId,
+      clearPayer: event.payerId == null,
+    ));
   }
 
   Future<void> _onMonthChanged(

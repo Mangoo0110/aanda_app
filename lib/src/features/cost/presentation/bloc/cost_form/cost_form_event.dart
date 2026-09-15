@@ -15,6 +15,15 @@ final class CostFormScopeChanged extends CostFormEvent {
   final CostScope scope;
 }
 
+final class CostFormReferenceChanged extends CostFormEvent {
+  const CostFormReferenceChanged({
+    required this.scope,
+    this.houseId,
+  });
+  final CostScope scope;
+  final String? houseId;
+}
+
 final class CostFormNameChanged extends CostFormEvent {
   const CostFormNameChanged(this.name);
   final String name;

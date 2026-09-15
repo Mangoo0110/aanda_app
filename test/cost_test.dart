@@ -102,6 +102,44 @@ void main() {
       expect(state.totalSpent, 1500.0);
       expect(state.personalSpent, 500.0);
       expect(state.sharedSpent, 1000.0);
+      expect(state.myTotalSpent('u1'), 1500.0);
+      expect(state.myPersonalSpent('u1'), 500.0);
+      expect(state.mySharedSpent('u1'), 1000.0);
+      expect(state.myRecentCosts('u1').length, 2);
+    });
+
+    test('filters displayCosts by selectedPayerId', () {
+      final cost1 = Cost(
+        id: '1',
+        name: 'Groceries',
+        amount: 500.0,
+        costType: CostType.variable,
+        costScope: CostScope.personal,
+        paidBy: 'u1',
+        payerName: 'User 1',
+        purchaseDate: DateTime(2026, 9, 15),
+        createdAt: DateTime(2026, 9, 15),
+      );
+      final cost2 = Cost(
+        id: '2',
+        name: 'Internet',
+        amount: 1000.0,
+        costType: CostType.fixed,
+        costScope: CostScope.shared,
+        paidBy: 'u2',
+        payerName: 'User 2',
+        purchaseDate: DateTime(2026, 9, 15),
+        createdAt: DateTime(2026, 9, 15),
+      );
+
+      final state = CostFeedState(
+        costs: [cost1, cost2],
+        selectedPayerId: 'u2',
+      );
+
+      expect(state.displayCosts.length, 1);
+      expect(state.displayCosts.first.id, '2');
+      expect(state.uniquePayers.length, 2);
     });
   });
 }

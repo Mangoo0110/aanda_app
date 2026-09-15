@@ -18,6 +18,7 @@ import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bl
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_feed_screen.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_form_screen.dart';
+import 'package:aanda/src/features/house/presentation/screens/house_create_screen.dart';
 
 GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
   return GoRouter(
@@ -124,6 +125,19 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
           ),
         ),
       ),
+      // ── Create Shared House (page) ────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.houseCreate,
+        name: 'house-create',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const AuthRouteGate(
+            policy: AuthRoutePolicy.signedInOnly,
+            child: HouseCreateScreen(),
+          ),
+        ),
+      ),
+      
     ],
     errorBuilder: (context, state) => const SizedBox.shrink(),
   );
