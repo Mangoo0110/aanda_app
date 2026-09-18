@@ -1,42 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:aanda/di/app_dependencies.dart';
 import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
-import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
 import 'package:aanda/src/app/routing/app_router.dart';
 import 'package:aanda/src/core/config/supabase_config.dart';
 import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
-// Auth
-import 'package:aanda/src/features/auth/data/datasources/supabase_auth_datasource.dart';
-import 'package:aanda/src/features/auth/data/repo/auth_repo_impl.dart';
-import 'package:aanda/src/features/auth/domain/repo/auth_repo.dart';
-import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
-// Cost
-import 'package:aanda/src/features/cost/data/datasources/cost_remote_datasource.dart';
-import 'package:aanda/src/features/cost/data/repo/cost_repo_impl.dart';
-import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
-import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
-// House
-import 'package:aanda/src/features/house/data/datasources/house_remote_datasource.dart';
-import 'package:aanda/src/features/house/data/repo/house_repo_impl.dart';
-import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
-import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
-// Meal
-import 'package:aanda/src/features/meal/data/datasources/meal_remote_datasource.dart';
-import 'package:aanda/src/features/meal/data/repo/meal_repo_impl.dart';
-import 'package:aanda/src/features/meal/domain/repo/meal_repo.dart';
-import 'package:aanda/src/features/meal/domain/usecases/meal_usecases.dart';
-// Settlement
-import 'package:aanda/src/features/settlement/data/datasources/settlement_remote_datasource.dart';
-import 'package:aanda/src/features/settlement/data/repo/settlement_repo_impl.dart';
-import 'package:aanda/src/features/settlement/domain/repo/settlement_repo.dart';
-import 'package:aanda/src/features/settlement/domain/usecases/settlement_usecases.dart';
-// Dashboard
-import 'package:aanda/src/features/dashboard/data/datasources/dashboard_remote_datasource.dart';
-import 'package:aanda/src/features/dashboard/data/repo/dashboard_repo_impl.dart';
-import 'package:aanda/src/features/dashboard/domain/repo/dashboard_repo.dart';
-import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,141 +21,37 @@ Future<void> main() async {
     anonKey: SupabaseConfig.anonKey,
   );
 
-  runApp(const AandaApp());
+  final dependencies = AppDependencies.create(
+    supabase: Supabase.instance.client,
+  );
+  final router = createAppRouter(authGuardBloc: dependencies.authGuardBloc);
+
+  runApp(AandaApp(dependencies: dependencies, router: router));
 }
 
 class AandaApp extends StatelessWidget {
-  const AandaApp({super.key});
+  const AandaApp({
+    super.key,
+    required this.dependencies,
+    required this.router,
+  });
+
+  final AppDependencies dependencies;
+  final GoRouter router;
 
   @override
   Widget build(BuildContext context) {
-    final supabase = Supabase.instance.client;
-
-    // ── Auth layer ────────────────────────────────────────────────────────
-    final authDatasource = SupabaseAuthDatasource(supabase: supabase);
-    final authRepo = AuthRepoImpl(datasource: authDatasource);
-
-    final watchAuthStatus = WatchAuthStatus(authRepo);
-    final signInWithEmail = SignInWithEmail(authRepo);
-    final signUpWithEmail = SignUpWithEmail(authRepo);
-    final logout = Logout(authRepo);
-    final getCurrentAccount = GetCurrentAccount(authRepo);
-
-    // ── Cost layer ────────────────────────────────────────────────────────
-    final costDatasource = CostRemoteDatasource(supabase: supabase);
-    final costRepo = CostRepoImpl(datasource: costDatasource);
-
-    final getCosts = GetCosts(costRepo);
-    final addCost = AddCost(costRepo);
-    final updateCost = UpdateCost(costRepo);
-    final deleteCost = DeleteCost(costRepo);
-    final getCostCategories = GetCostCategories(costRepo);
-
-    // ── House layer ───────────────────────────────────────────────────────
-    final houseDatasource = HouseRemoteDatasource(supabase: supabase);
-    final houseRepo = HouseRepoImpl(datasource: houseDatasource);
-
-    final createHouse = CreateHouse(houseRepo);
-    final getMyHouses = GetMyHouses(houseRepo);
-    final getHouseDetail = GetHouseDetail(houseRepo);
-    final getHouseMembers = GetHouseMembers(houseRepo);
-    final getHouseInvite = GetHouseInvite(houseRepo);
-    final regenerateInviteCode = RegenerateInviteCode(houseRepo);
-    final joinHouse = JoinHouse(houseRepo);
-    final leaveHouse = LeaveHouse(houseRepo);
-    final removeMember = RemoveMember(houseRepo);
-    final getSprints = GetSprints(houseRepo);
-    final createSprint = CreateSprint(houseRepo);
-    final closeSprint = CloseSprint(houseRepo);
-    final getSprintStats = GetSprintStats(houseRepo);
-
-    // ── Meal layer ────────────────────────────────────────────────────────
-    final mealDatasource = MealRemoteDatasource(supabase: supabase);
-    final mealRepo = MealRepoImpl(datasource: mealDatasource);
-
-    final getMealLogs = GetMealLogs(mealRepo);
-    final upsertMealLog = UpsertMealLog(mealRepo);
-
-    // ── Settlement layer ──────────────────────────────────────────────────
-    final settlementDatasource = SettlementRemoteDatasource(supabase: supabase);
-    final settlementRepo = SettlementRepoImpl(datasource: settlementDatasource);
-
-    final computeSettlement = ComputeSettlement(settlementRepo);
-
-    // ── Dashboard layer ───────────────────────────────────────────────────
-    final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
-    final dashboardRepo = DashboardRepoImpl(datasource: dashboardDatasource);
-
-    final getDashboardSummary = GetDashboardSummary(dashboardRepo);
-
-    // ── Auth guard bloc ───────────────────────────────────────────────────
-    final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
-      ..add(const AppAuthGuardStarted());
-
-    return MultiRepositoryProvider(
-      providers: [
-        // Repos & Client
-        RepositoryProvider<AuthRepo>.value(value: authRepo),
-        RepositoryProvider<CostRepo>.value(value: costRepo),
-        RepositoryProvider<HouseRepo>.value(value: houseRepo),
-        RepositoryProvider<MealRepo>.value(value: mealRepo),
-        RepositoryProvider<SettlementRepo>.value(value: settlementRepo),
-        RepositoryProvider<SupabaseClient>.value(value: supabase),
-
-        // Auth Use cases
-        RepositoryProvider<SignInWithEmail>.value(value: signInWithEmail),
-        RepositoryProvider<SignUpWithEmail>.value(value: signUpWithEmail),
-        RepositoryProvider<Logout>.value(value: logout),
-        RepositoryProvider<GetCurrentAccount>.value(value: getCurrentAccount),
-
-        // Cost Use cases
-        RepositoryProvider<GetCosts>.value(value: getCosts),
-        RepositoryProvider<AddCost>.value(value: addCost),
-        RepositoryProvider<UpdateCost>.value(value: updateCost),
-        RepositoryProvider<DeleteCost>.value(value: deleteCost),
-        RepositoryProvider<GetCostCategories>.value(value: getCostCategories),
-
-        // House Use cases
-        RepositoryProvider<CreateHouse>.value(value: createHouse),
-        RepositoryProvider<GetMyHouses>.value(value: getMyHouses),
-        RepositoryProvider<GetHouseDetail>.value(value: getHouseDetail),
-        RepositoryProvider<GetHouseMembers>.value(value: getHouseMembers),
-        RepositoryProvider<GetHouseInvite>.value(value: getHouseInvite),
-        RepositoryProvider<RegenerateInviteCode>.value(value: regenerateInviteCode),
-        RepositoryProvider<JoinHouse>.value(value: joinHouse),
-        RepositoryProvider<LeaveHouse>.value(value: leaveHouse),
-        RepositoryProvider<RemoveMember>.value(value: removeMember),
-        RepositoryProvider<GetSprints>.value(value: getSprints),
-        RepositoryProvider<CreateSprint>.value(value: createSprint),
-        RepositoryProvider<CloseSprint>.value(value: closeSprint),
-        RepositoryProvider<GetSprintStats>.value(value: getSprintStats),
-
-        // Meal Use cases
-        RepositoryProvider<GetMealLogs>.value(value: getMealLogs),
-        RepositoryProvider<UpsertMealLog>.value(value: upsertMealLog),
-
-        // Settlement Use cases
-        RepositoryProvider<ComputeSettlement>.value(value: computeSettlement),
-
-        // Dashboard
-        RepositoryProvider<DashboardRepo>.value(value: dashboardRepo),
-        RepositoryProvider<GetDashboardSummary>.value(value: getDashboardSummary),
-      ],
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider<AppThemeCubit>(create: (_) => AppThemeCubit()),
-          BlocProvider<AppAuthGuardBloc>.value(value: authGuardBloc),
-        ],
-        child: _AppRoot(authGuardBloc: authGuardBloc),
-      ),
+    return AppDependencyScope(
+      dependencies: dependencies,
+      child: _AppRoot(router: router),
     );
   }
 }
 
 class _AppRoot extends StatelessWidget {
-  const _AppRoot({required this.authGuardBloc});
+  const _AppRoot({required this.router});
 
-  final AppAuthGuardBloc authGuardBloc;
+  final GoRouter router;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +63,7 @@ class _AppRoot extends StatelessWidget {
           theme: theme.lightTheme,
           darkTheme: theme.darkTheme,
           themeMode: themeMode,
-          routerConfig: createAppRouter(authGuardBloc: authGuardBloc),
+          routerConfig: router,
           debugShowCheckedModeBanner: false,
         );
       },

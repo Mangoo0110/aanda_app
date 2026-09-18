@@ -5,305 +5,664 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
-import 'package:aanda/src/core/usecases/base_usecase.dart';
-import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
-import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
-class CostFeedScreen extends StatelessWidget {
+class CostFeedScreen extends StatefulWidget {
   const CostFeedScreen({super.key});
+
+  @override
+  State<CostFeedScreen> createState() => _CostFeedScreenState();
+}
+
+class _CostFeedScreenState extends State<CostFeedScreen> {
+  // Warm peach/cream ledger aesthetic colors
+  static const Color backgroundColor = Color(0xFFFFF7EE);
+  static const Color cardColor = Colors.white;
+  static const Color primaryCoral = Color(0xFFD85A38);
+  static const Color darkText = Color(0xFF1B1D1F);
+  static const Color subText = Color(0xFF8C8D8E);
+
+  Map<String, dynamic>? _currentHouse;
+  List<Map<String, dynamic>> _houses = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHouseDetails();
+  }
+
+  Future<void> _loadHouseDetails() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final data = await supabase.from('houses').select('id, name, house_members(id, user_id, role, display_name)');
+      final list = (data as List).cast<Map<String, dynamic>>();
+      if (mounted && list.isNotEmpty) {
+        setState(() {
+          _houses = list;
+          _currentHouse = list.first;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return Scaffold(
-      backgroundColor: colors.appBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          'Expenses',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            color: colors.textColor,
+    return BlocConsumer<CostFeedBloc, CostFeedState>(
+      listener: (context, state) {
+        if (state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.errorMessage!),
+              backgroundColor: colors.errorColor,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        final displayCosts = state.displayCosts;
+        final totalSpend = displayCosts.fold(0.0, (s, c) => s + c.amount);
+        final currencyFormat = NumberFormat('#,##0');
+
+        final houseName = _currentHouse?['name'] as String? ?? 'Dhaka Flat';
+        final memberList = _currentHouse?['house_members'] as List? ?? [];
+        final memberCount = memberList.isNotEmpty ? memberList.length : 5;
+
+        return Scaffold(
+          backgroundColor: backgroundColor,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showQuickActionSheet(context),
+            backgroundColor: primaryCoral,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.add_rounded, size: 28),
           ),
-        ),
-        backgroundColor: colors.surfaceColor,
-        elevation: 0,
-        actions: [
-          BlocBuilder<CostFeedBloc, CostFeedState>(
-            builder: (context, state) {
-              final activeCount = state.activeFiltersCount;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.tune_rounded, color: colors.iconColor),
-                    tooltip: 'Filter Expenses',
-                    onPressed: () => _showFilterSheet(context, state),
+          body: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: primaryCoral,
+              onRefresh: () async {
+                context
+                    .read<CostFeedBloc>()
+                    .add(const CostFeedRefreshRequested());
+                await _loadHouseDetails();
+              },
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // ── Top Navigation Bar ─────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Row(
+                        children: [
+                          // Back button in rounded square
+                          InkWell(
+                            onTap: () {
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go(AppRoutes.home);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: cardColor,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 16,
+                                color: darkText,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Title
+                          const Text(
+                            'Expenses',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: darkText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () {
+                              final houseId = _currentHouse?['id'] as String?;
+                              if (houseId != null) {
+                                context.push(AppRoutes.houseMeals(houseId));
+                              } else {
+                                context.push(AppRoutes.meals);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFDEEE8),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('🍲', style: TextStyle(fontSize: 12)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Meals',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: primaryCoral,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // House selector chip on the right
+                          InkWell(
+                            onTap: _showHousePicker,
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              padding: const EdgeInsets.fromLTRB(6, 4, 12, 4),
+                              decoration: BoxDecoration(
+                                color: cardColor,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 14,
+                                    backgroundColor: primaryCoral.withValues(alpha: 0.12),
+                                    child: Text(
+                                      houseName.isNotEmpty
+                                          ? houseName[0].toUpperCase()
+                                          : 'H',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: primaryCoral,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            houseName,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: darkText,
+                                            ),
+                                          ),
+                                          const Icon(
+                                            Icons.keyboard_arrow_down_rounded,
+                                            size: 14,
+                                            color: subText,
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.green,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$memberCount members',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: subText,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  if (activeCount > 0)
-                    Positioned(
-                      right: 6,
-                      top: 8,
+
+                  // ── Date / Cycle Navigator Pill ────────────────────────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: colors.primaryColor,
-                          shape: BoxShape.circle,
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                        child: Text(
-                          '$activeCount',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                              color: darkText,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () {
+                                final prev = DateTime(
+                                  state.selectedMonth.year,
+                                  state.selectedMonth.month - 1,
+                                );
+                                context
+                                    .read<CostFeedBloc>()
+                                    .add(CostFeedMonthChanged(prev));
+                              },
+                            ),
+                            InkWell(
+                              onTap: () => _pickCustomDate(context, state),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 14,
+                                    color: primaryCoral,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    state.selectedSprint != null
+                                        ? '${state.selectedSprint!.label} (${state.selectedSprint!.dateRangeFormatted})'
+                                        : DateFormat('d MMM yyyy').format(state.selectedMonth),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: darkText,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                              color: darkText,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () {
+                                final next = DateTime(
+                                  state.selectedMonth.year,
+                                  state.selectedMonth.month + 1,
+                                );
+                                context
+                                    .read<CostFeedBloc>()
+                                    .add(CostFeedMonthChanged(next));
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ── Total Period Spend & Filter Action Row ──────────────────
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Row(
+                          children: [
+                            // Total spend stat
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TOTAL PERIOD SPEND',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.8,
+                                      color: subText,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
+                                    children: [
+                                      Text(
+                                        '৳${currencyFormat.format(totalSpend)}',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: darkText,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '(${displayCosts.length} entries)',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: subText,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Filter Button with Badge
+                            InkWell(
+                              onTap: () => _showFilterSheet(context, state),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: state.activeFiltersCount > 0
+                                      ? primaryCoral
+                                      : primaryCoral.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.tune_rounded,
+                                      size: 15,
+                                      color: state.activeFiltersCount > 0
+                                          ? Colors.white
+                                          : primaryCoral,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      state.activeFiltersCount > 0
+                                          ? 'Filter (${state.activeFiltersCount})'
+                                          : 'Filter',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: state.activeFiltersCount > 0
+                                            ? Colors.white
+                                            : primaryCoral,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ── Active Filters Chips Bar ────────────────────────────────
+                  if (state.activeFiltersCount > 0)
+                    SliverToBoxAdapter(
+                      child: Container(
+                        height: 38,
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: [
+                            if (state.selectedSprint != null)
+                              _activeChip(
+                                label: state.selectedSprint!.label,
+                                onDeleted: () => context
+                                    .read<CostFeedBloc>()
+                                    .add(const CostFeedSprintSelected(null)),
+                              ),
+                            if (state.selectedScope != null) ...[
+                              const SizedBox(width: 6),
+                              _activeChip(
+                                label: state.selectedScope == CostScope.personal
+                                    ? 'Personal'
+                                    : 'Shared House',
+                                onDeleted: () => context
+                                    .read<CostFeedBloc>()
+                                    .add(const CostFeedScopeFilterChanged(null)),
+                              ),
+                            ],
+                            if (state.selectedCategoryId != null) ...[
+                              const SizedBox(width: 6),
+                              _activeChip(
+                                label: state.categories
+                                        .where((c) => c.id == state.selectedCategoryId)
+                                        .firstOrNull
+                                        ?.name ??
+                                    'Category',
+                                onDeleted: () => context
+                                    .read<CostFeedBloc>()
+                                    .add(const CostFeedCategoryFilterChanged(null)),
+                              ),
+                            ],
+                            if (state.selectedPayerId != null) ...[
+                              const SizedBox(width: 6),
+                              _activeChip(
+                                label: state.uniquePayers
+                                        .where((p) => p.id == state.selectedPayerId)
+                                        .firstOrNull
+                                        ?.name ??
+                                    'Member',
+                                onDeleted: () => context
+                                    .read<CostFeedBloc>()
+                                    .add(const CostFeedPayerFilterChanged(null)),
+                              ),
+                            ],
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => context
+                                  .read<CostFeedBloc>()
+                                  .add(const CostFeedFiltersCleared()),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                child: Text(
+                                  'Reset all',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: primaryCoral,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                  // ── Tabular Ledger Card ─────────────────────────────────────
+                  if (state.isLoading)
+                    const SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator.adaptive(
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryCoral),
+                        ),
+                      ),
+                    )
+                  else if (displayCosts.isEmpty)
+                    SliverFillRemaining(
+                      child: _emptyStateView(context, state),
+                    )
+                  else
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Table Header Row
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 40,
+                                      child: Text(
+                                        'ITEM & DETAILS',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.6,
+                                          color: subText.withValues(alpha: 0.9),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 25,
+                                      child: Center(
+                                        child: Text(
+                                          'TAG / POOL',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.6,
+                                            color: subText.withValues(alpha: 0.9),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 12,
+                                      child: Center(
+                                        child: Text(
+                                          'BY',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.6,
+                                            color: subText.withValues(alpha: 0.9),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 23,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          'AMOUNT',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.6,
+                                            color: subText.withValues(alpha: 0.9),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Divider(
+                                height: 1,
+                                color: Colors.black.withValues(alpha: 0.06),
+                              ),
+
+                              // Table Ledger Rows
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: displayCosts.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  height: 1,
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                ),
+                                itemBuilder: (context, idx) {
+                                  final cost = displayCosts[idx];
+                                  return _TabularLedgerRow(
+                                    cost: cost,
+                                    currentUserId: currentUserId,
+                                    onTap: () => _showCostDetailSheet(
+                                      context,
+                                      cost: cost,
+                                      currentUserId: currentUserId,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 90)),
                 ],
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.refresh_rounded, color: colors.iconColor),
-            tooltip: 'Refresh',
-            onPressed: () {
-              context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout_rounded, color: colors.errorColor),
-            tooltip: 'Log Out',
-            onPressed: () => _confirmSignOut(context),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddOptions(context),
-        backgroundColor: colors.primaryColor,
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
-      ),
-      body: BlocConsumer<CostFeedBloc, CostFeedState>(
-        listener: (context, state) {
-          if (state.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.errorMessage!),
-                backgroundColor: colors.errorColor,
               ),
-            );
-          }
-        },
-        builder: (context, state) {
-          final displayCosts = state.displayCosts;
-          final uniquePayers = state.uniquePayers;
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
-            },
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // ── Sprint Header or Month Navigator ─────────────────────────
-                SliverToBoxAdapter(
-                  child: state.selectedSprint != null
-                      ? _SprintFeedHeader(
-                          selectedSprint: state.selectedSprint!,
-                          sprints: state.sprints,
-                          onSprintSelected: (s) {
-                            context
-                                .read<CostFeedBloc>()
-                                .add(CostFeedSprintSelected(s));
-                          },
-                          onSwitchToMonthly: () {
-                            context
-                                .read<CostFeedBloc>()
-                                .add(const CostFeedSprintSelected(null));
-                          },
-                        )
-                      : _MonthNavigator(
-                          selectedMonth: state.selectedMonth,
-                          onMonthChanged: (month) {
-                            context
-                                .read<CostFeedBloc>()
-                                .add(CostFeedMonthChanged(month));
-                          },
-                        ),
-                ),
-
-                // ── Active Filters Chip Bar ─────────────────────────────────
-                if (state.activeFiltersCount > 0)
-                  SliverToBoxAdapter(
-                    child: _ActiveFiltersChipBar(
-                      state: state,
-                      onRemoveSprint: () => context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedSprintSelected(null)),
-                      onRemovePayer: () => context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedPayerFilterChanged(null)),
-                      onRemoveCategory: () => context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedCategoryFilterChanged(null)),
-                      onRemoveScope: () => context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedScopeFilterChanged(null)),
-                      onClearAll: () => context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedFiltersCleared()),
-                    ),
-                  ),
-
-                // ── 1. Owner's Personal Expenses & Overview Card ────────────
-                SliverToBoxAdapter(
-                  child: _OwnerImpactCard(
-                    myPersonalSpent: state.myPersonalSpent(currentUserId),
-                    myHouseContribution: state.mySharedSpent(currentUserId),
-                    cycleMonth: state.selectedMonth,
-                  ),
-                ),
-
-                // ── 2. Quick Access Stat Tiles (Your Expenses & Shared House) ──
-                SliverToBoxAdapter(
-                  child: _QuickAccessStatTiles(
-                    personalSpent: state.personalSpent,
-                    sharedSpent: state.sharedSpent,
-                    myHouseContribution: state.mySharedSpent(currentUserId),
-                    selectedScope: state.selectedScope,
-                    onOpenExpenses: () {
-                      context.read<CostFeedBloc>().add(
-                        CostFeedScopeFilterChanged(
-                          state.selectedScope == CostScope.personal
-                              ? null
-                              : CostScope.personal,
-                        ),
-                      );
-                    },
-                    onManageHouse: () => _openHouseDetails(context),
-                  ),
-                ),
-
-                // ── 3. Recent Activity Stream (Expenses & Meals) ────────────
-                SliverToBoxAdapter(
-                  child: _RecentActivitySection(
-                    recentCosts: state.costs.take(5).toList(),
-                    currentUserId: currentUserId,
-                    onCostTap: (cost) {},
-                  ),
-                ),
-
-                // ── 4. Member / Owner Filter Bar (if multiple payers) ───────
-                if (uniquePayers.length > 1)
-                  SliverToBoxAdapter(
-                    child: _PayerFilterBar(
-                      selectedPayerId: state.selectedPayerId,
-                      currentUserId: currentUserId,
-                      uniquePayers: uniquePayers,
-                      onPayerChanged: (payerId) {
-                        context
-                            .read<CostFeedBloc>()
-                            .add(CostFeedPayerFilterChanged(payerId));
-                      },
-                    ),
-                  ),
-
-                // ── 5. Detailed List of expenses ────────────────────────────
-                if (state.isLoading)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (displayCosts.isEmpty)
-                  SliverFillRemaining(
-                    child: _EmptyFeedView(
-                      scope: state.selectedScope,
-                      isFilteredByPayer: state.selectedPayerId != null,
-                      onAddPressed: () async {
-                        final result = await context.push(AppRoutes.costAdd);
-                        if (result == true && context.mounted) {
-                          context
-                              .read<CostFeedBloc>()
-                              .add(const CostFeedRefreshRequested());
-                        }
-                      },
-                    ),
-                  )
-                else
-                  _CostListSliver(
-                    costs: displayCosts,
-                    currentUserId: currentUserId,
-                    onDelete: (costId) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(CostFeedDeleted(costId));
-                    },
-                  ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 90)),
-              ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  void _confirmSignOut(BuildContext context) {
-    final colors = AppColors.context(context);
-    final user = Supabase.instance.client.auth.currentUser;
-    final email = user?.email;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surfaceColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Log Out',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: colors.textColor,
-          ),
-        ),
-        content: Text(
-          email != null
-              ? 'Are you sure you want to log out of $email?'
-              : 'Are you sure you want to log out of your account?',
-          style: TextStyle(
-            color: colors.textColor.withValues(alpha: 0.8),
-            fontSize: 14,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colors.grey, fontWeight: FontWeight.w600),
+  Widget _activeChip({required String label, required VoidCallback onDeleted}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD85A38).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFD85A38),
             ),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.errorColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              final logout = context.read<Logout>();
-              await logout(const NoParams());
-            },
-            child: const Text(
-              'Log Out',
-              style: TextStyle(fontWeight: FontWeight.w600),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onDeleted,
+            child: const Icon(
+              Icons.close_rounded,
+              size: 13,
+              color: Color(0xFFD85A38),
             ),
           ),
         ],
@@ -311,19 +670,66 @@ class CostFeedScreen extends StatelessWidget {
     );
   }
 
-  void _showAddOptions(BuildContext context) {
-    final colors = AppColors.context(context);
+  Widget _emptyStateView(BuildContext context, CostFeedState state) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.receipt_long_outlined,
+                size: 38,
+                color: Color(0xFF8C8D8E),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              state.activeFiltersCount > 0
+                  ? 'No matching expenses'
+                  : 'No expenses yet',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1B1D1F),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              state.activeFiltersCount > 0
+                  ? 'Try resetting the active filters.'
+                  : 'Tap the + button below to add your first expense.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8C8D8E)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  void _showHousePicker() {
+    if (_houses.isEmpty) return;
     showModalBottomSheet(
       context: context,
-      backgroundColor: colors.surfaceColor,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) {
-        return SafeArea(
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.6,
+        ),
+        child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -331,123 +737,210 @@ class CostFeedScreen extends StatelessWidget {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: colors.borderColor.withValues(alpha: 0.8),
+                    color: Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(height: 16),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colors.primaryColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.receipt_long_rounded,
-                      color: colors.primaryColor,
-                    ),
-                  ),
-                  title: Text(
-                    'Add Expense',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: colors.textColor,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Record a personal or shared expense',
-                    style: TextStyle(fontSize: 12, color: colors.grey),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: colors.iconColor,
-                  ),
-                  onTap: () async {
-                    Navigator.of(sheetContext).pop();
-                    final result = await context.push(AppRoutes.costAdd);
-                    if (result == true && context.mounted) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedRefreshRequested());
-                    }
-                  },
+                const Text(
+                  'Select House',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                 ),
-                const SizedBox(height: 6),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.home_work_rounded,
-                      color: Colors.teal,
-                    ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _houses.length,
+                    itemBuilder: (context, idx) {
+                      final h = _houses[idx];
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFFDEEE6),
+                          child: Icon(Icons.home_work_rounded,
+                              color: Color(0xFFD85A38)),
+                        ),
+                        title: Text(
+                          h['name'] as String,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        trailing: _currentHouse?['id'] == h['id']
+                            ? const Icon(Icons.check_rounded,
+                                color: Color(0xFFD85A38))
+                            : null,
+                        onTap: () {
+                          setState(() => _currentHouse = h);
+                          Navigator.of(ctx).pop();
+                          context.read<CostFeedBloc>().add(
+                              CostFeedHouseFilterChanged(h['id'] as String));
+                        },
+                      );
+                    },
                   ),
-                  title: Text(
-                    'Add a Shared House',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: colors.textColor,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Create a shared group for housemates',
-                    style: TextStyle(fontSize: 12, color: colors.grey),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: colors.iconColor,
-                  ),
-                  onTap: () async {
-                    Navigator.of(sheetContext).pop();
-                    final result = await context.push(AppRoutes.houseCreate);
-                    if (result == true && context.mounted) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedRefreshRequested());
-                    }
-                  },
                 ),
-                const SizedBox(height: 6),
-                ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pickCustomDate(BuildContext context, CostFeedState state) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: state.selectedMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (picked != null && context.mounted) {
+      context.read<CostFeedBloc>().add(CostFeedMonthChanged(picked));
+    }
+  }
+
+  void _navigateToAddExpense(BuildContext context) async {
+    final result = await context.push(AppRoutes.costAdd);
+    if (result == true && context.mounted) {
+      context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
+    }
+  }
+
+  void _showQuickActionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.indigo.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.group_add_rounded,
-                      color: Colors.indigo,
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  title: Text(
-                    'Join a Shared House',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: colors.textColor,
-                    ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Quick Actions',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: darkText,
                   ),
-                  subtitle: Text(
-                    'Enter an invite code from your housemate',
-                    style: TextStyle(fontSize: 12, color: colors.grey),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: colors.iconColor,
-                  ),
-                  onTap: () async {
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Choose what you want to record',
+                  style: TextStyle(fontSize: 12, color: subText),
+                ),
+                const SizedBox(height: 16),
+                // 1. Add Expense Option
+                InkWell(
+                  onTap: () {
                     Navigator.of(sheetContext).pop();
-                    final result = await context.push(AppRoutes.houseJoin);
-                    if (result == true && context.mounted) {
-                      context
-                          .read<CostFeedBloc>()
-                          .add(const CostFeedRefreshRequested());
+                    _navigateToAddExpense(context);
+                  },
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAF5EE),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Row(
+                      children: [
+                        Text('📝', style: TextStyle(fontSize: 24)),
+                        SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Add Expense',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: darkText,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Record personal or shared house cost',
+                                style: TextStyle(fontSize: 12, color: subText),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: subText,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // 2. Meal Log Option
+                InkWell(
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    final houseId = _currentHouse?['id'] as String?;
+                    if (houseId != null) {
+                      context.push(AppRoutes.houseMeals(houseId));
+                    } else {
+                      context.push(AppRoutes.meals);
                     }
                   },
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAF5EE),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Row(
+                      children: [
+                        Text('🍲', style: TextStyle(fontSize: 24)),
+                        SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Meal Log (Add Meal)',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: darkText,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Record breakfast, lunch & dinner for today',
+                                style: TextStyle(fontSize: 12, color: subText),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: subText,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -457,77 +950,16 @@ class CostFeedScreen extends StatelessWidget {
     );
   }
 
-  void _openHouseDetails(BuildContext context) async {
-    final colors = AppColors.context(context);
-    try {
-      final supabase = Supabase.instance.client;
-      final data = await supabase.from('houses').select('id, name');
-      final houses = (data as List).cast<Map<String, dynamic>>();
-
-      if (!context.mounted) return;
-      if (houses.isEmpty) {
-        final res = await context.push(AppRoutes.houseCreate);
-        if (res == true && context.mounted) {
-          context.read<CostFeedBloc>().add(const CostFeedRefreshRequested());
-        }
-      } else if (houses.length == 1) {
-        context.push(AppRoutes.houseDetail(houses.first['id'] as String));
-      } else {
-        showModalBottomSheet(
-          context: context,
-          backgroundColor: colors.surfaceColor,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          builder: (ctx) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select a House',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...houses.map((h) => ListTile(
-                          leading: const Icon(Icons.home_work_rounded, color: Colors.teal),
-                          title: Text(
-                            h['name'] as String,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colors.textColor,
-                            ),
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () {
-                            Navigator.of(ctx).pop();
-                            context.push(AppRoutes.houseDetail(h['id'] as String));
-                          },
-                        )),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      }
-    } catch (_) {}
-  }
-
   void _showFilterSheet(BuildContext context, CostFeedState state) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _FilterBottomSheet(
+      builder: (sheetContext) => _FilterExpensesSheet(
         state: state,
+        memberCount: _currentHouse?['house_members'] != null
+            ? (_currentHouse!['house_members'] as List).length
+            : 5,
         onApply: (sprint, payerId, categoryId, scope) {
           context.read<CostFeedBloc>().add(
                 CostFeedFiltersApplied(
@@ -544,261 +976,193 @@ class CostFeedScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showCostDetailSheet(
+    BuildContext context, {
+    required Cost cost,
+    required String? currentUserId,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CostDetailSheet(
+        cost: cost,
+        isOwnCost: cost.paidBy == currentUserId,
+        onDelete: () {
+          context.read<CostFeedBloc>().add(CostFeedDeleted(cost.id));
+        },
+      ),
+    );
+  }
 }
 
-// ── Sprint Feed Header ───────────────────────────────────────────────────────
+// ── Tabular Ledger Row ───────────────────────────────────────────────────────
 
-class _SprintFeedHeader extends StatelessWidget {
-  const _SprintFeedHeader({
-    required this.selectedSprint,
-    required this.sprints,
-    required this.onSprintSelected,
-    required this.onSwitchToMonthly,
+class _TabularLedgerRow extends StatelessWidget {
+  const _TabularLedgerRow({
+    required this.cost,
+    required this.currentUserId,
+    required this.onTap,
   });
 
-  final Sprint selectedSprint;
-  final List<Sprint> sprints;
-  final ValueChanged<Sprint> onSprintSelected;
-  final VoidCallback onSwitchToMonthly;
+  final Cost cost;
+  final String? currentUserId;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
+    final timeStr = DateFormat('hh:mm a').format(cost.purchaseDate);
+    final detailStr = cost.note?.isNotEmpty == true
+        ? '$timeStr · ${cost.note}'
+        : (cost.categoryName?.isNotEmpty == true
+            ? '$timeStr · ${cost.categoryName}'
+            : timeStr);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: colors.surfaceColor,
-        border: Border(
-          bottom: BorderSide(color: colors.borderColor.withValues(alpha: 0.5)),
+    final currencyFormat = NumberFormat('#,##0');
+
+    // Tag Pill logic matching mockup
+    final (tagText, tagBg, tagColor) = _resolveTagInfo(cost);
+
+    // Initial avatar logic
+    final isYou = cost.paidBy == currentUserId;
+    final initial = isYou
+        ? 'U'
+        : (cost.payerName?.isNotEmpty == true
+            ? cost.payerName![0].toUpperCase()
+            : 'M');
+
+    final avatarBg = isYou
+        ? const Color(0xFF1B1D1F)
+        : (initial == 'R'
+            ? const Color(0xFFD97706)
+            : (initial == 'S' ? const Color(0xFF6B7280) : const Color(0xFF4B5563)));
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            // 1. ITEM & DETAILS
+            Expanded(
+              flex: 40,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    cost.name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1B1D1F),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    detailStr,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF8C8D8E),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // 2. TAG / POOL
+            Expanded(
+              flex: 25,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: tagBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    tagText,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: tagColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 3. BY (Avatar initial)
+            Expanded(
+              flex: 12,
+              child: Center(
+                child: CircleAvatar(
+                  radius: 12,
+                  backgroundColor: avatarBg,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // 4. AMOUNT
+            Expanded(
+              flex: 23,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '৳${currencyFormat.format(cost.amount)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1B1D1F),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colors.primaryColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (selectedSprint.isOpen) ...[
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: Colors.greenAccent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                ],
-                Text(
-                  selectedSprint.isOpen ? 'RUNNING SPRINT' : 'SPRINT',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: colors.primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '${selectedSprint.label} (${selectedSprint.dateRangeFormatted})',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: colors.textColor,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          PopupMenuButton<dynamic>(
-            icon: Icon(Icons.arrow_drop_down_rounded, color: colors.iconColor),
-            tooltip: 'Change Sprint',
-            onSelected: (val) {
-              if (val is Sprint) {
-                onSprintSelected(val);
-              } else if (val == 'monthly') {
-                onSwitchToMonthly();
-              }
-            },
-            itemBuilder: (ctx) => [
-              ...sprints.map((s) => PopupMenuItem(
-                    value: s,
-                    child: Row(
-                      children: [
-                        if (s.id == selectedSprint.id)
-                          Icon(Icons.check_rounded,
-                              size: 16, color: colors.primaryColor)
-                        else
-                          const SizedBox(width: 16),
-                        const SizedBox(width: 6),
-                        Text('${s.label} (${s.dateRangeFormatted})'),
-                      ],
-                    ),
-                  )),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'monthly',
-                child: Row(
-                  children: [
-                    SizedBox(width: 22),
-                    Text('Switch to Calendar Month'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
+  }
+
+  (String, Color, Color) _resolveTagInfo(Cost cost) {
+    final cat = (cost.categoryName ?? '').toLowerCase();
+    if (cost.isPersonal) {
+      return ('Personal', const Color(0xFFEBF1F5), const Color(0xFF4A6B82));
+    }
+    if (cat.contains('bazar') || cat.contains('meal') || cat.contains('food')) {
+      return ('Meal Pool', const Color(0xFFFDEEE6), const Color(0xFFD85A38));
+    }
+    if (cat.contains('gas') || cat.contains('bill') || cat.contains('utilit') || cat.contains('internet')) {
+      return ('Utilities', const Color(0xFFF1F3F5), const Color(0xFF495057));
+    }
+    return ('Split +5', const Color(0xFFFDF0DD), const Color(0xFFD97706));
   }
 }
 
-// ── Active Filters Chip Bar ──────────────────────────────────────────────────
+// ── Filter Expenses Bottom Sheet (Exact Match to Mockup) ─────────────────────
 
-class _ActiveFiltersChipBar extends StatelessWidget {
-  const _ActiveFiltersChipBar({
+class _FilterExpensesSheet extends StatefulWidget {
+  const _FilterExpensesSheet({
     required this.state,
-    required this.onRemoveSprint,
-    required this.onRemovePayer,
-    required this.onRemoveCategory,
-    required this.onRemoveScope,
-    required this.onClearAll,
-  });
-
-  final CostFeedState state;
-  final VoidCallback onRemoveSprint;
-  final VoidCallback onRemovePayer;
-  final VoidCallback onRemoveCategory;
-  final VoidCallback onRemoveScope;
-  final VoidCallback onClearAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: colors.surfaceColor.withValues(alpha: 0.6),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          if (state.selectedSprint != null)
-            _FilterTagChip(
-              label: 'Sprint: ${state.selectedSprint!.label}',
-              onDeleted: onRemoveSprint,
-            ),
-          if (state.selectedPayerId != null) ...[
-            const SizedBox(width: 6),
-            _FilterTagChip(
-              label: 'Payer: ${_payerName(state.selectedPayerId!, state.uniquePayers)}',
-              onDeleted: onRemovePayer,
-            ),
-          ],
-          if (state.selectedCategoryId != null) ...[
-            const SizedBox(width: 6),
-            _FilterTagChip(
-              label: 'Category: ${_catName(state.selectedCategoryId!, state.categories)}',
-              onDeleted: onRemoveCategory,
-            ),
-          ],
-          if (state.selectedScope != null) ...[
-            const SizedBox(width: 6),
-            _FilterTagChip(
-              label: state.selectedScope == CostScope.personal
-                  ? 'Personal Only'
-                  : 'Shared House Only',
-              onDeleted: onRemoveScope,
-            ),
-          ],
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onClearAll,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: const Size(40, 28),
-            ),
-            child: Text(
-              'Clear All',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: colors.errorColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _payerName(String id, List<({String id, String name})> payers) {
-    return payers.where((p) => p.id == id).firstOrNull?.name ?? 'Member';
-  }
-
-  String _catName(String id, List<CostCategory> categories) {
-    return categories.where((c) => c.id == id).firstOrNull?.name ?? 'Category';
-  }
-}
-
-class _FilterTagChip extends StatelessWidget {
-  const _FilterTagChip({required this.label, required this.onDeleted});
-
-  final String label;
-  final VoidCallback onDeleted;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: colors.primaryColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.primaryColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: colors.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 4),
-          InkWell(
-            onTap: onDeleted,
-            child: Icon(Icons.close_rounded,
-                size: 14, color: colors.primaryColor),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Filter Bottom Sheet ──────────────────────────────────────────────────────
-
-class _FilterBottomSheet extends StatefulWidget {
-  const _FilterBottomSheet({
-    required this.state,
+    required this.memberCount,
     required this.onApply,
     required this.onReset,
   });
 
   final CostFeedState state;
+  final int memberCount;
   final void Function(
     Sprint? sprint,
     String? payerId,
@@ -808,10 +1172,10 @@ class _FilterBottomSheet extends StatefulWidget {
   final VoidCallback onReset;
 
   @override
-  State<_FilterBottomSheet> createState() => _FilterBottomSheetState();
+  State<_FilterExpensesSheet> createState() => _FilterExpensesSheetState();
 }
 
-class _FilterBottomSheetState extends State<_FilterBottomSheet> {
+class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
   Sprint? _selectedSprint;
   String? _selectedPayerId;
   String? _selectedCategoryId;
@@ -826,1007 +1190,438 @@ class _FilterBottomSheetState extends State<_FilterBottomSheet> {
     _selectedScope = widget.state.selectedScope;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.4,
-      maxChildSize: 0.9,
-      builder: (_, controller) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colors.surfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: ListView(
-            controller: controller,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.borderColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Filter Expenses',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: colors.textColor,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _selectedSprint = null;
-                        _selectedPayerId = null;
-                        _selectedCategoryId = null;
-                        _selectedScope = null;
-                      });
-                      widget.onReset();
-                      Navigator.of(context).pop();
-                    },
-                    child: Text('Reset', style: TextStyle(color: colors.grey)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // ── 1. Sprints Section ────────────────────────────────────────
-              if (widget.state.sprints.isNotEmpty) ...[
-                _FilterSectionTitle(
-                  title: 'Sprint (Date-to-Date)',
-                  icon: Icons.timeline_rounded,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Calendar Month'),
-                      selected: _selectedSprint == null,
-                      onSelected: (_) => setState(() => _selectedSprint = null),
-                    ),
-                    ...widget.state.sprints.map((s) => ChoiceChip(
-                          label: Text('${s.label} (${s.dateRangeFormatted})'),
-                          selected: _selectedSprint?.id == s.id,
-                          onSelected: (sel) => setState(() {
-                            _selectedSprint = sel ? s : null;
-                          }),
-                        )),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // ── 2. Scope Section ──────────────────────────────────────────
-              const _FilterSectionTitle(
-                title: 'Expense Scope',
-                icon: Icons.pie_chart_outline_rounded,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('All'),
-                    selected: _selectedScope == null,
-                    onSelected: (_) => setState(() => _selectedScope = null),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Personal Only'),
-                    selected: _selectedScope == CostScope.personal,
-                    onSelected: (sel) => setState(() {
-                      _selectedScope = sel ? CostScope.personal : null;
-                    }),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Shared House Only'),
-                    selected: _selectedScope == CostScope.shared,
-                    onSelected: (sel) => setState(() {
-                      _selectedScope = sel ? CostScope.shared : null;
-                    }),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── 3. Payers / Members Section ───────────────────────────────
-              if (widget.state.uniquePayers.isNotEmpty) ...[
-                const _FilterSectionTitle(
-                  title: 'Paid By (Member)',
-                  icon: Icons.person_rounded,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('All Payers'),
-                      selected: _selectedPayerId == null,
-                      onSelected: (_) =>
-                          setState(() => _selectedPayerId = null),
-                    ),
-                    ...widget.state.uniquePayers.map((p) => ChoiceChip(
-                          label: Text(p.name),
-                          selected: _selectedPayerId == p.id,
-                          onSelected: (sel) => setState(() {
-                            _selectedPayerId = sel ? p.id : null;
-                          }),
-                        )),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // ── 4. Categories / Labels Section ────────────────────────────
-              if (widget.state.categories.isNotEmpty) ...[
-                const _FilterSectionTitle(
-                  title: 'Category / Label',
-                  icon: Icons.label_rounded,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ChoiceChip(
-                      label: const Text('All Categories'),
-                      selected: _selectedCategoryId == null,
-                      onSelected: (_) =>
-                          setState(() => _selectedCategoryId = null),
-                    ),
-                    ...widget.state.categories.map((c) => ChoiceChip(
-                          label: Text(c.name),
-                          selected: _selectedCategoryId == c.id,
-                          onSelected: (sel) => setState(() {
-                            _selectedCategoryId = sel ? c.id : null;
-                          }),
-                        )),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // ── Apply Button ──────────────────────────────────────────────
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: colors.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () {
-                  widget.onApply(
-                    _selectedSprint,
-                    _selectedPayerId,
-                    _selectedCategoryId,
-                    _selectedScope,
-                  );
-                  Navigator.of(context).pop();
-                },
-                child: const Text(
-                  'Apply Filters',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  int get _activeCount {
+    int count = 0;
+    if (_selectedSprint != null) count++;
+    if (_selectedPayerId != null) count++;
+    if (_selectedCategoryId != null) count++;
+    if (_selectedScope != null) count++;
+    return count;
   }
-}
-
-class _FilterSectionTitle extends StatelessWidget {
-  const _FilterSectionTitle({required this.title, required this.icon});
-
-  final String title;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: colors.primaryColor),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: colors.textColor,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Month Navigator ─────────────────────────────────────────────────────────
-
-class _MonthNavigator extends StatelessWidget {
-  const _MonthNavigator({
-    required this.selectedMonth,
-    required this.onMonthChanged,
-  });
-
-  final DateTime selectedMonth;
-  final ValueChanged<DateTime> onMonthChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    final monthLabel = DateFormat('MMMM yyyy').format(selectedMonth);
+    const primaryCoral = Color(0xFFD85A38);
+    const darkText = Color(0xFF1B1D1F);
+    const subText = Color(0xFF8C8D8E);
+    const unselectedChipBg = Color(0xFFF4F4F4);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: colors.surfaceColor,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: Icon(Icons.chevron_left_rounded, color: colors.iconColor),
-            onPressed: () {
-              final prev = DateTime(selectedMonth.year, selectedMonth.month - 1);
-              onMonthChanged(prev);
-            },
-          ),
-          Row(
-            children: [
-              Icon(
-                Icons.calendar_month_rounded,
-                size: 16,
-                color: colors.primaryColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                monthLabel,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: colors.textColor,
-                ),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: Icon(Icons.chevron_right_rounded, color: colors.iconColor),
-            onPressed: () {
-              final next = DateTime(selectedMonth.year, selectedMonth.month + 1);
-              onMonthChanged(next);
-            },
-          ),
-        ],
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-    );
-  }
-}
-
-// ── 1. Owner's Impact Card ──────────────────────────────────────────────────
-
-class _OwnerImpactCard extends StatelessWidget {
-  const _OwnerImpactCard({
-    required this.myPersonalSpent,
-    required this.myHouseContribution,
-    required this.cycleMonth,
-  });
-
-  final double myPersonalSpent;
-  final double myHouseContribution;
-  final DateTime cycleMonth;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    final currencyFormat = NumberFormat('#,##0.00');
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colors.primaryColor,
-              colors.primaryColor.withValues(alpha: 0.84),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: colors.primaryColor.withValues(alpha: 0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+      child: SafeArea(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.person_rounded,
-                      color: Colors.white70,
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Personal Expenses',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    DateFormat('MMMM yyyy').format(cycleMonth),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              '৳ ${currencyFormat.format(myPersonalSpent)}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Divider(color: Colors.white24, height: 1),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Direct Personal',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '৳ ${currencyFormat.format(myPersonalSpent)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(width: 1, height: 28, color: Colors.white24),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Contribution to House',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '৳ ${currencyFormat.format(myHouseContribution)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── 2. Quick Access Stat Tiles (Personal vs Shared House) ───────────────────
-
-class _QuickAccessStatTiles extends StatelessWidget {
-  const _QuickAccessStatTiles({
-    required this.personalSpent,
-    required this.sharedSpent,
-    required this.myHouseContribution,
-    required this.selectedScope,
-    required this.onOpenExpenses,
-    required this.onManageHouse,
-  });
-
-  final double personalSpent;
-  final double sharedSpent;
-  final double myHouseContribution;
-  final CostScope? selectedScope;
-  final VoidCallback onOpenExpenses;
-  final VoidCallback onManageHouse;
-
-  @override
-  Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat('#,##0.00');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          // Stat Tile 1: Your Expenses
-          Expanded(
-            child: _StatTile(
-              title: 'Your Expenses',
-              badgeText: 'Personal',
-              stat: 'BDT ${currencyFormat.format(personalSpent)}',
-              subtitle: 'Direct personal spend',
-              icon: Icons.account_balance_wallet_rounded,
-              accentColor: Colors.blueAccent,
-              buttonLabel: 'View Expenses',
-              isSelected: selectedScope == CostScope.personal,
-              onTap: onOpenExpenses,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Stat Tile 2: Shared House
-          Expanded(
-            child: _StatTile(
-              title: 'Shared House',
-              badgeText: 'House Pool',
-              stat: 'BDT ${currencyFormat.format(sharedSpent)}',
-              subtitle: myHouseContribution > 0
-                  ? 'Contributed: BDT ${currencyFormat.format(myHouseContribution)}'
-                  : 'Total house expenses',
-              icon: Icons.home_work_rounded,
-              accentColor: Colors.teal,
-              buttonLabel: 'Manage House',
-              isSelected: selectedScope == CostScope.shared,
-              onTap: onManageHouse,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.title,
-    required this.badgeText,
-    required this.stat,
-    required this.subtitle,
-    required this.icon,
-    required this.accentColor,
-    required this.buttonLabel,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String badgeText;
-  final String stat;
-  final String subtitle;
-  final IconData icon;
-  final Color accentColor;
-  final String buttonLabel;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: colors.surfaceColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? accentColor
-                : colors.borderColor.withValues(alpha: 0.5),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected
-                  ? accentColor.withValues(alpha: 0.15)
-                  : Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 18, color: accentColor),
-                ),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: accentColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: colors.grey,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              stat,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: colors.textColor,
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: colors.grey,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    buttonLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: accentColor,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 12,
-                    color: accentColor,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── 3. Recent Activity Section (Expenses & Meals) ───────────────────────────
-
-enum _ActivityType { expense, meal }
-
-class _ActivityItem {
-  const _ActivityItem({
-    required this.type,
-    required this.title,
-    required this.timestamp,
-    required this.tag,
-    this.cost,
-  });
-
-  final _ActivityType type;
-  final String title;
-  final DateTime timestamp;
-  final String tag;
-  final Cost? cost;
-}
-
-class _RecentActivitySection extends StatefulWidget {
-  const _RecentActivitySection({
-    required this.recentCosts,
-    required this.currentUserId,
-    required this.onCostTap,
-  });
-
-  final List<Cost> recentCosts;
-  final String? currentUserId;
-  final ValueChanged<Cost> onCostTap;
-
-  @override
-  State<_RecentActivitySection> createState() => _RecentActivitySectionState();
-}
-
-class _RecentActivitySectionState extends State<_RecentActivitySection> {
-  List<Map<String, dynamic>> _mealLogs = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRecentMealLogs();
-  }
-
-  Future<void> _loadRecentMealLogs() async {
-    try {
-      final res = await Supabase.instance.client
-          .from('meal_logs')
-          .select('*, profiles(username, full_name)')
-          .order('updated_at', ascending: false)
-          .limit(5);
-      if (mounted) {
-        setState(() {
-          _mealLogs = (res as List).cast<Map<String, dynamic>>();
-        });
-      }
-    } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    final currencyFormat = NumberFormat('#,##0.00');
-
-    // Build unified activity list
-    final activities = <_ActivityItem>[];
-
-    // 1. Add cost activities
-    for (final cost in widget.recentCosts) {
-      final payer = (cost.paidBy == widget.currentUserId)
-          ? 'You'
-          : (cost.payerName?.isNotEmpty == true ? cost.payerName! : 'Member');
-
-      activities.add(_ActivityItem(
-        type: _ActivityType.expense,
-        title: 'Expense: BDT ${currencyFormat.format(cost.amount)} ${cost.name.toLowerCase()} by $payer',
-        timestamp: cost.purchaseDate,
-        tag: cost.isPersonal ? 'Personal' : 'Shared House',
-        cost: cost,
-      ));
-    }
-
-    // 2. Add meal activities
-    for (final meal in _mealLogs) {
-      final profile = meal['profiles'] as Map<String, dynamic>?;
-      final memberName =
-          profile?['full_name'] ?? profile?['username'] ?? 'Member';
-      final logDate = DateTime.tryParse(meal['log_date'] as String? ?? '');
-      final isToday = logDate != null &&
-          logDate.year == DateTime.now().year &&
-          logDate.month == DateTime.now().month &&
-          logDate.day == DateTime.now().day;
-      final dateStr = isToday
-          ? 'today'
-          : (logDate != null ? DateFormat('d MMM').format(logDate) : 'today');
-
-      final breakfast = (meal['breakfast'] as num?)?.toDouble() ?? 0;
-      final lunch = (meal['lunch'] as num?)?.toDouble() ?? 0;
-      final dinner = (meal['dinner'] as num?)?.toDouble() ?? 0;
-
-      final mealParts = <String>[];
-      if (dinner > 0) mealParts.add('${dinner == 1 ? "1" : dinner} dinner');
-      if (lunch > 0) mealParts.add('${lunch == 1 ? "1" : lunch} lunch');
-      if (breakfast > 0) {
-        mealParts.add('${breakfast == 1 ? "1" : breakfast} breakfast');
-      }
-      final mealStr = mealParts.isNotEmpty ? mealParts.join(', ') : 'meal';
-
-      activities.add(_ActivityItem(
-        type: _ActivityType.meal,
-        title: 'Meal: $mealStr added/updated for $dateStr for $memberName',
-        timestamp: DateTime.tryParse(meal['updated_at'] as String? ?? '') ??
-            DateTime.now(),
-        tag: 'House Meal',
-      ));
-    }
-
-    // Sort by timestamp descending
-    activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    if (activities.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final displayActivities = activities.take(5).toList();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(5),
+            // Drag Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: colors.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Icon(
-                  Icons.electric_bolt_rounded,
-                  size: 15,
-                  color: colors.primaryColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Recent Activity',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: colors.textColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colors.borderColor.withValues(alpha: 0.5),
               ),
             ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: displayActivities.length,
-              separatorBuilder: (_, __) => Divider(
-                color: colors.borderColor.withValues(alpha: 0.25),
-                height: 1,
-              ),
-              itemBuilder: (context, index) {
-                final item = displayActivities[index];
-                final isExpense = item.type == _ActivityType.expense;
+            const SizedBox(height: 16),
 
-                return ListTile(
-                  dense: true,
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
+            // Title Row with Active badge, Reset all, and close X
+            Row(
+              children: [
+                const Text(
+                  'Filter Expenses',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: darkText,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (_activeCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: (isExpense ? Colors.teal : Colors.deepPurple)
-                          .withValues(alpha: 0.12),
+                      color: primaryCoral.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
-                      isExpense
-                          ? Icons.receipt_long_rounded
-                          : Icons.restaurant_rounded,
-                      color: isExpense ? Colors.teal : Colors.deepPurple,
-                      size: 16,
+                    child: Text(
+                      '$_activeCount Active',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: primaryCoral,
+                      ),
                     ),
                   ),
-                  title: Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textColor,
+                const Spacer(),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedSprint = null;
+                      _selectedPayerId = null;
+                      _selectedCategoryId = null;
+                      _selectedScope = null;
+                    });
+                    widget.onReset();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Text(
+                      'Reset all',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: primaryCoral,
+                      ),
                     ),
                   ),
-                  subtitle: Text(
-                    DateFormat('d MMM, h:mm a').format(item.timestamp),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colors.grey,
-                    ),
-                  ),
-                  trailing: item.cost != null
-                      ? Text(
-                          '৳ ${currencyFormat.format(item.cost!.amount)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: colors.textColor,
-                          ),
-                        )
-                      : null,
-                  onTap: item.cost != null
-                      ? () => widget.onCostTap(item.cost!)
-                      : null,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── 4. Member / Owner Filter Bar ────────────────────────────────────────────
-
-class _PayerFilterBar extends StatelessWidget {
-  const _PayerFilterBar({
-    required this.selectedPayerId,
-    required this.currentUserId,
-    required this.uniquePayers,
-    required this.onPayerChanged,
-  });
-
-  final String? selectedPayerId;
-  final String? currentUserId;
-  final List<({String id, String name})> uniquePayers;
-  final ValueChanged<String?> onPayerChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: SizedBox(
-        height: 32,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            _PayerChip(
-              label: 'All Payers',
-              isSelected: selectedPayerId == null,
-              onTap: () => onPayerChanged(null),
-            ),
-            const SizedBox(width: 8),
-            if (currentUserId != null) ...[
-              _PayerChip(
-                label: 'Only Me',
-                icon: Icons.person_rounded,
-                isSelected: selectedPayerId == currentUserId,
-                onTap: () => onPayerChanged(
-                  selectedPayerId == currentUserId ? null : currentUserId,
                 ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => Navigator.of(context).pop(),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: darkText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ── Section 1: SETTLEMENT CYCLE ─────────────────────────────────
+            const Text(
+              'SETTLEMENT CYCLE',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+                color: subText,
               ),
-              const SizedBox(width: 8),
-            ],
-            ...uniquePayers
-                .where((p) => p.id != currentUserId)
-                .map((p) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _PayerChip(
-                        label: p.name,
-                        isSelected: selectedPayerId == p.id,
-                        onTap: () => onPayerChanged(
-                          selectedPayerId == p.id ? null : p.id,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (widget.state.sprints.isNotEmpty) ...[
+                  ...widget.state.sprints.map((s) {
+                    final isSel = _selectedSprint?.id == s.id;
+                    final label = s.isOpen
+                        ? 'Current Cycle (${s.dateRangeFormatted} → Active)'
+                        : s.label;
+                    return _filterChip(
+                      label: label,
+                      isSelected: isSel,
+                      onTap: () => setState(() {
+                        _selectedSprint = isSel ? null : s;
+                      }),
+                      primaryColor: primaryCoral,
+                      unselectedBg: unselectedChipBg,
+                    );
+                  }),
+                ] else ...[
+                  _filterChip(
+                    label: 'Current Cycle (16 Sep → Active)',
+                    isSelected: _selectedSprint == null,
+                    onTap: () => setState(() => _selectedSprint = null),
+                    primaryColor: primaryCoral,
+                    unselectedBg: unselectedChipBg,
+                  ),
+                ],
+                _filterChip(
+                  label: 'Custom 📅',
+                  isSelected: false,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (date != null && context.mounted) {
+                      context.read<CostFeedBloc>().add(CostFeedMonthChanged(date));
+                    }
+                  },
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // ── Section 2: TAG / EXPENSE POOL ───────────────────────────────
+            const Text(
+              'TAG / EXPENSE POOL',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+                color: subText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _filterChip(
+                  label: 'All Tags',
+                  isSelected: _selectedScope == null && _selectedCategoryId == null,
+                  onTap: () => setState(() {
+                    _selectedScope = null;
+                    _selectedCategoryId = null;
+                  }),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+                _filterChip(
+                  label: 'Bazar (Pool)',
+                  isSelected: _selectedScope == CostScope.shared &&
+                      _isCategoryMatch('bazar'),
+                  onTap: () => setState(() {
+                    _selectedScope = CostScope.shared;
+                    _selectedCategoryId = _findCategoryId('bazar');
+                  }),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+                _filterChip(
+                  label: 'Groceries',
+                  isSelected: _isCategoryMatch('grocer'),
+                  onTap: () => setState(() {
+                    _selectedCategoryId = _findCategoryId('grocer');
+                  }),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+                _filterChip(
+                  label: 'Utilities',
+                  isSelected: _isCategoryMatch('utilit'),
+                  onTap: () => setState(() {
+                    _selectedCategoryId = _findCategoryId('utilit');
+                  }),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+                _filterChip(
+                  label: 'Personal',
+                  isSelected: _selectedScope == CostScope.personal,
+                  onTap: () => setState(() {
+                    _selectedScope = CostScope.personal;
+                    _selectedCategoryId = null;
+                  }),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // ── Section 3: PAID BY MEMBER ───────────────────────────────────
+            const Text(
+              'PAID BY MEMBER',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+                color: subText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _filterChip(
+                  label: 'All Members',
+                  isSelected: _selectedPayerId == null,
+                  onTap: () => setState(() => _selectedPayerId = null),
+                  primaryColor: primaryCoral,
+                  unselectedBg: unselectedChipBg,
+                ),
+                ...widget.state.uniquePayers.map((p) {
+                  final isSel = _selectedPayerId == p.id;
+                  final initial = p.name.isNotEmpty ? p.name[0].toUpperCase() : 'M';
+                  return _memberFilterChip(
+                    label: p.name,
+                    initial: initial,
+                    isSelected: isSel,
+                    onTap: () => setState(() {
+                      _selectedPayerId = isSel ? null : p.id;
+                    }),
+                    primaryColor: primaryCoral,
+                    unselectedBg: unselectedChipBg,
+                  );
+                }),
+              ],
+            ),
+            const SizedBox(height: 26),
+
+            // ── Bottom Action Buttons ───────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: darkText,
                         ),
                       ),
-                    )),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: InkWell(
+                    onTap: () {
+                      widget.onApply(
+                        _selectedSprint,
+                        _selectedPayerId,
+                        _selectedCategoryId,
+                        _selectedScope,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: primaryCoral,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Apply Filters (${widget.state.displayCosts.length} entries)',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-class _PayerChip extends StatelessWidget {
-  const _PayerChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    this.icon,
-  });
+  bool _isCategoryMatch(String keyword) {
+    if (_selectedCategoryId == null) return false;
+    final cat = widget.state.categories
+        .where((c) => c.id == _selectedCategoryId)
+        .firstOrNull;
+    return cat?.name.toLowerCase().contains(keyword) ?? false;
+  }
 
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final IconData? icon;
+  String? _findCategoryId(String keyword) {
+    return widget.state.categories
+        .where((c) => c.name.toLowerCase().contains(keyword))
+        .firstOrNull
+        ?.id;
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return GestureDetector(
+  Widget _filterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color primaryColor,
+    required Color unselectedBg,
+  }) {
+    return InkWell(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? colors.primaryColor : colors.surfaceColor,
+          color: isSelected ? primaryColor : unselectedBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? colors.primaryColor
-                : colors.borderColor.withValues(alpha: 0.5),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF1B1D1F),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _memberFilterChip({
+    required String label,
+    required String initial,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color primaryColor,
+    required Color unselectedBg,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(6, 4, 12, 4),
+        decoration: BoxDecoration(
+          color: isSelected ? primaryColor : unselectedBg,
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 13,
-                color: isSelected ? Colors.white : colors.iconColor,
+            CircleAvatar(
+              radius: 11,
+              backgroundColor: isSelected
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : const Color(0xFFD97706),
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(width: 4),
-            ],
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? Colors.white : colors.textColor,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF1B1D1F),
               ),
             ),
           ],
@@ -1836,125 +1631,10 @@ class _PayerChip extends StatelessWidget {
   }
 }
 
-// ── 5. Detailed List Sliver ─────────────────────────────────────────────────
+// ── Cost Detail Bottom Sheet ─────────────────────────────────────────────────
 
-class _CostListSliver extends StatelessWidget {
-  const _CostListSliver({
-    required this.costs,
-    required this.currentUserId,
-    required this.onDelete,
-  });
-
-  final List<Cost> costs;
-  final String? currentUserId;
-  final ValueChanged<String> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final grouped = <String, List<Cost>>{};
-    for (final cost in costs) {
-      final dateKey = DateFormat('yyyy-MM-dd').format(cost.purchaseDate);
-      grouped.putIfAbsent(dateKey, () => []).add(cost);
-    }
-
-    final dateKeys = grouped.keys.toList();
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final dateKey = dateKeys[index];
-          final dateCosts = grouped[dateKey]!;
-          final date = DateTime.parse(dateKey);
-
-          return _DateGroupSection(
-            date: date,
-            costs: dateCosts,
-            currentUserId: currentUserId,
-            onDelete: onDelete,
-          );
-        },
-        childCount: dateKeys.length,
-      ),
-    );
-  }
-}
-
-class _DateGroupSection extends StatelessWidget {
-  const _DateGroupSection({
-    required this.date,
-    required this.costs,
-    required this.currentUserId,
-    required this.onDelete,
-  });
-
-  final DateTime date;
-  final List<Cost> costs;
-  final String? currentUserId;
-  final ValueChanged<String> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    final now = DateTime.now();
-    final isToday = date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
-    final isYesterday = date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1;
-
-    final headerText = isToday
-        ? 'Today'
-        : isYesterday
-            ? 'Yesterday'
-            : DateFormat('EEE, d MMM').format(date);
-
-    final dayTotal = costs.fold(0.0, (s, c) => s + c.amount);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  headerText,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: colors.grey,
-                  ),
-                ),
-                Text(
-                  '৳ ${NumberFormat('#,##0.00').format(dayTotal)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ...costs.map(
-            (c) => _CostTile(
-              cost: c,
-              isOwnCost: c.paidBy == currentUserId,
-              onDelete: () => onDelete(c.id),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CostTile extends StatelessWidget {
-  const _CostTile({
+class _CostDetailSheet extends StatelessWidget {
+  const _CostDetailSheet({
     required this.cost,
     required this.isOwnCost,
     required this.onDelete,
@@ -1964,139 +1644,106 @@ class _CostTile extends StatelessWidget {
   final bool isOwnCost;
   final VoidCallback onDelete;
 
-  IconData _iconForCategory(String? iconKey) {
-    return switch (iconKey) {
-      'restaurant' => Icons.restaurant_rounded,
-      'shopping_basket' => Icons.shopping_basket_rounded,
-      'directions_bus' => Icons.directions_bus_rounded,
-      'flash_on' => Icons.flash_on_rounded,
-      'home' => Icons.home_rounded,
-      'shopping_bag' => Icons.shopping_bag_rounded,
-      'medical_services' => Icons.medical_services_rounded,
-      'movie' => Icons.movie_rounded,
-      _ => Icons.receipt_long_rounded,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
+    const primaryCoral = Color(0xFFD85A38);
+    const darkText = Color(0xFF1B1D1F);
+    const subText = Color(0xFF8C8D8E);
     final currencyFormat = NumberFormat('#,##0.00');
 
-    return Dismissible(
-      key: Key(cost.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: colors.errorColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      onDismissed: (_) => onDelete(),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colors.surfaceColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: colors.borderColor.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Category icon
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: colors.tileColor.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                _iconForCategory(cost.categoryIcon),
-                color: colors.primaryColor,
-                size: 20,
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-
-            // Title, scope badge, category, payer
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    cost.name,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Scope badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cost.isPersonal
-                              ? colors.softGrey
-                              : colors.tileColor,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          cost.isPersonal ? 'Personal' : 'Shared',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: cost.isPersonal
-                                ? colors.grey
-                                : colors.primaryColor,
-                          ),
+                      Text(
+                        cost.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: darkText,
                         ),
                       ),
-                      if (cost.categoryName != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '• ${cost.categoryName}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: colors.grey,
-                          ),
-                        ),
-                      ],
-                      if (cost.isShared && cost.payerName != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '• ${isOwnCost ? "You" : cost.payerName}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: colors.primaryColor,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 4),
+                      Text(
+                        DateFormat('EEEE, d MMMM yyyy • hh:mm a')
+                            .format(cost.purchaseDate),
+                        style: const TextStyle(fontSize: 13, color: subText),
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Text(
+                  '৳${currencyFormat.format(cost.amount)}',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: primaryCoral,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 18),
+            Divider(color: Colors.black.withValues(alpha: 0.06)),
+            const SizedBox(height: 12),
 
-            // Amount
-            Text(
-              '৳ ${currencyFormat.format(cost.amount)}',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: colors.textColor,
+            _detailRow('Scope', cost.isPersonal ? 'Personal' : 'Shared House'),
+            if (cost.categoryName != null)
+              _detailRow('Category', cost.categoryName!),
+            _detailRow(
+              'Paid By',
+              isOwnCost
+                  ? 'You'
+                  : (cost.payerName?.isNotEmpty == true
+                      ? cost.payerName!
+                      : 'House Member'),
+            ),
+            if (cost.note != null && cost.note!.isNotEmpty)
+              _detailRow('Details / Note', cost.note!),
+
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade200),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onDelete();
+                },
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('Delete Expense'),
               ),
             ),
           ],
@@ -2104,86 +1751,30 @@ class _CostTile extends StatelessWidget {
       ),
     );
   }
-}
 
-// ── Empty State ─────────────────────────────────────────────────────────────
-
-class _EmptyFeedView extends StatelessWidget {
-  const _EmptyFeedView({
-    required this.scope,
-    required this.isFilteredByPayer,
-    required this.onAddPressed,
-  });
-
-  final CostScope? scope;
-  final bool isFilteredByPayer;
-  final VoidCallback onAddPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    final label = isFilteredByPayer
-        ? 'No expenses found for selected member'
-        : scope == CostScope.personal
-            ? 'No personal expenses this month'
-            : scope == CostScope.shared
-                ? 'No shared expenses this month'
-                : 'No expenses recorded this month';
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: colors.tileColor.withValues(alpha: 0.4),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.account_balance_wallet_outlined,
-                size: 36,
-                color: colors.primaryColor,
-              ),
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8C8D8E),
             ),
-            const SizedBox(height: 16),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: colors.textColor,
-              ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1B1D1F),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Tap the button below to quickly record an expense.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: colors.grey,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onAddPressed,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add Expense'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

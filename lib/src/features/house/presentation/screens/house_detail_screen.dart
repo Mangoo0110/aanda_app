@@ -60,21 +60,35 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
           appBar: AppBar(
             backgroundColor: colors.surfaceColor,
             elevation: 0,
-            title: Text(
-              state.house?.name ?? 'House Detail',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 20,
-                color: colors.textColor,
-              ),
+            titleSpacing: 20,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  state.house?.name ?? 'House Detail',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    color: colors.textColor,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                if (state.house != null)
+                  Text(
+                    '${state.house!.members.length} members  •  ${state.sprints.length} sprints',
+                    style: TextStyle(fontSize: 12, color: colors.grey),
+                  ),
+              ],
             ),
             actions: [
               IconButton(
                 icon: Icon(Icons.refresh_rounded, color: colors.iconColor),
+                tooltip: 'Refresh',
                 onPressed: () => context
                     .read<HouseDetailBloc>()
                     .add(HouseDetailRefreshRequested()),
               ),
+              const SizedBox(width: 4),
             ],
           ),
           body: state.isLoading
@@ -148,11 +162,11 @@ class _HouseDetailContent extends StatelessWidget {
         context.read<HouseDetailBloc>().add(HouseDetailRefreshRequested());
       },
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // ── 1. Top Sprints Selector Slider / Dropdown ─────────────────
-          if (state.sprints.isNotEmpty)
-            _SprintSelectorBar(
+          // ── 1. Horizontal Sprint Selector Bar ──────────────────────────────
+          if (state.sprints.isNotEmpty || isAdmin)
+            _MinimalSprintBar(
               sprints: state.sprints,
               selectedSprint: selectedSprint,
               isAdmin: isAdmin,
@@ -164,14 +178,19 @@ class _HouseDetailContent extends StatelessWidget {
               onCreateSprint: () => _showCreateSprintDialog(context),
             ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // ── 2. Sprint Expenses Stats Card ────────────────────────────
-          _SprintExpenseStatsCard(
+          // ── 2. Unified Sprint Overview Card ───────────────────────────────
+          _UnifiedSprintCard(
             sprint: selectedSprint,
             totalSpent: state.sprintTotalSpent,
             myContribution: state.sprintMyContribution,
             foodSpent: state.sprintFoodSpent,
+            totalMeals: state.sprintTotalMeals,
+            myMeals: state.sprintMyMeals,
+            mealRate: state.sprintEstimatedMealRate,
+            isComputingSettlement: state.isComputingSettlement,
+            isAdmin: isAdmin,
             onViewExpenses: () {
               final query = StringBuffer();
               query.write('?houseId=${state.houseId}');
@@ -180,92 +199,100 @@ class _HouseDetailContent extends StatelessWidget {
               }
               context.push('${AppRoutes.costs}$query');
             },
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── 3. Sprint Meals Stats Card ───────────────────────────────
-          _SprintMealStatsCard(
-            sprint: selectedSprint,
-            totalMeals: state.sprintTotalMeals,
-            myMeals: state.sprintMyMeals,
-            mealRate: state.sprintEstimatedMealRate,
             onManageMeals: () {
-              if (selectedSprint != null) {
-                context.push(
-                  '/houses/${state.houseId}/meals?cycleId=${selectedSprint.id}',
-                  extra: selectedSprint,
-                );
-              }
+              final query = selectedSprint != null
+                  ? '?cycleId=${selectedSprint.id}'
+                  : '';
+              context.push(
+                '/houses/${state.houseId}/meals$query',
+                extra: selectedSprint,
+              );
+            },
+            onEndSprint: () {
+              context
+                  .read<HouseDetailBloc>()
+                  .add(HouseDetailEndSprintRequested());
             },
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
 
-          // ── 4. End Sprint & Settlement Button ────────────────────────
-          if (selectedSprint != null)
-            _EndSprintActionButton(
-              sprint: selectedSprint,
-              isComputing: state.isComputingSettlement,
-              onEndSprint: () {
-                context
-                    .read<HouseDetailBloc>()
-                    .add(HouseDetailEndSprintRequested());
-              },
-            ),
-
-          const SizedBox(height: 24),
-
-          // ── 5. Invite Code Card ──────────────────────────────────────
+          // ── 3. Minimal Invite Code Pill ───────────────────────────────────
           if (state.invite != null) ...[
-            _InviteCodeCard(
+            _MinimalInviteCodeCard(
               inviteCode: state.invite!.code,
               isAdmin: isAdmin,
               isActioning: state.isActioning,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
           ],
 
-          // ── 6. Members Section ───────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Members (${house.members.length})',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: colors.textColor,
+          // ── 4. Members Section ────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'MEMBERS (${house.members.length})',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    letterSpacing: 0.8,
+                    color: colors.grey,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          ...house.members.map(
-            (m) => _MemberTile(
-              member: m,
-              isCurrentUser: m.userId == currentUserId,
-              canRemove: isAdmin && m.userId != currentUserId,
-              onRemove: () => context
-                  .read<HouseDetailBloc>()
-                  .add(HouseDetailMemberRemoveRequested(m.userId)),
+          Container(
+            decoration: BoxDecoration(
+              color: colors.surfaceColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colors.borderColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: house.members.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                indent: 58,
+                color: colors.borderColor.withValues(alpha: 0.25),
+              ),
+              itemBuilder: (context, idx) {
+                final m = house.members[idx];
+                return _MinimalMemberTile(
+                  member: m,
+                  isCurrentUser: m.userId == currentUserId,
+                  canRemove: isAdmin && m.userId != currentUserId,
+                  onRemove: () => context
+                      .read<HouseDetailBloc>()
+                      .add(HouseDetailMemberRemoveRequested(m.userId)),
+                );
+              },
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
           if (!isAdmin)
-            OutlinedButton.icon(
-              onPressed: state.isActioning ? null : () => _confirmLeave(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colors.errorColor,
-                side: BorderSide(color: colors.errorColor),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Center(
+              child: TextButton.icon(
+                onPressed:
+                    state.isActioning ? null : () => _confirmLeave(context),
+                icon: Icon(Icons.exit_to_app_rounded,
+                    size: 16, color: colors.errorColor),
+                label: Text(
+                  'Leave House',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colors.errorColor,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.exit_to_app_rounded),
-              label: const Text('Leave House'),
             ),
           const SizedBox(height: 40),
         ],
@@ -310,7 +337,8 @@ class _HouseDetailContent extends StatelessWidget {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.date_range_rounded, color: colors.primaryColor),
+                leading:
+                    Icon(Icons.date_range_rounded, color: colors.primaryColor),
                 title: Text(
                   '${DateFormat('d MMM').format(startDate)} - ${DateFormat('d MMM').format(endDate)}',
                   style: TextStyle(
@@ -318,13 +346,17 @@ class _HouseDetailContent extends StatelessWidget {
                     color: colors.textColor,
                   ),
                 ),
-                subtitle: Text('Tap to pick date range', style: TextStyle(fontSize: 11, color: colors.grey)),
+                subtitle: Text(
+                  'Tap to pick date range',
+                  style: TextStyle(fontSize: 11, color: colors.grey),
+                ),
                 onTap: () async {
                   final range = await showDateRangePicker(
                     context: context,
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030),
-                    initialDateRange: DateTimeRange(start: startDate, end: endDate),
+                    initialDateRange:
+                        DateTimeRange(start: startDate, end: endDate),
                   );
                   if (range != null) {
                     setDialogState(() {
@@ -344,7 +376,9 @@ class _HouseDetailContent extends StatelessWidget {
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: colors.primaryColor,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: () {
                 final label = nameCtrl.text.trim();
@@ -375,7 +409,8 @@ class _HouseDetailContent extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Leave House',
-          style: TextStyle(fontWeight: FontWeight.w700, color: colors.textColor),
+          style:
+              TextStyle(fontWeight: FontWeight.w700, color: colors.textColor),
         ),
         content: Text(
           'Are you sure you want to leave this house?',
@@ -401,10 +436,10 @@ class _HouseDetailContent extends StatelessWidget {
   }
 }
 
-// ── Sprint Selector Bar ──────────────────────────────────────────────────────
+// ── Minimal Sprint Selector Bar ──────────────────────────────────────────────
 
-class _SprintSelectorBar extends StatelessWidget {
-  const _SprintSelectorBar({
+class _MinimalSprintBar extends StatelessWidget {
+  const _MinimalSprintBar({
     required this.sprints,
     required this.selectedSprint,
     required this.isAdmin,
@@ -422,120 +457,128 @@ class _SprintSelectorBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.timeline_rounded, size: 16, color: colors.primaryColor),
-            const SizedBox(width: 6),
-            Text(
-              'Sprint / Billing Cycle',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: colors.grey,
-              ),
-            ),
-            const Spacer(),
-            if (isAdmin)
-              InkWell(
-                onTap: onCreateSprint,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ...sprints.map((sprint) {
+            final isSelected = selectedSprint?.id == sprint.id;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => onSprintSelected(sprint),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? colors.primaryColor
+                        : colors.surfaceColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? colors.primaryColor
+                          : colors.borderColor.withValues(alpha: 0.4),
+                    ),
+                  ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded, size: 16, color: colors.primaryColor),
-                      const SizedBox(width: 2),
+                      if (sprint.isOpen) ...[
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Colors.greenAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       Text(
-                        'New Sprint',
+                        '${sprint.label} (${sprint.dateRangeFormatted})',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: colors.primaryColor,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? Colors.white : colors.textColor,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 42,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: sprints.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final sprint = sprints[index];
-              final isSelected = selectedSprint?.id == sprint.id;
-
-              return ChoiceChip(
-                label: Row(
+            );
+          }),
+          if (isAdmin)
+            InkWell(
+              onTap: onCreateSprint,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: colors.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colors.primaryColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (sprint.isOpen) ...[
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Colors.greenAccent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                    ],
+                    Icon(Icons.add_rounded,
+                        size: 14, color: colors.primaryColor),
+                    const SizedBox(width: 4),
                     Text(
-                      '${sprint.label} (${sprint.dateRangeFormatted})',
+                      'New Sprint',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w600,
-                        color: isSelected ? Colors.white : colors.textColor,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primaryColor,
                       ),
                     ),
                   ],
                 ),
-                selected: isSelected,
-                selectedColor: colors.primaryColor,
-                backgroundColor: colors.surfaceColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isSelected
-                        ? colors.primaryColor
-                        : colors.borderColor.withValues(alpha: 0.5),
-                  ),
-                ),
-                onSelected: (_) => onSprintSelected(sprint),
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-// ── Sprint Expense Stats Card ────────────────────────────────────────────────
+// ── Unified Sprint Overview Card ─────────────────────────────────────────────
 
-class _SprintExpenseStatsCard extends StatelessWidget {
-  const _SprintExpenseStatsCard({
+class _UnifiedSprintCard extends StatelessWidget {
+  const _UnifiedSprintCard({
     required this.sprint,
     required this.totalSpent,
     required this.myContribution,
     required this.foodSpent,
+    required this.totalMeals,
+    required this.myMeals,
+    required this.mealRate,
+    required this.isComputingSettlement,
+    required this.isAdmin,
     required this.onViewExpenses,
+    required this.onManageMeals,
+    required this.onEndSprint,
   });
 
   final Sprint? sprint;
   final double totalSpent;
   final double myContribution;
   final double foodSpent;
+  final double totalMeals;
+  final double myMeals;
+  final double mealRate;
+  final bool isComputingSettlement;
+  final bool isAdmin;
   final VoidCallback onViewExpenses;
+  final VoidCallback onManageMeals;
+  final VoidCallback onEndSprint;
 
   @override
   Widget build(BuildContext context) {
@@ -547,10 +590,12 @@ class _SprintExpenseStatsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.borderColor.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: colors.borderColor.withValues(alpha: 0.4),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -559,403 +604,300 @@ class _SprintExpenseStatsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header: Sprint Title & Status
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sprint?.label ?? 'Sprint Overview',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: colors.textColor,
+                    ),
+                  ),
+                  if (sprint != null)
+                    Text(
+                      sprint!.dateRangeFormatted,
+                      style: TextStyle(fontSize: 12, color: colors.grey),
+                    ),
+                ],
+              ),
+              if (sprint != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: sprint!.isOpen
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : colors.tileColor.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (sprint!.isOpen) ...[
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        sprint!.isOpen ? 'ACTIVE' : 'SETTLED',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color:
+                              sprint!.isOpen ? Colors.green : colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Total Spent Amount
+          Text(
+            'TOTAL SPRINT EXPENSES',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: colors.grey,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '৳ ${currencyFormat.format(totalSpent)}',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: colors.textColor,
+              letterSpacing: -0.5,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          Divider(
+            height: 1,
+            color: colors.borderColor.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 14),
+
+          // 4-Metric Grid (Clean 2x2)
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: Colors.blueAccent,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sprint Expenses',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
-                    ),
-                    Text(
-                      sprint != null
-                          ? '${sprint!.label} • ${sprint!.dateRangeFormatted}'
-                          : 'Running cycle',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
-                    ),
-                  ],
+                child: _metricCell(
+                  label: 'Your Outflow',
+                  value: '৳ ${currencyFormat.format(myContribution)}',
+                  colors: colors,
                 ),
               ),
-              Text(
-                '৳ ${currencyFormat.format(totalSpent)}',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: colors.textColor,
-                  letterSpacing: -0.3,
+              Container(
+                width: 1,
+                height: 32,
+                color: colors.borderColor.withValues(alpha: 0.3),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _metricCell(
+                  label: 'Food Cost',
+                  value: '৳ ${currencyFormat.format(foodSpent)}',
+                  colors: colors,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          const Divider(height: 1),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Contribution',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '৳ ${currencyFormat.format(myContribution)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
-                    ),
-                  ],
+                child: _metricCell(
+                  label: 'Total Meals',
+                  value:
+                      '${totalMeals.toStringAsFixed(totalMeals.truncateToDouble() == totalMeals ? 0 : 1)} meals',
+                  colors: colors,
                 ),
               ),
-              Container(width: 1, height: 24, color: colors.borderColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Food Purchases',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '৳ ${currencyFormat.format(foodSpent)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          InkWell(
-            onTap: onViewExpenses,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'View Expenses for this Sprint',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
-                  SizedBox(width: 6),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 14,
-                    color: Colors.blueAccent,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Sprint Meal Stats Card ───────────────────────────────────────────────────
-
-class _SprintMealStatsCard extends StatelessWidget {
-  const _SprintMealStatsCard({
-    required this.sprint,
-    required this.totalMeals,
-    required this.myMeals,
-    required this.mealRate,
-    required this.onManageMeals,
-  });
-
-  final Sprint? sprint;
-  final double totalMeals;
-  final double myMeals;
-  final double mealRate;
-  final VoidCallback onManageMeals;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.borderColor.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.teal.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.restaurant_rounded,
-                  color: Colors.teal,
-                  size: 18,
-                ),
+                width: 1,
+                height: 32,
+                color: colors.borderColor.withValues(alpha: 0.3),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sprint Meals',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
-                    ),
-                    Text(
-                      sprint != null
-                          ? '${sprint!.label} • ${sprint!.dateRangeFormatted}'
-                          : 'Spreadsheet',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${totalMeals.toStringAsFixed(totalMeals.truncateToDouble() == totalMeals ? 0 : 1)} meals',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: colors.textColor,
-                  letterSpacing: -0.3,
+                child: _metricCell(
+                  label: 'Est. Meal Rate',
+                  value: mealRate > 0
+                      ? '৳ ${mealRate.toStringAsFixed(2)}'
+                      : '—',
+                  colors: colors,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 18),
+
+          // Navigation buttons (Expenses & Meals)
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Meals',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
+                child: InkWell(
+                  onTap: onViewExpenses,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: colors.primaryColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${myMeals.toStringAsFixed(myMeals.truncateToDouble() == myMeals ? 0 : 1)} meals',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.receipt_long_rounded,
+                            size: 15, color: colors.primaryColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Expenses',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: colors.primaryColor,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-              Container(width: 1, height: 24, color: colors.borderColor),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Est. Meal Rate',
-                      style: TextStyle(fontSize: 11, color: colors.grey),
+                child: InkWell(
+                  onTap: onManageMeals,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      mealRate > 0 ? '৳ ${mealRate.toStringAsFixed(2)}' : 'TBD',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textColor,
-                      ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.restaurant_rounded,
+                            size: 15, color: Colors.teal),
+                        SizedBox(width: 6),
+                        Text(
+                          'Meal Sheet',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.teal,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          InkWell(
-            onTap: onManageMeals,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.teal.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Open Meal Spreadsheet',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.teal,
-                    ),
-                  ),
-                  SizedBox(width: 6),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 14,
-                    color: Colors.teal,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-// ── End Sprint Action Button ─────────────────────────────────────────────────
-
-class _EndSprintActionButton extends StatelessWidget {
-  const _EndSprintActionButton({
-    required this.sprint,
-    required this.isComputing,
-    required this.onEndSprint,
-  });
-
-  final Sprint sprint;
-  final bool isComputing;
-  final VoidCallback onEndSprint;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-
-    return OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: sprint.isOpen ? colors.primaryColor : colors.grey,
-        side: BorderSide(
-          color: sprint.isOpen
-              ? colors.primaryColor.withValues(alpha: 0.6)
-              : colors.borderColor,
-          width: 1.5,
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      icon: isComputing
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(
-              sprint.isOpen
-                  ? Icons.calculate_outlined
-                  : Icons.receipt_long_outlined,
-            ),
-      label: Text(
-        sprint.isOpen
-            ? 'End Sprint & Settle with Calculation'
-            : 'View Sprint Settlement Summary',
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-      ),
-      onPressed: isComputing ? null : onEndSprint,
-    );
-  }
-}
-
-// ── Error Body & Members List Widgets ────────────────────────────────────────
-
-class _ErrorBody extends StatelessWidget {
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.context(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: colors.errorColor),
+          // Settle / End Sprint Button
+          if (sprint != null) ...[
             const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textColor, fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      sprint!.isOpen ? colors.primaryColor : colors.grey,
+                  side: BorderSide(
+                    color: sprint!.isOpen
+                        ? colors.primaryColor.withValues(alpha: 0.5)
+                        : colors.borderColor,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                icon: isComputingSettlement
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        sprint!.isOpen
+                            ? Icons.calculate_rounded
+                            : Icons.assessment_rounded,
+                        size: 16,
+                      ),
+                label: Text(
+                  sprint!.isOpen
+                      ? (isAdmin ? 'End Sprint & Settle' : 'Compute Settlement')
+                      : 'View Settlement Breakdown',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                onPressed: isComputingSettlement ? null : onEndSprint,
+              ),
             ),
           ],
-        ),
+        ],
       ),
+    );
+  }
+
+  Widget _metricCell({
+    required String label,
+    required String value,
+    required AppColors colors,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: colors.grey,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: colors.textColor,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _InviteCodeCard extends StatelessWidget {
-  const _InviteCodeCard({
+// ── Minimal Invite Code Card ─────────────────────────────────────────────────
+
+class _MinimalInviteCodeCard extends StatelessWidget {
+  const _MinimalInviteCodeCard({
     required this.inviteCode,
     required this.isAdmin,
     required this.isActioning,
@@ -970,78 +912,76 @@ class _InviteCodeCard extends StatelessWidget {
     final colors = AppColors.context(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: colors.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderColor.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: colors.borderColor.withValues(alpha: 0.3),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
+          Icon(Icons.vpn_key_rounded, size: 16, color: colors.primaryColor),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.vpn_key_rounded, size: 16, color: colors.primaryColor),
-              const SizedBox(width: 8),
               Text(
-                'Invite Code',
+                'INVITE CODE',
                 style: TextStyle(
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  letterSpacing: 0.6,
+                  color: colors.grey,
+                ),
+              ),
+              Text(
+                inviteCode,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
                   color: colors.textColor,
                 ),
               ),
-              const Spacer(),
-              if (isAdmin)
-                TextButton.icon(
-                  onPressed: isActioning
-                      ? null
-                      : () => context
-                          .read<HouseDetailBloc>()
-                          .add(HouseDetailRegenerateCodeRequested()),
-                  icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: const Text('Regenerate', style: TextStyle(fontSize: 11)),
-                ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  inviteCode,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4,
-                    color: colors.primaryColor,
-                  ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            tooltip: 'Copy Invite Code',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: inviteCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Invite code copied!'),
+                  duration: Duration(seconds: 2),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.copy_rounded, size: 20),
-                tooltip: 'Copy Invite Code',
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: inviteCode));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Invite code copied to clipboard!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-            ],
+              );
+            },
           ),
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              tooltip: 'Regenerate Code',
+              onPressed: isActioning
+                  ? null
+                  : () => context
+                      .read<HouseDetailBloc>()
+                      .add(HouseDetailRegenerateCodeRequested()),
+            ),
         ],
       ),
     );
   }
 }
 
-class _MemberTile extends StatelessWidget {
-  const _MemberTile({
+// ── Minimal Member Tile ──────────────────────────────────────────────────────
+
+class _MinimalMemberTile extends StatelessWidget {
+  const _MinimalMemberTile({
     required this.member,
     required this.isCurrentUser,
     required this.canRemove,
@@ -1057,57 +997,75 @@ class _MemberTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        radius: 18,
-        backgroundColor: colors.primaryColor.withValues(alpha: 0.12),
-        child: Text(
-          member.displayName.isNotEmpty
-              ? member.displayName[0].toUpperCase()
-              : 'M',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: colors.primaryColor,
-          ),
-        ),
-      ),
-      title: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
         children: [
-          Text(
-            member.displayName,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: colors.textColor,
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: colors.primaryColor.withValues(alpha: 0.1),
+            child: Text(
+              member.displayName.isNotEmpty
+                  ? member.displayName[0].toUpperCase()
+                  : 'M',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: colors.primaryColor,
+              ),
             ),
           ),
-          if (isCurrentUser) ...[
-            const SizedBox(width: 6),
-            Text('(You)', style: TextStyle(fontSize: 12, color: colors.grey)),
-          ],
-        ],
-      ),
-      subtitle: Text(
-        member.role == MemberRole.admin ? 'Admin' : 'Member',
-        style: TextStyle(
-          fontSize: 12,
-          color: member.role == MemberRole.admin
-              ? colors.primaryColor
-              : colors.grey,
-          fontWeight: member.role == MemberRole.admin
-              ? FontWeight.w600
-              : FontWeight.normal,
-        ),
-      ),
-      trailing: canRemove
-          ? IconButton(
-              icon: Icon(Icons.remove_circle_outline_rounded,
-                  color: colors.errorColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      member.displayName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: colors.textColor,
+                      ),
+                    ),
+                    if (isCurrentUser) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '(You)',
+                        style: TextStyle(fontSize: 12, color: colors.grey),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  member.role == MemberRole.admin ? 'Admin' : 'Member',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: member.role == MemberRole.admin
+                        ? colors.primaryColor
+                        : colors.grey,
+                    fontWeight: member.role == MemberRole.admin
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canRemove)
+            IconButton(
+              icon: Icon(
+                Icons.remove_circle_outline_rounded,
+                color: colors.errorColor,
+                size: 18,
+              ),
               tooltip: 'Remove Member',
               onPressed: () => _confirmRemove(context),
-            )
-          : null,
+            ),
+        ],
+      ),
     );
   }
 
@@ -1117,6 +1075,7 @@ class _MemberTile extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Remove Member', style: TextStyle(color: colors.textColor)),
         content: Text(
           'Are you sure you want to remove ${member.displayName} from this house?',
@@ -1135,6 +1094,43 @@ class _MemberTile extends StatelessWidget {
             child: const Text('Remove'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Error Body ───────────────────────────────────────────────────────────────
+
+class _ErrorBody extends StatelessWidget {
+  const _ErrorBody({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded,
+                size: 48, color: colors.errorColor),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textColor, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }

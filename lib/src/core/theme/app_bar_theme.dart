@@ -5,12 +5,12 @@ class DAppBarTheme {
 
   // Light AppBarTheme
   static AppBarTheme lightAppBarTheme = AppBarTheme(
-    backgroundColor: AppColors.light().backgroundColor,
+    backgroundColor: AppColors.light().appBackgroundColor,
     foregroundColor: AppColors.light().textColor,
     surfaceTintColor: Colors.transparent,
     systemOverlayStyle: SystemUiOverlayStyle(
       statusBarBrightness: Brightness.dark,
-      statusBarColor: AppColors.light().backgroundColor,
+      statusBarColor: AppColors.light().appBackgroundColor,
       statusBarIconBrightness: Brightness.dark,
     ),
     elevation: 0,

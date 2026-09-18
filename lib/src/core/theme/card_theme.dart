@@ -5,13 +5,13 @@ class DCardTheme {
 
   // Light CardTheme
   static CardThemeData lightCardTheme = CardThemeData(
-    color: AppColors.light().backgroundColor,
+    color: AppColors.light().surfaceColor,
     shadowColor: AppColors.light().shadowColor,
     elevation: 0,
     margin: const EdgeInsets.symmetric(horizontal: 4),
     shape: RoundedRectangleBorder(
       borderRadius: AppSizes.bigRectangleTileRadius,
-      side: BorderSide(color: AppColors.light().dividerColor),
+      side: BorderSide.none,
     ),
     clipBehavior: Clip.antiAlias,
     surfaceTintColor: Colors.transparent,

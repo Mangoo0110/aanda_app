@@ -253,6 +253,37 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
           );
         },
       ),
+
+      // ── General Meals Shortcut Route ────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.meals,
+        name: 'meals',
+        pageBuilder: (context, state) {
+          final houseId = state.uri.queryParameters['houseId'] ?? 'default';
+          final cycleId = state.uri.queryParameters['cycleId'] ?? '';
+          final sprint = state.extra is Sprint ? state.extra as Sprint : null;
+          return MaterialPage(
+            key: state.pageKey,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: BlocProvider(
+                create: (_) => HouseMealsBloc(
+                  houseId: houseId,
+                  cycleId: cycleId,
+                  getHouseMembers: context.read<GetHouseMembers>(),
+                  getMealLogs: context.read<GetMealLogs>(),
+                  upsertMealLog: context.read<UpsertMealLog>(),
+                )..add(const HouseMealsStarted()),
+                child: HouseMealsScreen(
+                  houseId: houseId,
+                  cycleId: cycleId,
+                  sprint: sprint,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     ],
     errorBuilder: (context, state) => const SizedBox.shrink(),
   );

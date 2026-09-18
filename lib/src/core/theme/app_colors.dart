@@ -28,75 +28,75 @@ class AppColors {
     required this.enabledBorderColor,
   });
 
-  static const Color _primaryColor = Color(0xFF00696D);
-  static const Color _darkPrimaryColor = Color(0xFF4FD3D8);
-  static const Color _secondaryContainerColor = Color(0xFFD5ECEA);
-  static const Color _darkSecondaryContainerColor = Color(0xff324b4d);
-  static const Color _surfaceColor = Color(0xFFFAFCFB);
-  static const Color _darkSurfaceColor = Color(0xFF071212);
-  static const Color _backgroundColor = Color.fromARGB(255, 255, 255, 255);
+  static const Color _primaryColor = Color(0xFFD85A38);
+  static const Color _darkPrimaryColor = Color(0xFFF28B70);
+  static const Color _secondaryContainerColor = Color(0xFFFDEEE8);
+  static const Color _darkSecondaryContainerColor = Color(0xFF3B2822);
+  static const Color _surfaceColor = Color(0xFFFFFFFF);
+  static const Color _darkSurfaceColor = Color(0xFF221F1D);
+  static const Color _backgroundColor = Color(0xFFFFF7EE);
   static const Color _errorColor = Color(0xFFBA1A1A);
-  static const Color _splashColor = Color(0x2939AEB2);
-  static const Color _hintBaseColor = Color(0xFF6E7F80);
-  static const Color _iconBaseColor = Color(0xFF00696D);
-  static const Color _darkIconBaseColor = Color(0xFF4FD3D8);
-  static const Color _bottomNavColor = Color(0xFFFAFCFB);
-  static const Color _darkBottomNavColor = Color(0xFF071212);
-  static const Color _unselectedLabelColor = Color(0xFF657576);
-  static const Color _unselectedTileColor = Color(0xFFE8F5F3);
+  static const Color _splashColor = Color(0x24D85A38);
+  static const Color _hintBaseColor = Color(0xFF8C8D8E);
+  static const Color _iconBaseColor = Color(0xFFD85A38);
+  static const Color _darkIconBaseColor = Color(0xFFF28B70);
+  static const Color _bottomNavColor = Color(0xFFFFFFFF);
+  static const Color _darkBottomNavColor = Color(0xFF221F1D);
+  static const Color _unselectedLabelColor = Color(0xFF8C8D8E);
+  static const Color _unselectedTileColor = Color(0xFFFAF5EE);
 
   static final AppColors _lightInstance = AppColors._(
-    textColor: const Color(0xFF172526),
+    textColor: const Color(0xFF1B1D1F),
     invertTextColor: Colors.white,
-    grey: const Color(0xFF7B8C8D),
+    grey: const Color(0xFF8C8D8E),
     backgroundColor: _surfaceColor,
     tileColor: _secondaryContainerColor,
-    softGrey: const Color(0xFFEFF5F4),
+    softGrey: const Color(0xFFFAF5EE),
     iconColor: _iconBaseColor,
     buttonContentColor: Colors.white,
     activeButtonContentColor: Colors.white,
     inActiveButtonColor: _surfaceColor,
     inActiveButtonContentColor: _primaryColor,
     drawerColor: _surfaceColor,
-    borderColor: const Color(0xFFBBCAC9),
+    borderColor: const Color(0xFFEFE8DE),
     popupBackgroundColor: _surfaceColor,
-    popupContentColor: const Color(0xFF172526),
-    dividerColor: const Color(0xFFE0E9E8),
+    popupContentColor: const Color(0xFF1B1D1F),
+    dividerColor: const Color(0xFFF2ECE4),
     tabBarColor: _surfaceColor,
-    shadowColor: const Color(0x2400282A),
+    shadowColor: const Color(0x14000000),
     errorColor: _errorColor,
     bottomNavigationBarColor: _bottomNavColor,
     unselectedLabelColor: _unselectedLabelColor,
     hintColor: _hintBaseColor,
     labelColor: _hintBaseColor,
-    enabledBorderColor: const Color(0xFFB8C7C6),
+    enabledBorderColor: const Color(0xFFEFE8DE),
   );
 
   static final AppColors _darkInstance = AppColors._(
-    textColor: const Color(0xFFEAF5F4),
-    invertTextColor: const Color(0xFF071212),
-    grey: const Color(0xFF8CA09F),
+    textColor: const Color(0xFFF7F2EE),
+    invertTextColor: const Color(0xFF181514),
+    grey: const Color(0xFFA39A93),
     backgroundColor: _darkSurfaceColor,
     tileColor: _darkSecondaryContainerColor,
-    softGrey: const Color(0xFF1B2929),
+    softGrey: const Color(0xFF2D2825),
     iconColor: _darkIconBaseColor,
-    buttonContentColor: const Color(0xFF042021),
-    activeButtonContentColor: const Color(0xFF042021),
-    inActiveButtonColor: const Color(0xFF122121),
-    inActiveButtonContentColor: const Color(0xFFB9D0CF),
+    buttonContentColor: const Color(0xFF181514),
+    activeButtonContentColor: const Color(0xFF181514),
+    inActiveButtonColor: const Color(0xFF2D2825),
+    inActiveButtonContentColor: const Color(0xFFE0C4BC),
     drawerColor: _darkSurfaceColor,
-    borderColor: const Color(0xFF435656),
-    popupBackgroundColor: const Color(0xFF122121),
-    popupContentColor: const Color(0xFFEAF5F4),
-    dividerColor: const Color(0xFF1B2929),
+    borderColor: const Color(0xFF4A3E39),
+    popupBackgroundColor: const Color(0xFF221F1D),
+    popupContentColor: const Color(0xFFF7F2EE),
+    dividerColor: const Color(0xFF332C29),
     tabBarColor: _darkSurfaceColor,
     shadowColor: const Color(0x66000000),
     errorColor: const Color(0xFFFFB4AB),
     bottomNavigationBarColor: _darkBottomNavColor,
-    unselectedLabelColor: const Color(0xFF9EAFAE),
-    hintColor: const Color(0xFF9EAFAE),
-    labelColor: const Color(0xFF9EAFAE),
-    enabledBorderColor: const Color(0xFF435656),
+    unselectedLabelColor: const Color(0xFFA39A93),
+    hintColor: const Color(0xFFA39A93),
+    labelColor: const Color(0xFFA39A93),
+    enabledBorderColor: const Color(0xFF4A3E39),
   );
 
   factory AppColors.light() => _lightInstance;

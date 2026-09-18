@@ -12,6 +12,7 @@ class AppRoutes {
   static const costAdd = '/costs/add';
   static const houseCreate = '/houses/create';
   static const houseJoin = '/houses/join';
+  static const meals = '/meals';
   static String houseDetail(String houseId) => '/houses/$houseId';
   static String houseMeals(String houseId) => '/houses/$houseId/meals';
 

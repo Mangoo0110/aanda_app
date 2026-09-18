@@ -4,7 +4,7 @@ class DatePickerThemes {
   static final lightTheme = DatePickerThemeData(
     backgroundColor: AppColors.light().backgroundColor,
     headerBackgroundColor: AppColors.light().primaryColor,
-    headerForegroundColor: Colors.black,
+    headerForegroundColor: Colors.white,
     dayBackgroundColor: WidgetStateProperty.resolveWith<Color?>((
       Set<WidgetState> states,
     ) {
@@ -75,7 +75,7 @@ class DatePickerThemes {
     headerForegroundColor: Colors.white,
     dayForegroundColor: WidgetStatePropertyAll(Colors.white),
     todayForegroundColor: WidgetStatePropertyAll(Colors.transparent),
-    todayBorder: BorderSide(color: AppColors.light().primaryColor),
+    todayBorder: BorderSide(color: AppColors.dark().primaryColor),
     todayBackgroundColor: WidgetStatePropertyAll(
       AppColors.dark().primaryColor.withAlpha(155),
     ),
@@ -86,10 +86,10 @@ class DatePickerThemes {
       AppColors.dark().primaryColor.withAlpha(50),
     ),
     cancelButtonStyle: ButtonStyle(
-      foregroundColor: WidgetStatePropertyAll(AppColors.light().grey),
+      foregroundColor: WidgetStatePropertyAll(AppColors.dark().grey),
     ),
     confirmButtonStyle: ButtonStyle(
-      foregroundColor: WidgetStatePropertyAll(AppColors.light().primaryColor),
+      foregroundColor: WidgetStatePropertyAll(AppColors.dark().primaryColor),
     ),
   );
 }
