@@ -32,3 +32,9 @@ final class HouseMealEntryChanged extends HouseMealsEvent {
   final double lunch;
   final double dinner;
 }
+
+/// Fired when the user selects a different billing cycle in the Member Log view.
+final class HouseMealsCycleChanged extends HouseMealsEvent {
+  const HouseMealsCycleChanged(this.sprint);
+  final Sprint sprint;
+}

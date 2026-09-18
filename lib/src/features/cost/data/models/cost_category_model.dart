@@ -7,6 +7,8 @@ class CostCategoryModel extends CostCategory {
     super.icon,
     super.isFood,
     super.houseId,
+    super.defaultAmount,
+    super.costNature,
   });
 
   factory CostCategoryModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,8 @@ class CostCategoryModel extends CostCategory {
       icon: json['icon'] as String?,
       isFood: (json['is_food'] as bool?) ?? false,
       houseId: json['house_id'] as String?,
+      defaultAmount: (json['default_amount'] as num?)?.toDouble(),
+      costNature: json['cost_nature'] as String?,
     );
   }
 
@@ -25,5 +29,7 @@ class CostCategoryModel extends CostCategory {
     'icon': icon,
     'is_food': isFood,
     if (houseId != null) 'house_id': houseId,
+    if (defaultAmount != null) 'default_amount': defaultAmount,
+    if (costNature != null) 'cost_nature': costNature,
   };
 }

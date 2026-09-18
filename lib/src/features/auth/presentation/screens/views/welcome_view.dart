@@ -50,10 +50,7 @@ class WelcomeView extends StatelessWidget {
               Center(
                 child: Text(
                   'Shared living, simplified.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: colors.grey),
                 ),
               ),
               const Spacer(),

@@ -7,8 +7,7 @@ import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 part 'house_create_event.dart';
 part 'house_create_state.dart';
 
-final class HouseCreateBloc
-    extends Bloc<HouseCreateEvent, HouseCreateState> {
+final class HouseCreateBloc extends Bloc<HouseCreateEvent, HouseCreateState> {
   HouseCreateBloc({required CreateHouse createHouse})
     : _createHouse = createHouse,
       super(const HouseCreateState()) {
@@ -31,11 +30,17 @@ final class HouseCreateBloc
   ) async {
     final name = state.name.trim();
     if (name.length < 2) {
-      emit(state.copyWith(errorMessage: 'House name must be at least 2 characters.'));
+      emit(
+        state.copyWith(
+          errorMessage: 'House name must be at least 2 characters.',
+        ),
+      );
       return;
     }
 
-    emit(state.copyWith(status: HouseCreateStatus.submitting, clearError: true));
+    emit(
+      state.copyWith(status: HouseCreateStatus.submitting, clearError: true),
+    );
 
     final result = await handleFutureRequest<House>(
       request: () => _createHouse(CreateHouseParams(name: name)),

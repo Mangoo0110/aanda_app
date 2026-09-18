@@ -44,11 +44,11 @@ class _HouseCreateScreenState extends State<HouseCreateScreen> {
         throw Exception('User is not signed in.');
       }
 
-      final houseData = await supabase.from('houses').insert({
-        'name': name,
-        'created_by': user.id,
-        'currency': 'BDT',
-      }).select().single();
+      final houseData = await supabase
+          .from('houses')
+          .insert({'name': name, 'created_by': user.id, 'currency': 'BDT'})
+          .select()
+          .single();
 
       await supabase.from('house_members').insert({
         'house_id': houseData['id'],
@@ -166,11 +166,7 @@ class _HouseCreateScreenState extends State<HouseCreateScreen> {
               child: Text(
                 'Create a space for your roommates, flatmates, or family to track shared costs and split expenses.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colors.grey,
-                  height: 1.4,
-                ),
+                style: TextStyle(fontSize: 14, color: colors.grey, height: 1.4),
               ),
             ),
             const SizedBox(height: 32),
@@ -194,10 +190,7 @@ class _HouseCreateScreenState extends State<HouseCreateScreen> {
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                prefixIcon: Icon(
-                  Icons.home_outlined,
-                  color: colors.iconColor,
-                ),
+                prefixIcon: Icon(Icons.home_outlined, color: colors.iconColor),
                 hintText: 'e.g. Bachelor Pad, Flat 4B, Dhanmondi Mess',
                 hintStyle: TextStyle(
                   color: colors.hintColor,

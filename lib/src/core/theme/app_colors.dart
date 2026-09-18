@@ -28,8 +28,8 @@ class AppColors {
     required this.enabledBorderColor,
   });
 
-  static const Color _primaryColor = Color(0xFFD85A38);
-  static const Color _darkPrimaryColor = Color(0xFFF28B70);
+  static const Color _primaryColor = Color(0xFFE05344);
+  static const Color _darkPrimaryColor = Color(0xF3E57468);
   static const Color _secondaryContainerColor = Color(0xFFFDEEE8);
   static const Color _darkSecondaryContainerColor = Color(0xFF3B2822);
   static const Color _surfaceColor = Color(0xFFFFFFFF);
@@ -38,8 +38,8 @@ class AppColors {
   static const Color _errorColor = Color(0xFFBA1A1A);
   static const Color _splashColor = Color(0x24D85A38);
   static const Color _hintBaseColor = Color(0xFF8C8D8E);
-  static const Color _iconBaseColor = Color(0xFFD85A38);
-  static const Color _darkIconBaseColor = Color(0xFFF28B70);
+  static const Color _iconBaseColor = _primaryColor;
+  static const Color _darkIconBaseColor = _darkPrimaryColor;
   static const Color _bottomNavColor = Color(0xFFFFFFFF);
   static const Color _darkBottomNavColor = Color(0xFF221F1D);
   static const Color _unselectedLabelColor = Color(0xFF8C8D8E);

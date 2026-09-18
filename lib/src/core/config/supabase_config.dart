@@ -16,7 +16,11 @@ class SupabaseConfig {
   static String get url {
     var cleaned = _rawUrl.trim();
     // Remove accidental quotes
-    cleaned = cleaned.replaceAll('"', '').replaceAll('“', '').replaceAll('”', '').trim();
+    cleaned = cleaned
+        .replaceAll('"', '')
+        .replaceAll('“', '')
+        .replaceAll('”', '')
+        .trim();
     // Strip trailing /rest/v1 or /rest/v1/
     if (cleaned.endsWith('/rest/v1/')) {
       cleaned = cleaned.substring(0, cleaned.length - 9);

@@ -4,7 +4,7 @@ import 'package:aanda/src/features/settlement/domain/entities/settlement.dart';
 
 class SettlementRemoteDatasource {
   const SettlementRemoteDatasource({required SupabaseClient supabase})
-      : _supabase = supabase;
+    : _supabase = supabase;
 
   final SupabaseClient _supabase;
 
@@ -23,11 +23,7 @@ class SettlementRemoteDatasource {
 
     final res = await _supabase.functions.invoke(
       'compute-settlement',
-      body: {
-        'cycle_id': cycleId,
-        'calculation_date': cutoffIso,
-        'save': save,
-      },
+      body: {'cycle_id': cycleId, 'calculation_date': cutoffIso, 'save': save},
     );
 
     if (res.status != 200 || res.data == null) {

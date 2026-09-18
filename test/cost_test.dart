@@ -132,10 +132,7 @@ void main() {
         createdAt: DateTime(2026, 9, 15),
       );
 
-      final state = CostFeedState(
-        costs: [cost1, cost2],
-        selectedPayerId: 'u2',
-      );
+      final state = CostFeedState(costs: [cost1, cost2], selectedPayerId: 'u2');
 
       expect(state.displayCosts.length, 1);
       expect(state.displayCosts.first.id, '2');

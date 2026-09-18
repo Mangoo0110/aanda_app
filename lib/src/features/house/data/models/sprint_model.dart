@@ -22,7 +22,7 @@ class SprintModel extends Sprint {
       houseId: json['house_id'] as String,
       label: (json['label'] as String?)?.isNotEmpty == true
           ? json['label'] as String
-          : 'Sprint',
+          : 'Cycle',
       startDate: DateTime.parse(json['start_date'] as String),
       endDate: DateTime.parse(json['end_date'] as String),
       status: statusStr == 'closed' ? SprintStatus.closed : SprintStatus.open,

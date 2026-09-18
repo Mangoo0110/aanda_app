@@ -191,7 +191,7 @@ class HouseRemoteDatasource {
 
     return createSprint(
       houseId: houseId,
-      label: 'Sprint ${count + 1}',
+      label: 'Cycle ${count + 1}',
       startDate: startDate,
       endDate: endDate,
     );
@@ -296,7 +296,9 @@ class HouseRemoteDatasource {
       }
     }
 
-    final estimatedMealRate = totalMeals > 0 && foodSpent > 0 ? foodSpent / totalMeals : 0.0;
+    final estimatedMealRate = totalMeals > 0 && foodSpent > 0
+        ? foodSpent / totalMeals
+        : 0.0;
 
     return {
       'totalSpent': totalSpent,

@@ -27,8 +27,9 @@ class MemberSettlementSummary {
   final double carryForwardIn;
   final double netBalance;
 
-  String get displayName =>
-      fullName.isNotEmpty ? fullName : (username.isNotEmpty ? username : 'Member');
+  String get displayName => fullName.isNotEmpty
+      ? fullName
+      : (username.isNotEmpty ? username : 'Member');
 
   bool get owesMoney => netBalance > 0.01;
   bool get isOwedMoney => netBalance < -0.01;

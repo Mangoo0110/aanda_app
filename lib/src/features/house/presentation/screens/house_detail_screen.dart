@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
 import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
@@ -40,7 +41,9 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
 
     return BlocConsumer<HouseDetailBloc, HouseDetailState>(
       listenWhen: (prev, curr) =>
-          (prev.isActioning && !curr.isActioning && curr.errorMessage != null) ||
+          (prev.isActioning &&
+              !curr.isActioning &&
+              curr.errorMessage != null) ||
           (prev.settlement == null && curr.settlement != null),
       listener: (context, state) {
         if (state.errorMessage != null) {
@@ -58,25 +61,21 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
         return Scaffold(
           backgroundColor: colors.appBackgroundColor,
           appBar: AppBar(
-            backgroundColor: colors.surfaceColor,
+            backgroundColor: colors.appBackgroundColor,
             elevation: 0,
-            titleSpacing: 20,
+            leading: const AppBackButton(),
+            titleSpacing: 12,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   state.house?.name ?? 'House Detail',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: colors.textColor,
-                    letterSpacing: -0.3,
-                  ),
+                  style: Theme.of(context).appBarTheme.titleTextStyle,
                 ),
                 if (state.house != null)
                   Text(
-                    '${state.house!.members.length} members  •  ${state.sprints.length} sprints',
-                    style: TextStyle(fontSize: 12, color: colors.grey),
+                    '${state.house!.members.length} members  •  ${state.sprints.length} cycles',
+                    style: TextStyle(fontSize: 11, color: colors.grey),
                   ),
               ],
             ),
@@ -84,9 +83,9 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
               IconButton(
                 icon: Icon(Icons.refresh_rounded, color: colors.iconColor),
                 tooltip: 'Refresh',
-                onPressed: () => context
-                    .read<HouseDetailBloc>()
-                    .add(HouseDetailRefreshRequested()),
+                onPressed: () => context.read<HouseDetailBloc>().add(
+                  HouseDetailRefreshRequested(),
+                ),
               ),
               const SizedBox(width: 4),
             ],
@@ -94,16 +93,13 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
           body: state.isLoading
               ? const Center(child: CircularProgressIndicator.adaptive())
               : state.house == null
-                  ? _ErrorBody(
-                      message: state.errorMessage ?? 'Failed to load house.',
-                      onRetry: () => context
-                          .read<HouseDetailBloc>()
-                          .add(HouseDetailRefreshRequested()),
-                    )
-                  : _HouseDetailContent(
-                      state: state,
-                      currentUserId: currentUserId,
-                    ),
+              ? _ErrorBody(
+                  message: state.errorMessage ?? 'Failed to load house.',
+                  onRetry: () => context.read<HouseDetailBloc>().add(
+                    HouseDetailRefreshRequested(),
+                  ),
+                )
+              : _HouseDetailContent(state: state, currentUserId: currentUserId),
         );
       },
     );
@@ -111,15 +107,16 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
 
   void _showSettlementModal(BuildContext context, Settlement settlement) {
     final selectedSprint = context.read<HouseDetailBloc>().state.selectedSprint;
-    final isAdmin = context.read<HouseDetailBloc>().state.house?.members.any(
-              (m) =>
-                  m.userId ==
-                      (switch (context.read<AppAuthGuardBloc>().state) {
-                        Authenticated(:final account) => account.id,
-                        _ => '',
-                      }) &&
-                  m.isAdmin,
-            ) ??
+    final isAdmin =
+        context.read<HouseDetailBloc>().state.house?.members.any(
+          (m) =>
+              m.userId ==
+                  (switch (context.read<AppAuthGuardBloc>().state) {
+                    Authenticated(:final account) => account.id,
+                    _ => '',
+                  }) &&
+              m.isAdmin,
+        ) ??
         false;
 
     SettlementBreakdownSheet.show(
@@ -129,8 +126,8 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
       isAdmin: isAdmin,
       onConfirmClose: () {
         context.read<HouseDetailBloc>().add(
-              HouseDetailConfirmCloseSprintRequested(settlement.cycleId),
-            );
+          HouseDetailConfirmCloseSprintRequested(settlement.cycleId),
+        );
       },
     );
   }
@@ -139,10 +136,7 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
 // ── House Detail Content ─────────────────────────────────────────────────────
 
 class _HouseDetailContent extends StatelessWidget {
-  const _HouseDetailContent({
-    required this.state,
-    required this.currentUserId,
-  });
+  const _HouseDetailContent({required this.state, required this.currentUserId});
 
   final HouseDetailState state;
   final String currentUserId;
@@ -171,9 +165,9 @@ class _HouseDetailContent extends StatelessWidget {
               selectedSprint: selectedSprint,
               isAdmin: isAdmin,
               onSprintSelected: (s) {
-                context
-                    .read<HouseDetailBloc>()
-                    .add(HouseDetailSprintSelected(s));
+                context.read<HouseDetailBloc>().add(
+                  HouseDetailSprintSelected(s),
+                );
               },
               onCreateSprint: () => _showCreateSprintDialog(context),
             ),
@@ -209,9 +203,9 @@ class _HouseDetailContent extends StatelessWidget {
               );
             },
             onEndSprint: () {
-              context
-                  .read<HouseDetailBloc>()
-                  .add(HouseDetailEndSprintRequested());
+              context.read<HouseDetailBloc>().add(
+                HouseDetailEndSprintRequested(),
+              );
             },
           ),
 
@@ -268,9 +262,9 @@ class _HouseDetailContent extends StatelessWidget {
                   member: m,
                   isCurrentUser: m.userId == currentUserId,
                   canRemove: isAdmin && m.userId != currentUserId,
-                  onRemove: () => context
-                      .read<HouseDetailBloc>()
-                      .add(HouseDetailMemberRemoveRequested(m.userId)),
+                  onRemove: () => context.read<HouseDetailBloc>().add(
+                    HouseDetailMemberRemoveRequested(m.userId),
+                  ),
                 );
               },
             ),
@@ -280,10 +274,14 @@ class _HouseDetailContent extends StatelessWidget {
           if (!isAdmin)
             Center(
               child: TextButton.icon(
-                onPressed:
-                    state.isActioning ? null : () => _confirmLeave(context),
-                icon: Icon(Icons.exit_to_app_rounded,
-                    size: 16, color: colors.errorColor),
+                onPressed: state.isActioning
+                    ? null
+                    : () => _confirmLeave(context),
+                icon: Icon(
+                  Icons.exit_to_app_rounded,
+                  size: 16,
+                  color: colors.errorColor,
+                ),
                 label: Text(
                   'Leave House',
                   style: TextStyle(
@@ -303,7 +301,7 @@ class _HouseDetailContent extends StatelessWidget {
   void _showCreateSprintDialog(BuildContext context) {
     final colors = AppColors.context(context);
     final now = DateTime.now();
-    final nameCtrl = TextEditingController(text: 'Sprint');
+    final nameCtrl = TextEditingController(text: 'Cycle');
     DateTime startDate = now;
     DateTime endDate = now.add(const Duration(days: 14));
 
@@ -312,9 +310,11 @@ class _HouseDetailContent extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: colors.surfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Text(
-            'New Sprint',
+            'New Cycle',
             style: TextStyle(
               fontWeight: FontWeight.w700,
               color: colors.textColor,
@@ -326,7 +326,7 @@ class _HouseDetailContent extends StatelessWidget {
               TextField(
                 controller: nameCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Sprint Name / Label',
+                  labelText: 'Cycle Name / Label',
                   filled: true,
                   fillColor: colors.appBackgroundColor,
                   border: OutlineInputBorder(
@@ -337,8 +337,10 @@ class _HouseDetailContent extends StatelessWidget {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading:
-                    Icon(Icons.date_range_rounded, color: colors.primaryColor),
+                leading: Icon(
+                  Icons.date_range_rounded,
+                  color: colors.primaryColor,
+                ),
                 title: Text(
                   '${DateFormat('d MMM').format(startDate)} - ${DateFormat('d MMM').format(endDate)}',
                   style: TextStyle(
@@ -355,8 +357,10 @@ class _HouseDetailContent extends StatelessWidget {
                     context: context,
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2030),
-                    initialDateRange:
-                        DateTimeRange(start: startDate, end: endDate),
+                    initialDateRange: DateTimeRange(
+                      start: startDate,
+                      end: endDate,
+                    ),
                   );
                   if (range != null) {
                     setDialogState(() {
@@ -385,14 +389,14 @@ class _HouseDetailContent extends StatelessWidget {
                 if (label.isEmpty) return;
                 Navigator.of(ctx).pop();
                 context.read<HouseDetailBloc>().add(
-                      HouseDetailCreateSprintRequested(
-                        label: label,
-                        startDate: startDate,
-                        endDate: endDate,
-                      ),
-                    );
+                  HouseDetailCreateSprintRequested(
+                    label: label,
+                    startDate: startDate,
+                    endDate: endDate,
+                  ),
+                );
               },
-              child: const Text('Start Sprint'),
+              child: const Text('Start Cycle'),
             ),
           ],
         ),
@@ -409,8 +413,10 @@ class _HouseDetailContent extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Leave House',
-          style:
-              TextStyle(fontWeight: FontWeight.w700, color: colors.textColor),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: colors.textColor,
+          ),
         ),
         content: Text(
           'Are you sure you want to leave this house?',
@@ -469,8 +475,10 @@ class _MinimalSprintBar extends StatelessWidget {
                 onTap: () => onSprintSelected(sprint),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? colors.primaryColor
@@ -500,8 +508,9 @@ class _MinimalSprintBar extends StatelessWidget {
                         '${sprint.label} (${sprint.dateRangeFormatted})',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: isSelected ? Colors.white : colors.textColor,
                         ),
                       ),
@@ -516,8 +525,10 @@ class _MinimalSprintBar extends StatelessWidget {
               onTap: onCreateSprint,
               borderRadius: BorderRadius.circular(20),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
@@ -528,11 +539,14 @@ class _MinimalSprintBar extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.add_rounded,
-                        size: 14, color: colors.primaryColor),
+                    Icon(
+                      Icons.add_rounded,
+                      size: 14,
+                      color: colors.primaryColor,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      'New Sprint',
+                      'New Cycle',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -590,9 +604,7 @@ class _UnifiedSprintCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colors.borderColor.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: colors.borderColor.withValues(alpha: 0.4)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -612,7 +624,7 @@ class _UnifiedSprintCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    sprint?.label ?? 'Sprint Overview',
+                    sprint?.label ?? 'Cycle Overview',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -628,8 +640,10 @@ class _UnifiedSprintCard extends StatelessWidget {
               ),
               if (sprint != null)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: sprint!.isOpen
                         ? Colors.green.withValues(alpha: 0.12)
@@ -656,8 +670,7 @@ class _UnifiedSprintCard extends StatelessWidget {
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
-                          color:
-                              sprint!.isOpen ? Colors.green : colors.grey,
+                          color: sprint!.isOpen ? Colors.green : colors.grey,
                         ),
                       ),
                     ],
@@ -670,7 +683,7 @@ class _UnifiedSprintCard extends StatelessWidget {
 
           // Total Spent Amount
           Text(
-            'TOTAL SPRINT EXPENSES',
+            'TOTAL CYCLE EXPENSES',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -690,10 +703,7 @@ class _UnifiedSprintCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 16),
-          Divider(
-            height: 1,
-            color: colors.borderColor.withValues(alpha: 0.3),
-          ),
+          Divider(height: 1, color: colors.borderColor.withValues(alpha: 0.3)),
           const SizedBox(height: 14),
 
           // 4-Metric Grid (Clean 2x2)
@@ -768,8 +778,11 @@ class _UnifiedSprintCard extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.receipt_long_rounded,
-                            size: 15, color: colors.primaryColor),
+                        Icon(
+                          Icons.receipt_long_rounded,
+                          size: 15,
+                          color: colors.primaryColor,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Expenses',
@@ -798,8 +811,11 @@ class _UnifiedSprintCard extends StatelessWidget {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.restaurant_rounded,
-                            size: 15, color: Colors.teal),
+                        Icon(
+                          Icons.restaurant_rounded,
+                          size: 15,
+                          color: Colors.teal,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'Meal Sheet',
@@ -824,8 +840,9 @@ class _UnifiedSprintCard extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor:
-                      sprint!.isOpen ? colors.primaryColor : colors.grey,
+                  foregroundColor: sprint!.isOpen
+                      ? colors.primaryColor
+                      : colors.grey,
                   side: BorderSide(
                     color: sprint!.isOpen
                         ? colors.primaryColor.withValues(alpha: 0.5)
@@ -850,10 +867,12 @@ class _UnifiedSprintCard extends StatelessWidget {
                       ),
                 label: Text(
                   sprint!.isOpen
-                      ? (isAdmin ? 'End Sprint & Settle' : 'Compute Settlement')
-                      : 'View Settlement Breakdown',
+                      ? (isAdmin ? 'End Cycle & Settle' : 'View Cycle Summary')
+                      : 'View Cycle Breakdown',
                   style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
                 onPressed: isComputingSettlement ? null : onEndSprint,
               ),
@@ -916,9 +935,7 @@ class _MinimalInviteCodeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.borderColor.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: colors.borderColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -968,9 +985,9 @@ class _MinimalInviteCodeCard extends StatelessWidget {
               tooltip: 'Regenerate Code',
               onPressed: isActioning
                   ? null
-                  : () => context
-                      .read<HouseDetailBloc>()
-                      .add(HouseDetailRegenerateCodeRequested()),
+                  : () => context.read<HouseDetailBloc>().add(
+                      HouseDetailRegenerateCodeRequested(),
+                    ),
             ),
         ],
       ),
@@ -1116,8 +1133,11 @@ class _ErrorBody extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded,
-                size: 48, color: colors.errorColor),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: colors.errorColor,
+            ),
             const SizedBox(height: 12),
             Text(
               message,
@@ -1125,10 +1145,7 @@ class _ErrorBody extends StatelessWidget {
               style: TextStyle(color: colors.textColor, fontSize: 14),
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

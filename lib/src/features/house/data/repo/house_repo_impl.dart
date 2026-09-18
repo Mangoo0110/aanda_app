@@ -10,7 +10,7 @@ import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 
 class HouseRepoImpl with ErrorHandler implements HouseRepo {
   HouseRepoImpl({required HouseRemoteDatasource datasource})
-      : _datasource = datasource;
+    : _datasource = datasource;
 
   final HouseRemoteDatasource _datasource;
 

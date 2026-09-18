@@ -56,9 +56,11 @@ class DashboardRemoteDatasource {
     final year = int.tryParse(parts[0]) ?? DateTime.now().year;
     final month = int.tryParse(parts[1]) ?? DateTime.now().month;
 
-    final startDate = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-01';
+    final startDate =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-01';
     final lastDay = DateTime(year, month + 1, 0).day;
-    final endDate = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+    final endDate =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
 
     // 1. Personal costs for current user
     final personalRows = await _supabase
@@ -76,13 +78,15 @@ class DashboardRemoteDatasource {
       final amt = (r['amount'] as num?)?.toDouble() ?? 0.0;
       personalSpent += amt;
 
-      final pDate = DateTime.tryParse(r['purchase_date'] as String? ?? '') ??
+      final pDate =
+          DateTime.tryParse(r['purchase_date'] as String? ?? '') ??
           DateTime.now();
       activities.add(
         DashboardActivityModel(
           id: 'cost-${r['id']}',
           type: DashboardActivityType.expense,
-          title: 'Expense: BDT ${amt.toStringAsFixed(0)} ${(r['name'] as String).toLowerCase()} by You (Personal)',
+          title:
+              'Expense: BDT ${amt.toStringAsFixed(0)} ${(r['name'] as String).toLowerCase()} by You (Personal)',
           tag: 'Personal',
           timestamp: pDate,
           amount: amt,
@@ -108,7 +112,9 @@ class DashboardRemoteDatasource {
     if (targetHouseIds.isNotEmpty) {
       final sharedRows = await _supabase
           .from('costs')
-          .select('id, house_id, paid_by, name, amount, purchase_date, created_at, profiles(username, full_name)')
+          .select(
+            'id, house_id, paid_by, name, amount, purchase_date, created_at, profiles(username, full_name)',
+          )
           .inFilter('house_id', targetHouseIds)
           .eq('cost_scope', 'shared')
           .gte('purchase_date', startDate)
@@ -127,14 +133,16 @@ class DashboardRemoteDatasource {
             ? 'You'
             : (profile?['full_name'] ?? profile?['username'] ?? 'Member');
 
-        final pDate = DateTime.tryParse(r['purchase_date'] as String? ?? '') ??
+        final pDate =
+            DateTime.tryParse(r['purchase_date'] as String? ?? '') ??
             DateTime.now();
 
         activities.add(
           DashboardActivityModel(
             id: 'cost-${r['id']}',
             type: DashboardActivityType.expense,
-            title: 'Expense: BDT ${amt.toStringAsFixed(0)} ${(r['name'] as String).toLowerCase()} by $payerName',
+            title:
+                'Expense: BDT ${amt.toStringAsFixed(0)} ${(r['name'] as String).toLowerCase()} by $payerName',
             tag: 'Shared House',
             timestamp: pDate,
             amount: amt,
@@ -146,7 +154,9 @@ class DashboardRemoteDatasource {
       try {
         final mealRows = await _supabase
             .from('meal_logs')
-            .select('id, user_id, log_date, breakfast, lunch, dinner, created_at, updated_at, profiles(username, full_name)')
+            .select(
+              'id, user_id, log_date, breakfast, lunch, dinner, created_at, updated_at, profiles(username, full_name)',
+            )
             .inFilter('house_id', targetHouseIds)
             .order('updated_at', ascending: false)
             .limit(5);
@@ -169,17 +179,20 @@ class DashboardRemoteDatasource {
           final parts = <String>[];
           if (dinner > 0) parts.add('${dinner == 1 ? "1" : dinner} dinner');
           if (lunch > 0) parts.add('${lunch == 1 ? "1" : lunch} lunch');
-          if (breakfast > 0) parts.add('${breakfast == 1 ? "1" : breakfast} breakfast');
+          if (breakfast > 0)
+            parts.add('${breakfast == 1 ? "1" : breakfast} breakfast');
 
           final mealDesc = parts.isNotEmpty ? parts.join(', ') : 'meal';
-          final mDate = DateTime.tryParse(m['updated_at'] as String? ?? '') ??
+          final mDate =
+              DateTime.tryParse(m['updated_at'] as String? ?? '') ??
               DateTime.now();
 
           activities.add(
             DashboardActivityModel(
               id: 'meal-${m['id']}',
               type: DashboardActivityType.meal,
-              title: 'Meal: $mealDesc added/updated for $dateStr for $memberName',
+              title:
+                  'Meal: $mealDesc added/updated for $dateStr for $memberName',
               tag: 'House Meal',
               timestamp: mDate,
             ),

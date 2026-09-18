@@ -10,11 +10,9 @@ part 'dashboard_state.dart';
 /// Phase 2 will extend this to manage house context (selected house,
 /// member list refresh, etc.).
 final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
-  DashboardBloc({
-    required String accountName,
-    required Logout logout,
-  }) : _logout = logout,
-       super(DashboardState.initial(accountName: accountName)) {
+  DashboardBloc({required String accountName, required Logout logout})
+    : _logout = logout,
+      super(DashboardState.initial(accountName: accountName)) {
     on<DashboardStarted>(_onStarted);
     on<DashboardAccountMenuToggled>(_onAccountMenuToggled);
     on<DashboardAccountMenuClosed>(_onAccountMenuClosed);
@@ -62,7 +60,13 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     DashboardLogoutPressed event,
     Emitter<DashboardState> emit,
   ) async {
-    emit(state.copyWith(isAccountMenuOpen: false, isLoggingOut: true, clearError: true));
+    emit(
+      state.copyWith(
+        isAccountMenuOpen: false,
+        isLoggingOut: true,
+        clearError: true,
+      ),
+    );
     final response = await _logout(const NoParams());
     if (!response.success) {
       emit(state.copyWith(isLoggingOut: false, errorMessage: response.message));

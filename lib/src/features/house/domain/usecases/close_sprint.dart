@@ -4,10 +4,7 @@ import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 
 class CloseSprintParams {
-  const CloseSprintParams({
-    required this.cycleId,
-    this.closedAt,
-  });
+  const CloseSprintParams({required this.cycleId, this.closedAt});
 
   final String cycleId;
   final DateTime? closedAt;

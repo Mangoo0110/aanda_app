@@ -15,6 +15,10 @@ final class CostFormState {
     this.availableHouses = const [],
     DateTime? purchaseDate,
     this.selectedHouseId,
+    this.members = const [],
+    this.selectedPayerId,
+    this.selectedPayerName,
+    this.isCurrentUserAdmin = false,
     this.note = '',
     this.status = CostFormStatus.initial,
     this.createdCost,
@@ -32,6 +36,10 @@ final class CostFormState {
   final List<({String id, String name})> availableHouses;
   final DateTime purchaseDate;
   final String? selectedHouseId;
+  final List<HouseMember> members;
+  final String? selectedPayerId;
+  final String? selectedPayerName;
+  final bool isCurrentUserAdmin;
   final String note;
   final CostFormStatus status;
   final Cost? createdCost;
@@ -40,6 +48,10 @@ final class CostFormState {
   bool get isSubmitting => status == CostFormStatus.submitting;
   bool get isSuccess => status == CostFormStatus.success;
   bool get isValid => name.trim().isNotEmpty && amount > 0;
+  ({String id, String name})? get selectedHouse {
+    if (selectedHouseId == null) return null;
+    return availableHouses.where((h) => h.id == selectedHouseId).firstOrNull;
+  }
 
   CostFormState copyWith({
     bool? isEditing,
@@ -55,6 +67,11 @@ final class CostFormState {
     DateTime? purchaseDate,
     String? selectedHouseId,
     bool clearHouse = false,
+    List<HouseMember>? members,
+    String? selectedPayerId,
+    bool clearPayer = false,
+    String? selectedPayerName,
+    bool? isCurrentUserAdmin,
     String? note,
     CostFormStatus? status,
     Cost? createdCost,
@@ -68,13 +85,23 @@ final class CostFormState {
       amount: amount ?? this.amount,
       costType: costType ?? this.costType,
       costScope: costScope ?? this.costScope,
-      selectedCategory:
-          clearCategory ? null : (selectedCategory ?? this.selectedCategory),
+      selectedCategory: clearCategory
+          ? null
+          : (selectedCategory ?? this.selectedCategory),
       availableCategories: availableCategories ?? this.availableCategories,
       availableHouses: availableHouses ?? this.availableHouses,
       purchaseDate: purchaseDate ?? this.purchaseDate,
-      selectedHouseId:
-          clearHouse ? null : (selectedHouseId ?? this.selectedHouseId),
+      selectedHouseId: clearHouse
+          ? null
+          : (selectedHouseId ?? this.selectedHouseId),
+      members: members ?? this.members,
+      selectedPayerId: clearPayer
+          ? null
+          : (selectedPayerId ?? this.selectedPayerId),
+      selectedPayerName: clearPayer
+          ? null
+          : (selectedPayerName ?? this.selectedPayerName),
+      isCurrentUserAdmin: isCurrentUserAdmin ?? this.isCurrentUserAdmin,
       note: note ?? this.note,
       status: status ?? this.status,
       createdCost: createdCost ?? this.createdCost,

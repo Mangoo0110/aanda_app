@@ -31,11 +31,16 @@ final class HouseDetailState {
 
   bool get isLoading => status == HouseDetailStatus.loading;
 
-  double get sprintTotalSpent => (sprintStats?['totalSpent'] as num?)?.toDouble() ?? 0.0;
-  double get sprintMyContribution => (sprintStats?['myContribution'] as num?)?.toDouble() ?? 0.0;
-  double get sprintFoodSpent => (sprintStats?['foodSpent'] as num?)?.toDouble() ?? 0.0;
-  double get sprintTotalMeals => (sprintStats?['totalMeals'] as num?)?.toDouble() ?? 0.0;
-  double get sprintMyMeals => (sprintStats?['myMeals'] as num?)?.toDouble() ?? 0.0;
+  double get sprintTotalSpent =>
+      (sprintStats?['totalSpent'] as num?)?.toDouble() ?? 0.0;
+  double get sprintMyContribution =>
+      (sprintStats?['myContribution'] as num?)?.toDouble() ?? 0.0;
+  double get sprintFoodSpent =>
+      (sprintStats?['foodSpent'] as num?)?.toDouble() ?? 0.0;
+  double get sprintTotalMeals =>
+      (sprintStats?['totalMeals'] as num?)?.toDouble() ?? 0.0;
+  double get sprintMyMeals =>
+      (sprintStats?['myMeals'] as num?)?.toDouble() ?? 0.0;
   double get sprintEstimatedMealRate =>
       (sprintStats?['estimatedMealRate'] as num?)?.toDouble() ?? 0.0;
 
@@ -63,7 +68,8 @@ final class HouseDetailState {
       sprintStats: sprintStats ?? this.sprintStats,
       settlement: clearSettlement ? null : (settlement ?? this.settlement),
       isActioning: isActioning ?? this.isActioning,
-      isComputingSettlement: isComputingSettlement ?? this.isComputingSettlement,
+      isComputingSettlement:
+          isComputingSettlement ?? this.isComputingSettlement,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

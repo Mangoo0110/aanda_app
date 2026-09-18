@@ -7,8 +7,8 @@ class DInputDecorationTheme {
   static InputDecorationTheme lightTheme = InputDecorationTheme(
     filled: true,
     floatingLabelBehavior: FloatingLabelBehavior.always,
-    prefixIconConstraints: const BoxConstraints(maxHeight: 40, maxWidth: 40),
-    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+    prefixIconConstraints: const BoxConstraints(maxHeight: 44, maxWidth: 44),
+    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
     fillColor: AppColors.light().backgroundColor,
     focusColor: AppColors.light().textColor,
     hoverColor: AppColors.light().textColor,
@@ -37,8 +37,8 @@ class DInputDecorationTheme {
   static InputDecorationTheme darkTheme = InputDecorationTheme(
     filled: true,
     floatingLabelBehavior: FloatingLabelBehavior.never,
-    prefixIconConstraints: const BoxConstraints(maxHeight: 40, maxWidth: 40),
-    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+    prefixIconConstraints: const BoxConstraints(maxHeight: 44, maxWidth: 44),
+    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
     fillColor: AppColors.dark().backgroundColor,
     focusColor: AppColors.dark().textColor,
     hoverColor: AppColors.dark().textColor,

@@ -18,7 +18,8 @@ class DashboardActivityModel extends DashboardActivity {
           : DashboardActivityType.expense,
       title: json['title'] as String? ?? '',
       tag: json['tag'] as String? ?? '',
-      timestamp: DateTime.tryParse(json['timestamp'] as String? ?? '') ??
+      timestamp:
+          DateTime.tryParse(json['timestamp'] as String? ?? '') ??
           DateTime.now(),
       amount: (json['amount'] as num?)?.toDouble(),
     );

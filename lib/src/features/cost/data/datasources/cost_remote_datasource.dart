@@ -46,14 +46,14 @@ class CostRemoteDatasource {
   }) async {
     final startStr = startDate != null
         ? '${startDate.year.toString().padLeft(4, '0')}-'
-          '${startDate.month.toString().padLeft(2, '0')}-'
-          '${startDate.day.toString().padLeft(2, '0')}'
+              '${startDate.month.toString().padLeft(2, '0')}-'
+              '${startDate.day.toString().padLeft(2, '0')}'
         : null;
 
     final endStr = endDate != null
         ? '${endDate.year.toString().padLeft(4, '0')}-'
-          '${endDate.month.toString().padLeft(2, '0')}-'
-          '${endDate.day.toString().padLeft(2, '0')}'
+              '${endDate.month.toString().padLeft(2, '0')}-'
+              '${endDate.day.toString().padLeft(2, '0')}'
         : null;
 
     // 1. Try Edge Function endpoint first
@@ -111,8 +111,7 @@ class CostRemoteDatasource {
 
   Future<Cost> addCost(CreateCostData data) async {
     final isCustomCategory =
-        data.categoryId != null &&
-        !data.categoryId!.startsWith('predefined_');
+        data.categoryId != null && !data.categoryId!.startsWith('predefined_');
 
     final dateStr =
         '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
@@ -130,11 +129,19 @@ class CostRemoteDatasource {
           'cost_type': data.costType.name,
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
-          if (data.costScope == CostScope.shared && data.houseId != null)
+          if (data.costScope == CostScope.shared &&
+              data.houseId != null &&
+              data.houseId!.isNotEmpty)
             'house_id': data.houseId,
-          if (data.cycleId != null) 'cycle_id': data.cycleId,
-          if (isCustomCategory) 'category_id': data.categoryId,
+          if (data.cycleId != null && data.cycleId!.isNotEmpty)
+            'cycle_id': data.cycleId,
+          if (isCustomCategory &&
+              data.categoryId != null &&
+              data.categoryId!.isNotEmpty)
+            'category_id': data.categoryId,
           if (data.note != null && data.note!.isNotEmpty) 'note': data.note,
+          if (data.paidBy != null && data.paidBy!.isNotEmpty)
+            'paid_by': data.paidBy,
         },
       );
 
@@ -153,12 +160,20 @@ class CostRemoteDatasource {
       'amount': data.amount,
       'cost_type': data.costType.name,
       'cost_scope': data.costScope.name,
-      'paid_by': _currentUserId,
+      'paid_by': (data.paidBy != null && data.paidBy!.isNotEmpty)
+          ? data.paidBy!
+          : _currentUserId,
       'purchase_date': dateStr,
-      if (data.costScope == CostScope.shared && data.houseId != null)
+      if (data.costScope == CostScope.shared &&
+          data.houseId != null &&
+          data.houseId!.isNotEmpty)
         'house_id': data.houseId,
-      if (data.cycleId != null) 'cycle_id': data.cycleId,
-      if (isCustomCategory) 'category_id': data.categoryId,
+      if (data.cycleId != null && data.cycleId!.isNotEmpty)
+        'cycle_id': data.cycleId,
+      if (isCustomCategory &&
+          data.categoryId != null &&
+          data.categoryId!.isNotEmpty)
+        'category_id': data.categoryId,
       if (data.note != null && data.note!.isNotEmpty) 'note': data.note,
     };
 
@@ -173,8 +188,7 @@ class CostRemoteDatasource {
 
   Future<Cost> updateCost(UpdateCostData data) async {
     final isCustomCategory =
-        data.categoryId != null &&
-        !data.categoryId!.startsWith('predefined_');
+        data.categoryId != null && !data.categoryId!.startsWith('predefined_');
 
     final dateStr =
         '${data.purchaseDate.year.toString().padLeft(4, '0')}-'
@@ -193,10 +207,22 @@ class CostRemoteDatasource {
           'cost_type': data.costType.name,
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
-          'house_id': data.costScope == CostScope.shared ? data.houseId : null,
-          'cycle_id': data.cycleId,
-          'category_id': isCustomCategory ? data.categoryId : null,
+          'house_id': (data.costScope == CostScope.shared &&
+                  data.houseId != null &&
+                  data.houseId!.isNotEmpty)
+              ? data.houseId
+              : null,
+          'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)
+              ? data.cycleId
+              : null,
+          'category_id': (isCustomCategory &&
+                  data.categoryId != null &&
+                  data.categoryId!.isNotEmpty)
+              ? data.categoryId
+              : null,
           'note': data.note,
+          if (data.paidBy != null && data.paidBy!.isNotEmpty)
+            'paid_by': data.paidBy,
         },
       );
 
@@ -216,10 +242,22 @@ class CostRemoteDatasource {
       'cost_type': data.costType.name,
       'cost_scope': data.costScope.name,
       'purchase_date': dateStr,
-      'house_id': data.costScope == CostScope.shared ? data.houseId : null,
-      'cycle_id': data.cycleId,
-      'category_id': isCustomCategory ? data.categoryId : null,
+      'house_id': (data.costScope == CostScope.shared &&
+              data.houseId != null &&
+              data.houseId!.isNotEmpty)
+          ? data.houseId
+          : null,
+      'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)
+          ? data.cycleId
+          : null,
+      'category_id': (isCustomCategory &&
+              data.categoryId != null &&
+              data.categoryId!.isNotEmpty)
+          ? data.categoryId
+          : null,
       'note': data.note,
+      if (data.paidBy != null && data.paidBy!.isNotEmpty)
+        'paid_by': data.paidBy,
     };
 
     final row = await _supabase
@@ -291,5 +329,41 @@ class CostRemoteDatasource {
     }
 
     return list;
+  }
+
+  Future<CostCategory> createCategory(CreateCostCategoryData data) async {
+    // Variable costs must never have default amount setup
+    final defaultAmt = data.costNature == 'variable'
+        ? null
+        : data.defaultAmount;
+
+    final payload = {
+      'name': data.name,
+      'icon': data.icon,
+      'is_food': data.isFood,
+      if (data.houseId != null) 'house_id': data.houseId,
+      if (defaultAmt != null) 'default_amount': defaultAmt,
+      'cost_nature': data.costNature,
+    };
+
+    try {
+      final res = await _supabase
+          .from('cost_categories')
+          .insert(payload)
+          .select()
+          .single();
+      return CostCategoryModel.fromJson(res);
+    } catch (_) {
+      // Fallback: return local entity
+      return CostCategory(
+        id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
+        name: data.name,
+        icon: data.icon,
+        isFood: data.isFood,
+        houseId: data.houseId,
+        defaultAmount: defaultAmt,
+        costNature: data.costNature,
+      );
+    }
   }
 }

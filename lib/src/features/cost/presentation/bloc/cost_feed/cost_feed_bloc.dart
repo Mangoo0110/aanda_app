@@ -23,9 +23,7 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
        _deleteCost = deleteCost,
        _getCostCategories = getCostCategories,
        _getSprints = getSprints,
-       super(CostFeedState(
-         selectedHouseId: initialHouseId,
-       )) {
+       super(CostFeedState(selectedHouseId: initialHouseId)) {
     on<CostFeedStarted>(_onStarted);
     on<CostFeedRefreshRequested>(_onRefresh);
     on<CostFeedScopeFilterChanged>(_onScopeChanged);
@@ -58,7 +56,12 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedScopeFilterChanged event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(selectedScope: event.scope, clearScope: event.scope == null));
+    emit(
+      state.copyWith(
+        selectedScope: event.scope,
+        clearScope: event.scope == null,
+      ),
+    );
     await _load(emit);
   }
 
@@ -66,30 +69,36 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedPayerFilterChanged event,
     Emitter<CostFeedState> emit,
   ) {
-    emit(state.copyWith(
-      selectedPayerId: event.payerId,
-      clearPayer: event.payerId == null,
-    ));
+    emit(
+      state.copyWith(
+        selectedPayerId: event.payerId,
+        clearPayer: event.payerId == null,
+      ),
+    );
   }
 
   void _onCategoryChanged(
     CostFeedCategoryFilterChanged event,
     Emitter<CostFeedState> emit,
   ) {
-    emit(state.copyWith(
-      selectedCategoryId: event.categoryId,
-      clearCategory: event.categoryId == null,
-    ));
+    emit(
+      state.copyWith(
+        selectedCategoryId: event.categoryId,
+        clearCategory: event.categoryId == null,
+      ),
+    );
   }
 
   Future<void> _onSprintSelected(
     CostFeedSprintSelected event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(
-      selectedSprint: event.sprint,
-      clearSprint: event.sprint == null,
-    ));
+    emit(
+      state.copyWith(
+        selectedSprint: event.sprint,
+        clearSprint: event.sprint == null,
+      ),
+    );
     await _load(emit);
   }
 
@@ -97,16 +106,18 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedFiltersApplied event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(
-      selectedSprint: event.sprint,
-      clearSprint: event.sprint == null,
-      selectedPayerId: event.payerId,
-      clearPayer: event.payerId == null,
-      selectedCategoryId: event.categoryId,
-      clearCategory: event.categoryId == null,
-      selectedScope: event.scope,
-      clearScope: event.scope == null,
-    ));
+    emit(
+      state.copyWith(
+        selectedSprint: event.sprint,
+        clearSprint: event.sprint == null,
+        selectedPayerId: event.payerId,
+        clearPayer: event.payerId == null,
+        selectedCategoryId: event.categoryId,
+        clearCategory: event.categoryId == null,
+        selectedScope: event.scope,
+        clearScope: event.scope == null,
+      ),
+    );
     await _load(emit);
   }
 
@@ -114,12 +125,14 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedFiltersCleared event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(
-      clearSprint: true,
-      clearPayer: true,
-      clearCategory: true,
-      clearScope: true,
-    ));
+    emit(
+      state.copyWith(
+        clearSprint: true,
+        clearPayer: true,
+        clearCategory: true,
+        clearScope: true,
+      ),
+    );
     await _load(emit);
   }
 
@@ -135,11 +148,13 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedHouseFilterChanged event,
     Emitter<CostFeedState> emit,
   ) async {
-    emit(state.copyWith(
-      selectedHouseId: event.houseId,
-      clearHouse: event.houseId == null,
-      clearSprint: true,
-    ));
+    emit(
+      state.copyWith(
+        selectedHouseId: event.houseId,
+        clearHouse: event.houseId == null,
+        clearSprint: true,
+      ),
+    );
     await _load(emit);
   }
 
@@ -167,7 +182,9 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     List<CostCategory> categories = state.categories;
     if (categories.isEmpty && _getCostCategories != null) {
       final cats = await handleFutureRequest<List<CostCategory>>(
-        request: () => _getCostCategories(GetCostCategoriesParams(houseId: state.selectedHouseId)),
+        request: () => _getCostCategories(
+          GetCostCategoriesParams(houseId: state.selectedHouseId),
+        ),
         debugger: ControllerDebugger(),
       );
       if (cats != null) categories = cats;
@@ -175,7 +192,9 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
 
     // 2. Load sprints if house selected or user has house
     List<Sprint> sprints = state.sprints;
-    if (_getSprints != null && state.selectedHouseId != null && sprints.isEmpty) {
+    if (_getSprints != null &&
+        state.selectedHouseId != null &&
+        sprints.isEmpty) {
       final sp = await handleFutureRequest<List<Sprint>>(
         request: () => _getSprints(state.selectedHouseId!),
         debugger: ControllerDebugger(),

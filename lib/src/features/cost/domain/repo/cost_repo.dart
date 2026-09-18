@@ -17,6 +17,7 @@ class CreateCostData {
     this.categoryName,
     this.categoryIcon,
     this.note,
+    this.paidBy,
   });
 
   final String name;
@@ -30,6 +31,7 @@ class CreateCostData {
   final String? categoryName;
   final String? categoryIcon;
   final String? note;
+  final String? paidBy;
 }
 
 class UpdateCostData {
@@ -46,6 +48,7 @@ class UpdateCostData {
     this.categoryName,
     this.categoryIcon,
     this.note,
+    this.paidBy,
   });
 
   final String id;
@@ -60,6 +63,7 @@ class UpdateCostData {
   final String? categoryName;
   final String? categoryIcon;
   final String? note;
+  final String? paidBy;
 }
 
 abstract interface class CostRepo {
@@ -82,4 +86,25 @@ abstract interface class CostRepo {
 
   /// Fetches available categories (predefined + custom for [houseId]).
   AsyncRequest<List<CostCategory>> getCategories({String? houseId});
+
+  /// Creates a new custom cost category preset.
+  AsyncRequest<CostCategory> createCategory(CreateCostCategoryData data);
+}
+
+class CreateCostCategoryData {
+  const CreateCostCategoryData({
+    required this.name,
+    required this.icon,
+    this.isFood = false,
+    this.houseId,
+    this.defaultAmount,
+    this.costNature = 'fixed',
+  });
+
+  final String name;
+  final String icon;
+  final bool isFood;
+  final String? houseId;
+  final double? defaultAmount;
+  final String costNature;
 }

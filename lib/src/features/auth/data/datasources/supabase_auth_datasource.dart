@@ -19,15 +19,17 @@ class SupabaseAuthDatasource {
 
   /// Emits [AuthStatus] whenever the Supabase session changes.
   Stream<AuthStatus> get authStream {
-    return _supabase.auth.onAuthStateChange.asyncMap(_mapEvent).distinct(
-      (a, b) => switch ((a, b)) {
-        (Authenticated prev, Authenticated curr) =>
-          prev.account.id == curr.account.id,
-        (UnAuthenticated(), UnAuthenticated()) => true,
-        (LoadingAuthSignature(), LoadingAuthSignature()) => true,
-        _ => false,
-      },
-    );
+    return _supabase.auth.onAuthStateChange
+        .asyncMap(_mapEvent)
+        .distinct(
+          (a, b) => switch ((a, b)) {
+            (Authenticated prev, Authenticated curr) =>
+              prev.account.id == curr.account.id,
+            (UnAuthenticated(), UnAuthenticated()) => true,
+            (LoadingAuthSignature(), LoadingAuthSignature()) => true,
+            _ => false,
+          },
+        );
   }
 
   Future<AuthStatus> _mapEvent(AuthState event) async {

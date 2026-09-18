@@ -7,7 +7,7 @@ import 'package:aanda/src/features/settlement/domain/repo/settlement_repo.dart';
 
 class SettlementRepoImpl with ErrorHandler implements SettlementRepo {
   const SettlementRepoImpl({required SettlementRemoteDatasource datasource})
-      : _datasource = datasource;
+    : _datasource = datasource;
 
   final SettlementRemoteDatasource _datasource;
 

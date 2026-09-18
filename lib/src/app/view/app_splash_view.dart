@@ -10,9 +10,7 @@ class AppSplashView extends StatelessWidget {
     final colors = AppColors.context(context);
     return Scaffold(
       backgroundColor: colors.appBackgroundColor,
-      body: const Center(
-        child: CircularProgressIndicator.adaptive(),
-      ),
+      body: const Center(child: CircularProgressIndicator.adaptive()),
     );
   }
 }

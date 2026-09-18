@@ -30,11 +30,7 @@ Future<void> main() async {
 }
 
 class AandaApp extends StatelessWidget {
-  const AandaApp({
-    super.key,
-    required this.dependencies,
-    required this.router,
-  });
+  const AandaApp({super.key, required this.dependencies, required this.router});
 
   final AppDependencies dependencies;
   final GoRouter router;

@@ -12,8 +12,12 @@ import 'package:aanda/src/features/auth/domain/repo/auth_repo.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
 
 // Cost
+import 'package:aanda/src/features/cost/data/datasources/category_emoji_local_datasource.dart';
+import 'package:aanda/src/features/cost/data/datasources/category_emoji_remote_datasource.dart';
 import 'package:aanda/src/features/cost/data/datasources/cost_remote_datasource.dart';
+import 'package:aanda/src/features/cost/data/repo/category_emoji_repo_impl.dart';
 import 'package:aanda/src/features/cost/data/repo/cost_repo_impl.dart';
+import 'package:aanda/src/features/cost/domain/repo/category_emoji_repo.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 
@@ -60,6 +64,11 @@ final class AppDependencies {
     required this.updateCost,
     required this.deleteCost,
     required this.getCostCategories,
+    required this.createCostCategory,
+    required this.categoryEmojiRemoteDatasource,
+    required this.categoryEmojiLocalDatasource,
+    required this.categoryEmojiRepo,
+    required this.getCategoryEmojis,
     // House
     required this.houseDatasource,
     required this.houseRepo,
@@ -113,6 +122,11 @@ final class AppDependencies {
   final UpdateCost updateCost;
   final DeleteCost deleteCost;
   final GetCostCategories getCostCategories;
+  final CreateCostCategory createCostCategory;
+  final CategoryEmojiRemoteDatasource categoryEmojiRemoteDatasource;
+  final CategoryEmojiLocalDatasource categoryEmojiLocalDatasource;
+  final CategoryEmojiRepo categoryEmojiRepo;
+  final GetCategoryEmojis getCategoryEmojis;
 
   // ── House ─────────────────────────────────────────────────────────────────
   final HouseRemoteDatasource houseDatasource;
@@ -169,6 +183,16 @@ final class AppDependencies {
     final updateCost = UpdateCost(costRepo);
     final deleteCost = DeleteCost(costRepo);
     final getCostCategories = GetCostCategories(costRepo);
+    final createCostCategory = CreateCostCategory(costRepo);
+    final categoryEmojiRemoteDatasource = CategoryEmojiRemoteDatasourceImpl(
+      supabase: supabase,
+    );
+    final categoryEmojiLocalDatasource = CategoryEmojiLocalDatasourceImpl();
+    final categoryEmojiRepo = CategoryEmojiRepoImpl(
+      remoteDatasource: categoryEmojiRemoteDatasource,
+      localDatasource: categoryEmojiLocalDatasource,
+    );
+    final getCategoryEmojis = GetCategoryEmojis(categoryEmojiRepo);
 
     // House
     final houseDatasource = HouseRemoteDatasource(supabase: supabase);
@@ -224,6 +248,11 @@ final class AppDependencies {
       updateCost: updateCost,
       deleteCost: deleteCost,
       getCostCategories: getCostCategories,
+      createCostCategory: createCostCategory,
+      categoryEmojiRemoteDatasource: categoryEmojiRemoteDatasource,
+      categoryEmojiLocalDatasource: categoryEmojiLocalDatasource,
+      categoryEmojiRepo: categoryEmojiRepo,
+      getCategoryEmojis: getCategoryEmojis,
       houseDatasource: houseDatasource,
       houseRepo: houseRepo,
       createHouse: createHouse,
@@ -301,6 +330,15 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<DeleteCost>.value(value: dependencies.deleteCost),
         RepositoryProvider<GetCostCategories>.value(
           value: dependencies.getCostCategories,
+        ),
+        RepositoryProvider<CreateCostCategory>.value(
+          value: dependencies.createCostCategory,
+        ),
+        RepositoryProvider<CategoryEmojiRepo>.value(
+          value: dependencies.categoryEmojiRepo,
+        ),
+        RepositoryProvider<GetCategoryEmojis>.value(
+          value: dependencies.getCategoryEmojis,
         ),
 
         // House

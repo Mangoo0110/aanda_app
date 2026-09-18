@@ -51,16 +51,12 @@ final class LoginBloc extends Bloc<LoginEvent, LoginState> {
     emit(state.copyWith(isSubmitting: true, clearError: true));
 
     final result = await handleFutureRequest<AuthStatus>(
-      request: () => _signInWithEmail(
-        SignInParams(email: email, password: password),
-      ),
+      request: () =>
+          _signInWithEmail(SignInParams(email: email, password: password)),
       debugger: AuthDebugger(),
       onError: (failure) {
         emit(
-          state.copyWith(
-            isSubmitting: false,
-            errorMessage: failure.message,
-          ),
+          state.copyWith(isSubmitting: false, errorMessage: failure.message),
         );
       },
       onSuccess: (status) {

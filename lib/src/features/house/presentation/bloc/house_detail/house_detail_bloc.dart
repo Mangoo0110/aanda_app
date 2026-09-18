@@ -11,8 +11,7 @@ import 'package:aanda/src/features/settlement/domain/usecases/settlement_usecase
 part 'house_detail_event.dart';
 part 'house_detail_state.dart';
 
-final class HouseDetailBloc
-    extends Bloc<HouseDetailEvent, HouseDetailState> {
+final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
   HouseDetailBloc({
     required String houseId,
     required GetHouseDetail getHouseDetail,
@@ -76,10 +75,7 @@ final class HouseDetailBloc
     HouseDetailSprintSelected event,
     Emitter<HouseDetailState> emit,
   ) async {
-    emit(state.copyWith(
-      selectedSprint: event.sprint,
-      clearSettlement: true,
-    ));
+    emit(state.copyWith(selectedSprint: event.sprint, clearSettlement: true));
     await _loadSprintStats(event.sprint, emit);
   }
 
@@ -103,17 +99,16 @@ final class HouseDetailBloc
       ),
       debugger: ControllerDebugger(),
       onError: (failure) {
-        emit(state.copyWith(
-          isComputingSettlement: false,
-          errorMessage: failure.message,
-        ));
+        emit(
+          state.copyWith(
+            isComputingSettlement: false,
+            errorMessage: failure.message,
+          ),
+        );
       },
     );
 
-    emit(state.copyWith(
-      isComputingSettlement: false,
-      settlement: settlement,
-    ));
+    emit(state.copyWith(isComputingSettlement: false, settlement: settlement));
   }
 
   Future<void> _onConfirmCloseSprint(
@@ -139,10 +134,7 @@ final class HouseDetailBloc
     // 2. Close sprint with effective closed/end date set to tap date
     await handleFutureRequest<Sprint>(
       request: () => _closeSprint(
-        CloseSprintParams(
-          cycleId: event.cycleId,
-          closedAt: tapDate,
-        ),
+        CloseSprintParams(cycleId: event.cycleId, closedAt: tapDate),
       ),
       debugger: ControllerDebugger(),
     );
@@ -187,23 +179,14 @@ final class HouseDetailBloc
       ),
       debugger: ControllerDebugger(),
       onError: (failure) {
-        emit(
-          state.copyWith(
-            isActioning: false,
-            errorMessage: failure.message,
-          ),
-        );
+        emit(state.copyWith(isActioning: false, errorMessage: failure.message));
       },
     );
 
     if (newInvite == null) return;
 
     emit(
-      state.copyWith(
-        isActioning: false,
-        invite: newInvite,
-        clearError: true,
-      ),
+      state.copyWith(isActioning: false, invite: newInvite, clearError: true),
     );
   }
 
@@ -221,12 +204,7 @@ final class HouseDetailBloc
       debugger: ControllerDebugger(),
       onError: (failure) {
         success = false;
-        emit(
-          state.copyWith(
-            isActioning: false,
-            errorMessage: failure.message,
-          ),
-        );
+        emit(state.copyWith(isActioning: false, errorMessage: failure.message));
       },
     );
 
@@ -244,18 +222,11 @@ final class HouseDetailBloc
     bool success = true;
 
     await handleFutureRequest<void>(
-      request: () => _leaveHouse(
-        LeaveHouseParams(houseId: state.houseId),
-      ),
+      request: () => _leaveHouse(LeaveHouseParams(houseId: state.houseId)),
       debugger: ControllerDebugger(),
       onError: (failure) {
         success = false;
-        emit(
-          state.copyWith(
-            isActioning: false,
-            errorMessage: failure.message,
-          ),
-        );
+        emit(state.copyWith(isActioning: false, errorMessage: failure.message));
       },
     );
 
@@ -269,7 +240,8 @@ final class HouseDetailBloc
 
     // 1. Fetch House Detail
     final house = await handleFutureRequest<House>(
-      request: () => _getHouseDetail(GetHouseDetailParams(houseId: state.houseId)),
+      request: () =>
+          _getHouseDetail(GetHouseDetailParams(houseId: state.houseId)),
       debugger: ControllerDebugger(),
       onError: (failure) {
         emit(
@@ -285,7 +257,8 @@ final class HouseDetailBloc
 
     // 2. Fetch Invite
     final invite = await handleFutureRequest<HouseInvite>(
-      request: () => _getHouseInvite(GetHouseInviteParams(houseId: state.houseId)),
+      request: () =>
+          _getHouseInvite(GetHouseInviteParams(houseId: state.houseId)),
       debugger: ControllerDebugger(),
     );
 
@@ -297,7 +270,8 @@ final class HouseDetailBloc
 
     final sprintList = sprints ?? [];
     // Prioritize open sprint or the latest sprint
-    final runningSprint = sprintList.where((s) => s.isOpen).firstOrNull ??
+    final runningSprint =
+        sprintList.where((s) => s.isOpen).firstOrNull ??
         (sprintList.isNotEmpty ? sprintList.first : null);
 
     emit(
@@ -316,7 +290,10 @@ final class HouseDetailBloc
     }
   }
 
-  Future<void> _loadSprintStats(Sprint sprint, Emitter<HouseDetailState> emit) async {
+  Future<void> _loadSprintStats(
+    Sprint sprint,
+    Emitter<HouseDetailState> emit,
+  ) async {
     final stats = await handleFutureRequest<Map<String, dynamic>>(
       request: () => _getSprintStats(
         GetSprintStatsParams(

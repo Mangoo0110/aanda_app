@@ -4,9 +4,26 @@ import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
 
 class MealRemoteDatasource {
   const MealRemoteDatasource({required SupabaseClient supabase})
-      : _supabase = supabase;
+    : _supabase = supabase;
 
   final SupabaseClient _supabase;
+
+  Future<String?> _resolveCycleId(String houseId, String cycleId) async {
+    if (cycleId.isNotEmpty) return cycleId;
+    try {
+      final rows = await _supabase
+          .from('billing_cycles')
+          .select('id')
+          .eq('house_id', houseId)
+          .eq('status', 'open')
+          .order('start_date', ascending: false)
+          .limit(1);
+      if (rows.isNotEmpty) {
+        return rows.first['id'] as String?;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   Future<List<MealLog>> getMealLogs({
     required String houseId,
@@ -16,8 +33,12 @@ class MealRemoteDatasource {
     var query = _supabase
         .from('meal_logs')
         .select('*, profiles(id, full_name, username)')
-        .eq('house_id', houseId)
-        .eq('cycle_id', cycleId);
+        .eq('house_id', houseId);
+
+    final resolvedCycle = await _resolveCycleId(houseId, cycleId);
+    if (resolvedCycle != null && resolvedCycle.isNotEmpty) {
+      query = query.eq('cycle_id', resolvedCycle);
+    }
 
     if (date != null) {
       final dateStr = date.toIso8601String().substring(0, 10);
@@ -40,21 +61,24 @@ class MealRemoteDatasource {
     required double dinner,
   }) async {
     final dateStr = logDate.toIso8601String().substring(0, 10);
+    final resolvedCycle = await _resolveCycleId(houseId, cycleId);
+
+    final payload = <String, dynamic>{
+      'house_id': houseId,
+      'user_id': userId,
+      'log_date': dateStr,
+      'breakfast': breakfast,
+      'lunch': lunch,
+      'dinner': dinner,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (resolvedCycle != null && resolvedCycle.isNotEmpty) {
+      payload['cycle_id'] = resolvedCycle;
+    }
+
     final data = await _supabase
         .from('meal_logs')
-        .upsert(
-          {
-            'house_id': houseId,
-            'cycle_id': cycleId,
-            'user_id': userId,
-            'log_date': dateStr,
-            'breakfast': breakfast,
-            'lunch': lunch,
-            'dinner': dinner,
-            'updated_at': DateTime.now().toIso8601String(),
-          },
-          onConflict: 'house_id,user_id,log_date',
-        )
+        .upsert(payload, onConflict: 'house_id,user_id,log_date')
         .select('*, profiles(id, full_name, username)')
         .single();
 

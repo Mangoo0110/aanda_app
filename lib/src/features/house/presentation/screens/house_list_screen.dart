@@ -48,8 +48,9 @@ class _HouseListScreenState extends State<HouseListScreen> {
           if (state.status == HouseListStatus.failure) {
             return _ErrorView(
               message: state.errorMessage ?? 'Failed to load houses.',
-              onRetry: () =>
-                  context.read<HouseListBloc>().add(HouseListRefreshRequested()),
+              onRetry: () => context.read<HouseListBloc>().add(
+                HouseListRefreshRequested(),
+              ),
             );
           }
 
@@ -58,15 +59,13 @@ class _HouseListScreenState extends State<HouseListScreen> {
           }
 
           return RefreshIndicator(
-            onRefresh: () async => context
-                .read<HouseListBloc>()
-                .add(HouseListRefreshRequested()),
+            onRefresh: () async =>
+                context.read<HouseListBloc>().add(HouseListRefreshRequested()),
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: state.houses.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) =>
-                  _HouseTile(house: state.houses[i]),
+              itemBuilder: (context, i) => _HouseTile(house: state.houses[i]),
             ),
           );
         },
@@ -79,9 +78,7 @@ class _HouseListScreenState extends State<HouseListScreen> {
             onPressed: () async {
               await context.push(AppRoutes.houseCreate);
               if (context.mounted) {
-                context
-                    .read<HouseListBloc>()
-                    .add(HouseListRefreshRequested());
+                context.read<HouseListBloc>().add(HouseListRefreshRequested());
               }
             },
             icon: const Icon(Icons.add),
@@ -93,9 +90,7 @@ class _HouseListScreenState extends State<HouseListScreen> {
             onPressed: () async {
               await context.push(AppRoutes.houseJoin);
               if (context.mounted) {
-                context
-                    .read<HouseListBloc>()
-                    .add(HouseListRefreshRequested());
+                context.read<HouseListBloc>().add(HouseListRefreshRequested());
               }
             },
             icon: const Icon(Icons.vpn_key_outlined),
@@ -119,8 +114,7 @@ class _HouseTile extends StatelessWidget {
       color: colors.tileColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Container(
           width: 44,
           height: 44,

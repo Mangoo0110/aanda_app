@@ -4,10 +4,7 @@ import 'package:aanda/src/features/dashboard/domain/entities/dashboard_summary.d
 import 'package:aanda/src/features/dashboard/domain/repo/dashboard_repo.dart';
 
 class GetDashboardSummaryParams {
-  const GetDashboardSummaryParams({
-    this.houseId,
-    this.month,
-  });
+  const GetDashboardSummaryParams({this.houseId, this.month});
 
   final String? houseId;
   final String? month;

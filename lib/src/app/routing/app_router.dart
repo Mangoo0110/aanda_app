@@ -16,6 +16,7 @@ import 'package:aanda/src/features/auth/presentation/screens/views/welcome_view.
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
+import 'package:aanda/src/features/cost/presentation/screens/cost_category_form_screen.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_feed_screen.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_form_screen.dart';
 import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
@@ -55,9 +56,8 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
           return MultiBlocProvider(
             providers: [
               BlocProvider(
-                create: (_) => LoginBloc(
-                  signInWithEmail: context.read<SignInWithEmail>(),
-                ),
+                create: (_) =>
+                    LoginBloc(signInWithEmail: context.read<SignInWithEmail>()),
               ),
               BlocProvider(
                 create: (_) => RegisterBloc(
@@ -155,11 +155,33 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
                 addCost: context.read<AddCost>(),
                 updateCost: context.read<UpdateCost>(),
                 getCostCategories: context.read<GetCostCategories>(),
+                getHouseMembers: context.read<GetHouseMembers>(),
               ),
               child: const CostFormScreen(),
             ),
           ),
         ),
+      ),
+
+      // ── Create Cost Category Preset (modal / page) ─────────────────────────
+      GoRoute(
+        path: AppRoutes.costCategoryAdd,
+        name: 'cost-category-add',
+        pageBuilder: (context, state) {
+          final houseId = state.uri.queryParameters['houseId'];
+          final houseName = state.uri.queryParameters['houseName'];
+          return MaterialPage(
+            key: state.pageKey,
+            fullscreenDialog: true,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: CostCategoryFormScreen(
+                initialHouseId: houseId,
+                initialHouseName: houseName,
+              ),
+            ),
+          );
+        },
       ),
       // ── Create Shared House (page) ────────────────────────────────────────
       GoRoute(
@@ -183,9 +205,8 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
           child: AuthRouteGate(
             policy: AuthRoutePolicy.signedInOnly,
             child: BlocProvider(
-              create: (_) => HouseJoinBloc(
-                joinHouse: context.read<JoinHouse>(),
-              ),
+              create: (_) =>
+                  HouseJoinBloc(joinHouse: context.read<JoinHouse>()),
               child: const HouseJoinScreen(),
             ),
           ),
@@ -242,6 +263,7 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
                   getHouseMembers: context.read<GetHouseMembers>(),
                   getMealLogs: context.read<GetMealLogs>(),
                   upsertMealLog: context.read<UpsertMealLog>(),
+                  getSprints: context.read<GetSprints>(),
                 )..add(const HouseMealsStarted()),
                 child: HouseMealsScreen(
                   houseId: houseId,
@@ -273,6 +295,7 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
                   getHouseMembers: context.read<GetHouseMembers>(),
                   getMealLogs: context.read<GetMealLogs>(),
                   upsertMealLog: context.read<UpsertMealLog>(),
+                  getSprints: context.read<GetSprints>(),
                 )..add(const HouseMealsStarted()),
                 child: HouseMealsScreen(
                   houseId: houseId,

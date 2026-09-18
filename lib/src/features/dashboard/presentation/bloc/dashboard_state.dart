@@ -9,8 +9,8 @@ final class DashboardState {
     DateTime? selectedMonth,
     this.selectedHouseId,
     this.errorMessage,
-  }) : selectedMonth = selectedMonth ??
-           DateTime(DateTime.now().year, DateTime.now().month);
+  }) : selectedMonth =
+           selectedMonth ?? DateTime(DateTime.now().year, DateTime.now().month);
 
   final DashboardStatus status;
   final DashboardSummary? summary;
@@ -38,8 +38,9 @@ final class DashboardState {
       status: status ?? this.status,
       summary: summary ?? this.summary,
       selectedMonth: selectedMonth ?? this.selectedMonth,
-      selectedHouseId:
-          clearHouse ? null : (selectedHouseId ?? this.selectedHouseId),
+      selectedHouseId: clearHouse
+          ? null
+          : (selectedHouseId ?? this.selectedHouseId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

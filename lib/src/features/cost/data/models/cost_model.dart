@@ -27,8 +27,8 @@ class CostModel extends Cost {
     final profile = json['profiles'] as Map<String, dynamic>?;
     final payerName = profile != null
         ? (profile['full_name'] as String?)?.isNotEmpty == true
-            ? profile['full_name'] as String
-            : profile['username'] as String?
+              ? profile['full_name'] as String
+              : profile['username'] as String?
         : null;
 
     // Resolve joined category or match predefined category
@@ -38,9 +38,9 @@ class CostModel extends Cost {
     String? categoryIcon = category?['icon'] as String?;
 
     if (categoryName == null && categoryId != null) {
-      final matchedPredefined = CostCategory.predefinedCategories.where(
-        (c) => c.id == categoryId,
-      ).firstOrNull;
+      final matchedPredefined = CostCategory.predefinedCategories
+          .where((c) => c.id == categoryId)
+          .firstOrNull;
       if (matchedPredefined != null) {
         categoryName = matchedPredefined.name;
         categoryIcon = matchedPredefined.icon;

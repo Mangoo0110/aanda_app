@@ -72,4 +72,14 @@ class CostRepoImpl with ErrorHandler implements CostRepo {
       },
     );
   }
+
+  @override
+  AsyncRequest<CostCategory> createCategory(CreateCostCategoryData data) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final category = await _datasource.createCategory(data);
+        return SuccessRepoCall(data: category);
+      },
+    );
+  }
 }

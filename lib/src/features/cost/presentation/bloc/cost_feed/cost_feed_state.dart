@@ -15,7 +15,8 @@ final class CostFeedState {
     this.selectedHouseId,
     this.selectedPayerId,
     this.errorMessage,
-  }) : selectedMonth = selectedMonth ?? DateTime(DateTime.now().year, DateTime.now().month);
+  }) : selectedMonth =
+           selectedMonth ?? DateTime(DateTime.now().year, DateTime.now().month);
 
   final CostFeedStatus status;
   final List<Cost> costs;
@@ -137,17 +138,21 @@ final class CostFeedState {
       status: status ?? this.status,
       costs: costs ?? this.costs,
       sprints: sprints ?? this.sprints,
-      selectedSprint: clearSprint ? null : (selectedSprint ?? this.selectedSprint),
+      selectedSprint: clearSprint
+          ? null
+          : (selectedSprint ?? this.selectedSprint),
       categories: categories ?? this.categories,
-      selectedCategoryId:
-          clearCategory ? null : (selectedCategoryId ?? this.selectedCategoryId),
-      selectedScope:
-          clearScope ? null : (selectedScope ?? this.selectedScope),
+      selectedCategoryId: clearCategory
+          ? null
+          : (selectedCategoryId ?? this.selectedCategoryId),
+      selectedScope: clearScope ? null : (selectedScope ?? this.selectedScope),
       selectedMonth: selectedMonth ?? this.selectedMonth,
-      selectedHouseId:
-          clearHouse ? null : (selectedHouseId ?? this.selectedHouseId),
-      selectedPayerId:
-          clearPayer ? null : (selectedPayerId ?? this.selectedPayerId),
+      selectedHouseId: clearHouse
+          ? null
+          : (selectedHouseId ?? this.selectedHouseId),
+      selectedPayerId: clearPayer
+          ? null
+          : (selectedPayerId ?? this.selectedPayerId),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

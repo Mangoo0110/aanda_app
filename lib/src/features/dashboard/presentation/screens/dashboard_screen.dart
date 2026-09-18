@@ -103,7 +103,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToMeals() {
-    final houseId = _currentHouse?['id'] as String? ??
+    final houseId =
+        _currentHouse?['id'] as String? ??
         (_houses.isNotEmpty ? _houses.first['id'] as String? : null);
     if (houseId != null) {
       context.push(AppRoutes.houseMeals(houseId));
@@ -161,7 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF5EE),
                       borderRadius: BorderRadius.circular(18),
@@ -208,7 +212,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF5EE),
                       borderRadius: BorderRadius.circular(18),
@@ -292,13 +299,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Total spend: totalHouseSpent + personalSpent or state summary
             final totalPeriodSpend = state.summary != null
                 ? (state.totalHouseSpent > 0
-                    ? state.totalHouseSpent
-                    : state.personalSpent)
+                      ? state.totalHouseSpent
+                      : state.personalSpent)
                 : 18450.0;
 
             // Cycle label
             final now = DateTime.now();
-            final isCurrentMonth = state.selectedMonth.year == now.year &&
+            final isCurrentMonth =
+                state.selectedMonth.year == now.year &&
                 state.selectedMonth.month == now.month;
             final cycleLabel = isCurrentMonth
                 ? '${DateFormat('MMMM d, yyyy').format(DateTime(now.year, now.month, 1))} – Now'
@@ -350,7 +358,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Text('🏠', style: TextStyle(fontSize: 13)),
+                                  const Text(
+                                    '🏠',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
                                   const SizedBox(width: 2),
                                   const Icon(
                                     Icons.keyboard_arrow_down_rounded,
@@ -427,9 +438,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   state.selectedMonth.year,
                                   state.selectedMonth.month - 1,
                                 );
-                                context
-                                    .read<DashboardBloc>()
-                                    .add(DashboardMonthChanged(prev));
+                                context.read<DashboardBloc>().add(
+                                  DashboardMonthChanged(prev),
+                                );
                               },
                             ),
                             const SizedBox(width: 4),
@@ -459,9 +470,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   state.selectedMonth.year,
                                   state.selectedMonth.month + 1,
                                 );
-                                context
-                                    .read<DashboardBloc>()
-                                    .add(DashboardMonthChanged(next));
+                                context.read<DashboardBloc>().add(
+                                  DashboardMonthChanged(next),
+                                );
                               },
                             ),
                           ],
@@ -553,7 +564,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.02),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.02,
+                                      ),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),
@@ -592,7 +605,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.02),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.02,
+                                      ),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),
@@ -843,17 +858,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final note = (item['note'] as String?)?.isNotEmpty == true
             ? item['note'] as String
             : (item['cost_categories'] != null &&
-                    item['cost_categories']['name'] != null
-                ? item['cost_categories']['name'] as String
-                : 'General');
+                      item['cost_categories']['name'] != null
+                  ? item['cost_categories']['name'] as String
+                  : 'General');
 
         final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
-        final dateLabel = item['date_label'] as String? ??
+        final dateLabel =
+            item['date_label'] as String? ??
             (item['purchase_date'] != null
                 ? _formatRecentDate(item['purchase_date'] as String)
                 : 'today');
 
-        final emoji = item['emoji'] as String? ??
+        final emoji =
+            item['emoji'] as String? ??
             _resolveEmoji(name, note, item['cost_categories']?['icon']);
 
         return InkWell(
@@ -903,10 +920,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 2),
                       Text(
                         note,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: subText,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: subText),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -929,10 +943,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 2),
                     Text(
                       dateLabel,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: subText,
-                      ),
+                      style: const TextStyle(fontSize: 11, color: subText),
                     ),
                   ],
                 ),
@@ -1057,16 +1068,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return icon;
     }
     final combined = '$name $note'.toLowerCase();
-    if (combined.contains('coffee') || combined.contains('tea') || combined.contains('starbucks')) {
+    if (combined.contains('coffee') ||
+        combined.contains('tea') ||
+        combined.contains('starbucks')) {
       return '☕';
     }
-    if (combined.contains('market') || combined.contains('grocer') || combined.contains('bazar') || combined.contains('food')) {
+    if (combined.contains('market') ||
+        combined.contains('grocer') ||
+        combined.contains('bazar') ||
+        combined.contains('food')) {
       return '🛒';
     }
-    if (combined.contains('rent') || combined.contains('house') || combined.contains('flat')) {
+    if (combined.contains('rent') ||
+        combined.contains('house') ||
+        combined.contains('flat')) {
       return '🏠';
     }
-    if (combined.contains('gas') || combined.contains('utilit') || combined.contains('electric') || combined.contains('wifi') || combined.contains('bill')) {
+    if (combined.contains('gas') ||
+        combined.contains('utilit') ||
+        combined.contains('electric') ||
+        combined.contains('wifi') ||
+        combined.contains('bill')) {
       return '⚡';
     }
     return '💳';
@@ -1132,7 +1154,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'End Sprint & Settle',
+                            'End Cycle & Settle',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -1181,7 +1203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Settling ends the current sprint, tallies total expenses and meal share from the start date to right now, resolves member balances, and starts a fresh new sprint cycle.',
+                        'Settling ends the current cycle, tallies total expenses and meal share from the start date to right now, resolves member balances, and starts a fresh new cycle.',
                         style: TextStyle(
                           fontSize: 12,
                           color: subText,
@@ -1198,8 +1220,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: FilledButton.icon(
                     icon: const Icon(Icons.calculate_rounded, size: 18),
                     label: const Text(
-                      'Calculate & End Sprint',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      'Calculate & End Cycle',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: primaryCoral,
@@ -1222,7 +1247,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onPressed: () => Navigator.of(sheetContext).pop(),
                     child: const Text(
                       'Cancel',
-                      style: TextStyle(color: subText, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: subText,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -1290,8 +1318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         itemBuilder: (context, idx) {
                           final h = _houses[idx];
                           final isSelected = h['id'] == _currentHouse?['id'];
-                          final members =
-                              h['house_members'] as List? ?? [];
+                          final members = h['house_members'] as List? ?? [];
 
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
@@ -1316,7 +1343,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             subtitle: Text(
                               '${members.length} members',
-                              style: const TextStyle(fontSize: 11, color: subText),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: subText,
+                              ),
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1375,7 +1405,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           onPressed: () async {
                             Navigator.of(sheetContext).pop();
-                            final res = await context.push(AppRoutes.houseCreate);
+                            final res = await context.push(
+                              AppRoutes.houseCreate,
+                            );
                             if (res == true && mounted) _refresh();
                           },
                         ),
@@ -1455,7 +1487,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: EdgeInsets.all(4),
                         child: Row(
                           children: [
-                            Icon(Icons.add_rounded, size: 16, color: primaryCoral),
+                            Icon(
+                              Icons.add_rounded,
+                              size: 16,
+                              color: primaryCoral,
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'New',
@@ -1494,7 +1530,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Center(
-                          child: Text(catIcon, style: const TextStyle(fontSize: 16)),
+                          child: Text(
+                            catIcon,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                         ),
                       ),
                       title: Text(
@@ -1633,7 +1672,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 10),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.home_work_rounded, color: primaryCoral),
+                leading: const Icon(
+                  Icons.home_work_rounded,
+                  color: primaryCoral,
+                ),
                 title: const Text(
                   'Manage Houses',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -1645,7 +1687,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.receipt_long_rounded, color: primaryCoral),
+                leading: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: primaryCoral,
+                ),
                 title: const Text(
                   'Expenses Ledger',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -1657,7 +1702,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.restaurant_menu_rounded, color: primaryCoral),
+                leading: const Icon(
+                  Icons.restaurant_menu_rounded,
+                  color: primaryCoral,
+                ),
                 title: const Text(
                   'Meal Log (Daily Ledger)',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
@@ -1669,7 +1717,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                leading: const Icon(
+                  Icons.logout_rounded,
+                  color: Colors.redAccent,
+                ),
                 title: const Text(
                   'Log Out',
                   style: TextStyle(
@@ -1795,10 +1846,7 @@ class _CategoryCard extends StatelessWidget {
               const SizedBox(width: 3),
               Text(
                 'of $target',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: subText,
-                ),
+                style: const TextStyle(fontSize: 10, color: subText),
               ),
             ],
           ),
@@ -1807,10 +1855,7 @@ class _CategoryCard extends StatelessWidget {
           // Subtitle: House · Mar 1
           Text(
             subtitle,
-            style: const TextStyle(
-              fontSize: 10,
-              color: subText,
-            ),
+            style: const TextStyle(fontSize: 10, color: subText),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1888,10 +1933,7 @@ class _QuickActionCard extends StatelessWidget {
                   const SizedBox(height: 1),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: subText,
-                    ),
+                    style: const TextStyle(fontSize: 11, color: subText),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

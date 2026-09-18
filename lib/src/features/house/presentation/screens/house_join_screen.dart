@@ -58,9 +58,9 @@ class _HouseJoinScreenState extends State<HouseJoinScreen> {
                     textInputAction: TextInputAction.done,
                     textCapitalization: TextCapitalization.characters,
                     autofocus: true,
-                    onChanged: (v) => context
-                        .read<HouseJoinBloc>()
-                        .add(HouseJoinCodeChanged(v)),
+                    onChanged: (v) => context.read<HouseJoinBloc>().add(
+                      HouseJoinCodeChanged(v),
+                    ),
                     onSubmitted: (_) => _submit(context, state),
                     decoration: const InputDecoration(
                       labelText: 'Invite Code',

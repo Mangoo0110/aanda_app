@@ -50,7 +50,10 @@ class SettlementModel extends Settlement {
 
   factory SettlementModel.fromJson(Map<String, dynamic> json) {
     final summariesList = (json['member_summaries'] as List? ?? [])
-        .map((m) => MemberSettlementSummaryModel.fromJson(m as Map<String, dynamic>))
+        .map(
+          (m) =>
+              MemberSettlementSummaryModel.fromJson(m as Map<String, dynamic>),
+        )
         .toList();
 
     return SettlementModel(

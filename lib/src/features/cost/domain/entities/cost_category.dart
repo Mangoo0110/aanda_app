@@ -5,6 +5,8 @@ class CostCategory {
     this.icon,
     this.isFood = false,
     this.houseId,
+    this.defaultAmount,
+    this.costNature,
   });
 
   final String id;
@@ -12,6 +14,8 @@ class CostCategory {
   final String? icon;
   final bool isFood;
   final String? houseId;
+  final double? defaultAmount;
+  final String? costNature; // 'fixed' or 'variable'
 
   bool get isPersonalPredefined => houseId == null;
 
@@ -39,11 +43,7 @@ class CostCategory {
       name: 'Bills & Utilities',
       icon: 'flash_on',
     ),
-    CostCategory(
-      id: 'predefined_rent',
-      name: 'Rent',
-      icon: 'home',
-    ),
+    CostCategory(id: 'predefined_rent', name: 'Rent', icon: 'home'),
     CostCategory(
       id: 'predefined_shopping',
       name: 'Shopping',
@@ -59,10 +59,6 @@ class CostCategory {
       name: 'Entertainment',
       icon: 'movie',
     ),
-    CostCategory(
-      id: 'predefined_other',
-      name: 'Other',
-      icon: 'more_horiz',
-    ),
+    CostCategory(id: 'predefined_other', name: 'Other', icon: 'more_horiz'),
   ];
 }

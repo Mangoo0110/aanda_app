@@ -30,7 +30,8 @@ class _LoginNameViewState extends State<LoginNameView> {
     final colors = AppColors.context(context);
 
     return BlocConsumer<LoginBloc, LoginState>(
-      listenWhen: (prev, curr) => prev.isSubmitting && !curr.isSubmitting && curr.errorMessage == null,
+      listenWhen: (prev, curr) =>
+          prev.isSubmitting && !curr.isSubmitting && curr.errorMessage == null,
       listener: (context, state) {
         // Successful sign-in: auth guard will redirect via router.
       },
@@ -41,10 +42,7 @@ class _LoginNameViewState extends State<LoginNameView> {
             backgroundColor: colors.appBackgroundColor,
             elevation: 0,
             leading: BackButton(onPressed: () => context.go(AppRoutes.auth)),
-            title: Text(
-              'Sign In',
-              style: TextStyle(color: colors.textColor),
-            ),
+            title: Text('Sign In', style: TextStyle(color: colors.textColor)),
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -82,8 +80,9 @@ class _LoginNameViewState extends State<LoginNameView> {
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                         ),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                   ),

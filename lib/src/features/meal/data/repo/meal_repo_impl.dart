@@ -7,7 +7,7 @@ import 'package:aanda/src/features/meal/domain/repo/meal_repo.dart';
 
 class MealRepoImpl with ErrorHandler implements MealRepo {
   const MealRepoImpl({required MealRemoteDatasource datasource})
-      : _datasource = datasource;
+    : _datasource = datasource;
 
   final MealRemoteDatasource _datasource;
 

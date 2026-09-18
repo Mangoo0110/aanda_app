@@ -20,7 +20,10 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
 
   final SignUpWithEmail _signUpWithEmail;
 
-  void _onEmailChanged(RegisterEmailChanged event, Emitter<RegisterState> emit) {
+  void _onEmailChanged(
+    RegisterEmailChanged event,
+    Emitter<RegisterState> emit,
+  ) {
     emit(state.copyWith(email: event.email, clearError: true));
   }
 
@@ -63,17 +66,15 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         SignUpParams(
           email: email,
           password: password,
-          fullName:
-              state.fullName.trim().isEmpty ? null : state.fullName.trim(),
+          fullName: state.fullName.trim().isEmpty
+              ? null
+              : state.fullName.trim(),
         ),
       ),
       debugger: AuthDebugger(),
       onError: (failure) {
         emit(
-          state.copyWith(
-            isSubmitting: false,
-            errorMessage: failure.message,
-          ),
+          state.copyWith(isSubmitting: false, errorMessage: failure.message),
         );
       },
       onSuccess: (status) {

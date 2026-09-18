@@ -61,9 +61,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    onChanged: (v) => context
-                        .read<RegisterBloc>()
-                        .add(RegisterEmailChanged(v)),
+                    onChanged: (v) => context.read<RegisterBloc>().add(
+                      RegisterEmailChanged(v),
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Email *',
                       hintText: 'you@example.com',
@@ -74,9 +74,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                   TextField(
                     controller: _fullNameCtrl,
                     textInputAction: TextInputAction.next,
-                    onChanged: (v) => context
-                        .read<RegisterBloc>()
-                        .add(RegisterFullNameChanged(v)),
+                    onChanged: (v) => context.read<RegisterBloc>().add(
+                      RegisterFullNameChanged(v),
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Full Name (optional)',
                       hintText: 'John Doe',
@@ -88,9 +88,9 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                     controller: _passwordCtrl,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.done,
-                    onChanged: (v) => context
-                        .read<RegisterBloc>()
-                        .add(RegisterPasswordChanged(v)),
+                    onChanged: (v) => context.read<RegisterBloc>().add(
+                      RegisterPasswordChanged(v),
+                    ),
                     onSubmitted: (_) => _submit(context, state),
                     decoration: InputDecoration(
                       labelText: 'Password *',

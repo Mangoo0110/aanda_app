@@ -10,6 +10,7 @@ class AppRoutes {
   static const home = '/home';
   static const costs = '/costs';
   static const costAdd = '/costs/add';
+  static const costCategoryAdd = '/costs/categories/new';
   static const houseCreate = '/houses/create';
   static const houseJoin = '/houses/join';
   static const meals = '/meals';

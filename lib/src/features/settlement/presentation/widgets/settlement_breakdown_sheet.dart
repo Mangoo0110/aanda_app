@@ -54,7 +54,10 @@ class SettlementBreakdownSheet extends StatelessWidget {
     final startDateStr = sprint != null
         ? dateFormat.format(sprint!.startDate)
         : '';
-    final cutoffDate = settlement.calculationEndDate ?? settlement.computedAt ?? DateTime.now();
+    final cutoffDate =
+        settlement.calculationEndDate ??
+        settlement.computedAt ??
+        DateTime.now();
     final cutoffDateStr = dateFormat.format(cutoffDate);
 
     return DraggableScrollableSheet(
@@ -84,7 +87,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                   Icon(Icons.calculate_rounded, color: colors.primaryColor),
                   const SizedBox(width: 8),
                   Text(
-                    'Sprint Settlement',
+                    'Cycle Settlement',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -117,14 +120,21 @@ class SettlementBreakdownSheet extends StatelessWidget {
 
               // Date Range Notice (Calculation from start date to tap date)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: colors.primaryColor),
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: colors.primaryColor,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -154,22 +164,26 @@ class SettlementBreakdownSheet extends StatelessWidget {
                   children: [
                     _MetricRow(
                       label: 'Total Food Expenses',
-                      value: '৳ ${currencyFormat.format(settlement.totalFoodCost)}',
+                      value:
+                          '৳ ${currencyFormat.format(settlement.totalFoodCost)}',
                     ),
                     const SizedBox(height: 8),
                     _MetricRow(
                       label: 'Fixed & Other Expenses',
-                      value: '৳ ${currencyFormat.format(settlement.totalFixedCost + settlement.totalOtherCost)}',
+                      value:
+                          '৳ ${currencyFormat.format(settlement.totalFixedCost + settlement.totalOtherCost)}',
                     ),
                     const SizedBox(height: 8),
                     _MetricRow(
                       label: 'Total Meals Consumed',
-                      value: '${settlement.totalMealCount.toStringAsFixed(1)} meals',
+                      value:
+                          '${settlement.totalMealCount.toStringAsFixed(1)} meals',
                     ),
                     const Divider(height: 20),
                     _MetricRow(
                       label: 'Calculated Meal Rate',
-                      value: '৳ ${settlement.mealRate.toStringAsFixed(2)} / meal',
+                      value:
+                          '৳ ${settlement.mealRate.toStringAsFixed(2)} / meal',
                       isHighlighted: true,
                     ),
                   ],
@@ -209,8 +223,9 @@ class SettlementBreakdownSheet extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor:
-                            colors.primaryColor.withValues(alpha: 0.1),
+                        backgroundColor: colors.primaryColor.withValues(
+                          alpha: 0.1,
+                        ),
                         child: Text(
                           m.displayName.isNotEmpty
                               ? m.displayName[0].toUpperCase()
@@ -285,11 +300,8 @@ class SettlementBreakdownSheet extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.check_circle_outline_rounded),
                   label: const Text(
-                    'Confirm & Close Sprint',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    'Confirm & Close Cycle',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   onPressed: onConfirmClose,
                 ),

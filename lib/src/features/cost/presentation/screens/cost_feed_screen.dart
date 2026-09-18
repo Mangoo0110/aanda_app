@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
@@ -37,7 +38,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
   Future<void> _loadHouseDetails() async {
     try {
       final supabase = Supabase.instance.client;
-      final data = await supabase.from('houses').select('id, name, house_members(id, user_id, role, display_name)');
+      final data = await supabase
+          .from('houses')
+          .select('id, name, house_members(id, user_id, role, display_name)');
       final list = (data as List).cast<Map<String, dynamic>>();
       if (mounted && list.isNotEmpty) {
         setState(() {
@@ -54,8 +57,12 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return BlocConsumer<CostFeedBloc, CostFeedState>(
+      listenWhen: (previous, current) =>
+          current.errorMessage != null &&
+          current.errorMessage != previous.errorMessage,
       listener: (context, state) {
         if (state.errorMessage != null) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.errorMessage!),
@@ -88,9 +95,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
             child: RefreshIndicator(
               color: primaryCoral,
               onRefresh: () async {
-                context
-                    .read<CostFeedBloc>()
-                    .add(const CostFeedRefreshRequested());
+                context.read<CostFeedBloc>().add(
+                  const CostFeedRefreshRequested(),
+                );
                 await _loadHouseDetails();
               },
               child: CustomScrollView(
@@ -102,40 +109,14 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                       child: Row(
                         children: [
-                          // Back button in rounded square
-                          InkWell(
-                            onTap: () {
-                              if (context.canPop()) {
-                                context.pop();
-                              } else {
-                                context.go(AppRoutes.home);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: cardColor,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 16,
-                                color: darkText,
-                              ),
-                            ),
-                          ),
+                          // Back button
+                          const AppBackButton(margin: EdgeInsets.zero),
                           const SizedBox(width: 12),
 
-                          // Title
-                          const Text(
+                          // Title obeying appbar theme
+                          Text(
                             'Expenses',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: darkText,
-                            ),
+                            style: Theme.of(context).appBarTheme.titleTextStyle,
                           ),
                           const SizedBox(width: 8),
                           InkWell(
@@ -192,7 +173,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                 children: [
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: primaryCoral.withValues(alpha: 0.12),
+                                    backgroundColor: primaryCoral.withValues(
+                                      alpha: 0.12,
+                                    ),
                                     child: Text(
                                       houseName.isNotEmpty
                                           ? houseName[0].toUpperCase()
@@ -206,7 +189,8 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -259,9 +243,15 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                   // ── Date / Cycle Navigator Pill ────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(24),
@@ -270,7 +260,10 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                              icon: const Icon(
+                                Icons.chevron_left_rounded,
+                                size: 20,
+                              ),
                               color: darkText,
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
@@ -278,9 +271,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                   state.selectedMonth.year,
                                   state.selectedMonth.month - 1,
                                 );
-                                context
-                                    .read<CostFeedBloc>()
-                                    .add(CostFeedMonthChanged(prev));
+                                context.read<CostFeedBloc>().add(
+                                  CostFeedMonthChanged(prev),
+                                );
                               },
                             ),
                             InkWell(
@@ -296,7 +289,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                   Text(
                                     state.selectedSprint != null
                                         ? '${state.selectedSprint!.label} (${state.selectedSprint!.dateRangeFormatted})'
-                                        : DateFormat('d MMM yyyy').format(state.selectedMonth),
+                                        : DateFormat(
+                                            'd MMM yyyy',
+                                          ).format(state.selectedMonth),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -307,7 +302,10 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                              icon: const Icon(
+                                Icons.chevron_right_rounded,
+                                size: 20,
+                              ),
                               color: darkText,
                               visualDensity: VisualDensity.compact,
                               onPressed: () {
@@ -315,9 +313,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                   state.selectedMonth.year,
                                   state.selectedMonth.month + 1,
                                 );
-                                context
-                                    .read<CostFeedBloc>()
-                                    .add(CostFeedMonthChanged(next));
+                                context.read<CostFeedBloc>().add(
+                                  CostFeedMonthChanged(next),
+                                );
                               },
                             ),
                           ],
@@ -331,7 +329,10 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(18),
@@ -354,7 +355,8 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.baseline,
                                     textBaseline: TextBaseline.alphabetic,
                                     children: [
                                       Text(
@@ -451,44 +453,57 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                 label: state.selectedScope == CostScope.personal
                                     ? 'Personal'
                                     : 'Shared House',
-                                onDeleted: () => context
-                                    .read<CostFeedBloc>()
-                                    .add(const CostFeedScopeFilterChanged(null)),
+                                onDeleted: () =>
+                                    context.read<CostFeedBloc>().add(
+                                      const CostFeedScopeFilterChanged(null),
+                                    ),
                               ),
                             ],
                             if (state.selectedCategoryId != null) ...[
                               const SizedBox(width: 6),
                               _activeChip(
-                                label: state.categories
-                                        .where((c) => c.id == state.selectedCategoryId)
+                                label:
+                                    state.categories
+                                        .where(
+                                          (c) =>
+                                              c.id == state.selectedCategoryId,
+                                        )
                                         .firstOrNull
                                         ?.name ??
                                     'Category',
-                                onDeleted: () => context
-                                    .read<CostFeedBloc>()
-                                    .add(const CostFeedCategoryFilterChanged(null)),
+                                onDeleted: () =>
+                                    context.read<CostFeedBloc>().add(
+                                      const CostFeedCategoryFilterChanged(null),
+                                    ),
                               ),
                             ],
                             if (state.selectedPayerId != null) ...[
                               const SizedBox(width: 6),
                               _activeChip(
-                                label: state.uniquePayers
-                                        .where((p) => p.id == state.selectedPayerId)
+                                label:
+                                    state.uniquePayers
+                                        .where(
+                                          (p) => p.id == state.selectedPayerId,
+                                        )
                                         .firstOrNull
                                         ?.name ??
                                     'Member',
-                                onDeleted: () => context
-                                    .read<CostFeedBloc>()
-                                    .add(const CostFeedPayerFilterChanged(null)),
+                                onDeleted: () =>
+                                    context.read<CostFeedBloc>().add(
+                                      const CostFeedPayerFilterChanged(null),
+                                    ),
                               ),
                             ],
                             const SizedBox(width: 8),
                             InkWell(
-                              onTap: () => context
-                                  .read<CostFeedBloc>()
-                                  .add(const CostFeedFiltersCleared()),
+                              onTap: () => context.read<CostFeedBloc>().add(
+                                const CostFeedFiltersCleared(),
+                              ),
                               child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 6,
+                                ),
                                 child: Text(
                                   'Reset all',
                                   style: TextStyle(
@@ -511,14 +526,14 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                     const SliverFillRemaining(
                       child: Center(
                         child: CircularProgressIndicator.adaptive(
-                          valueColor: AlwaysStoppedAnimation<Color>(primaryCoral),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            primaryCoral,
+                          ),
                         ),
                       ),
                     )
                   else if (displayCosts.isEmpty)
-                    SliverFillRemaining(
-                      child: _emptyStateView(context, state),
-                    )
+                    SliverFillRemaining(child: _emptyStateView(context, state))
                   else
                     SliverToBoxAdapter(
                       child: Padding(
@@ -533,7 +548,12 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                             children: [
                               // Table Header Row
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  10,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -557,7 +577,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 0.6,
-                                            color: subText.withValues(alpha: 0.9),
+                                            color: subText.withValues(
+                                              alpha: 0.9,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -571,7 +593,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 0.6,
-                                            color: subText.withValues(alpha: 0.9),
+                                            color: subText.withValues(
+                                              alpha: 0.9,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -586,7 +610,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 0.6,
-                                            color: subText.withValues(alpha: 0.9),
+                                            color: subText.withValues(
+                                              alpha: 0.9,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -756,22 +782,27 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                       return ListTile(
                         leading: const CircleAvatar(
                           backgroundColor: Color(0xFFFDEEE6),
-                          child: Icon(Icons.home_work_rounded,
-                              color: Color(0xFFD85A38)),
+                          child: Icon(
+                            Icons.home_work_rounded,
+                            color: Color(0xFFD85A38),
+                          ),
                         ),
                         title: Text(
                           h['name'] as String,
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                         trailing: _currentHouse?['id'] == h['id']
-                            ? const Icon(Icons.check_rounded,
-                                color: Color(0xFFD85A38))
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: Color(0xFFD85A38),
+                              )
                             : null,
                         onTap: () {
                           setState(() => _currentHouse = h);
                           Navigator.of(ctx).pop();
                           context.read<CostFeedBloc>().add(
-                              CostFeedHouseFilterChanged(h['id'] as String));
+                            CostFeedHouseFilterChanged(h['id'] as String),
+                          );
                         },
                       );
                     },
@@ -852,7 +883,10 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                   },
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF5EE),
                       borderRadius: BorderRadius.circular(18),
@@ -904,7 +938,10 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                   },
                   borderRadius: BorderRadius.circular(18),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFAF5EE),
                       borderRadius: BorderRadius.circular(18),
@@ -962,13 +999,13 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
             : 5,
         onApply: (sprint, payerId, categoryId, scope) {
           context.read<CostFeedBloc>().add(
-                CostFeedFiltersApplied(
-                  sprint: sprint,
-                  payerId: payerId,
-                  categoryId: categoryId,
-                  scope: scope,
-                ),
-              );
+            CostFeedFiltersApplied(
+              sprint: sprint,
+              payerId: payerId,
+              categoryId: categoryId,
+              scope: scope,
+            ),
+          );
         },
         onReset: () {
           context.read<CostFeedBloc>().add(const CostFeedFiltersCleared());
@@ -1016,8 +1053,8 @@ class _TabularLedgerRow extends StatelessWidget {
     final detailStr = cost.note?.isNotEmpty == true
         ? '$timeStr · ${cost.note}'
         : (cost.categoryName?.isNotEmpty == true
-            ? '$timeStr · ${cost.categoryName}'
-            : timeStr);
+              ? '$timeStr · ${cost.categoryName}'
+              : timeStr);
 
     final currencyFormat = NumberFormat('#,##0');
 
@@ -1029,14 +1066,16 @@ class _TabularLedgerRow extends StatelessWidget {
     final initial = isYou
         ? 'U'
         : (cost.payerName?.isNotEmpty == true
-            ? cost.payerName![0].toUpperCase()
-            : 'M');
+              ? cost.payerName![0].toUpperCase()
+              : 'M');
 
     final avatarBg = isYou
         ? const Color(0xFF1B1D1F)
         : (initial == 'R'
-            ? const Color(0xFFD97706)
-            : (initial == 'S' ? const Color(0xFF6B7280) : const Color(0xFF4B5563)));
+              ? const Color(0xFFD97706)
+              : (initial == 'S'
+                    ? const Color(0xFF6B7280)
+                    : const Color(0xFF4B5563)));
 
     return InkWell(
       onTap: onTap,
@@ -1079,7 +1118,10 @@ class _TabularLedgerRow extends StatelessWidget {
               flex: 25,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: tagBg,
                     borderRadius: BorderRadius.circular(12),
@@ -1144,7 +1186,10 @@ class _TabularLedgerRow extends StatelessWidget {
     if (cat.contains('bazar') || cat.contains('meal') || cat.contains('food')) {
       return ('Meal Pool', const Color(0xFFFDEEE6), const Color(0xFFD85A38));
     }
-    if (cat.contains('gas') || cat.contains('bill') || cat.contains('utilit') || cat.contains('internet')) {
+    if (cat.contains('gas') ||
+        cat.contains('bill') ||
+        cat.contains('utilit') ||
+        cat.contains('internet')) {
       return ('Utilities', const Color(0xFFF1F3F5), const Color(0xFF495057));
     }
     return ('Split +5', const Color(0xFFFDF0DD), const Color(0xFFD97706));
@@ -1168,7 +1213,8 @@ class _FilterExpensesSheet extends StatefulWidget {
     String? payerId,
     String? categoryId,
     CostScope? scope,
-  ) onApply;
+  )
+  onApply;
   final VoidCallback onReset;
 
   @override
@@ -1244,7 +1290,10 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
                 const SizedBox(width: 8),
                 if (_activeCount > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: primaryCoral.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
@@ -1305,7 +1354,7 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
 
             // ── Section 1: SETTLEMENT CYCLE ─────────────────────────────────
             const Text(
-              'SETTLEMENT CYCLE',
+              'BILLING CYCLE',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
@@ -1354,7 +1403,9 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
                       lastDate: DateTime(2035),
                     );
                     if (date != null && context.mounted) {
-                      context.read<CostFeedBloc>().add(CostFeedMonthChanged(date));
+                      context.read<CostFeedBloc>().add(
+                        CostFeedMonthChanged(date),
+                      );
                     }
                   },
                   primaryColor: primaryCoral,
@@ -1381,7 +1432,8 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
               children: [
                 _filterChip(
                   label: 'All Tags',
-                  isSelected: _selectedScope == null && _selectedCategoryId == null,
+                  isSelected:
+                      _selectedScope == null && _selectedCategoryId == null,
                   onTap: () => setState(() {
                     _selectedScope = null;
                     _selectedCategoryId = null;
@@ -1391,7 +1443,8 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
                 ),
                 _filterChip(
                   label: 'Bazar (Pool)',
-                  isSelected: _selectedScope == CostScope.shared &&
+                  isSelected:
+                      _selectedScope == CostScope.shared &&
                       _isCategoryMatch('bazar'),
                   onTap: () => setState(() {
                     _selectedScope = CostScope.shared;
@@ -1456,7 +1509,9 @@ class _FilterExpensesSheetState extends State<_FilterExpensesSheet> {
                 ),
                 ...widget.state.uniquePayers.map((p) {
                   final isSel = _selectedPayerId == p.id;
-                  final initial = p.name.isNotEmpty ? p.name[0].toUpperCase() : 'M';
+                  final initial = p.name.isNotEmpty
+                      ? p.name[0].toUpperCase()
+                      : 'M';
                   return _memberFilterChip(
                     label: p.name,
                     initial: initial,
@@ -1691,8 +1746,9 @@ class _CostDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat('EEEE, d MMMM yyyy • hh:mm a')
-                            .format(cost.purchaseDate),
+                        DateFormat(
+                          'EEEE, d MMMM yyyy • hh:mm a',
+                        ).format(cost.purchaseDate),
                         style: const TextStyle(fontSize: 13, color: subText),
                       ),
                     ],
@@ -1720,8 +1776,8 @@ class _CostDetailSheet extends StatelessWidget {
               isOwnCost
                   ? 'You'
                   : (cost.payerName?.isNotEmpty == true
-                      ? cost.payerName!
-                      : 'House Member'),
+                        ? cost.payerName!
+                        : 'House Member'),
             ),
             if (cost.note != null && cost.note!.isNotEmpty)
               _detailRow('Details / Note', cost.note!),
