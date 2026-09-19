@@ -87,10 +87,36 @@ class _LoginNameViewState extends State<LoginNameView> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  // Forgot password link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      onPressed: () {
+                        final email = _emailCtrl.text.trim();
+                        context.push(
+                          AppRoutes.authForgotPassword,
+                          extra: email.isNotEmpty ? email : null,
+                        );
+                      },
+                      child: Text(
+                        'Forgot password?',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  ),
                   // Error message
                   if (state.errorMessage != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         state.errorMessage!,
                         style: TextStyle(
@@ -99,7 +125,7 @@ class _LoginNameViewState extends State<LoginNameView> {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   // Submit button
                   FilledButton(
                     onPressed: state.isSubmitting

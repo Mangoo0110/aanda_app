@@ -5,6 +5,8 @@ class AppRoutes {
   static const auth = '/auth';
   static const authLogin = '/auth/login';
   static const authRegister = '/auth/register';
+  static const authForgotPassword = '/auth/forgot-password';
+  static const authResetPassword = '/auth/reset-password';
 
   // ── Home / Expenses & Houses ──────────────────────────────────────────────
   static const home = '/home';

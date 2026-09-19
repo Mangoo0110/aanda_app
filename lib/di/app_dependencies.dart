@@ -59,6 +59,9 @@ final class AppDependencies {
     required this.getCurrentAccount,
     required this.deleteAccount,
     required this.resendEmailVerification,
+    required this.sendPasswordResetEmail,
+    required this.verifyPasswordResetOtp,
+    required this.resetPassword,
     // Cost
     required this.costDatasource,
     required this.costRepo,
@@ -120,6 +123,9 @@ final class AppDependencies {
   final GetCurrentAccount getCurrentAccount;
   final DeleteAccount deleteAccount;
   final ResendEmailVerification resendEmailVerification;
+  final SendPasswordResetEmail sendPasswordResetEmail;
+  final VerifyPasswordResetOtp verifyPasswordResetOtp;
+  final ResetPassword resetPassword;
 
   // ── Cost ──────────────────────────────────────────────────────────────────
   final CostRemoteDatasource costDatasource;
@@ -185,6 +191,9 @@ final class AppDependencies {
     final getCurrentAccount = GetCurrentAccount(authRepo);
     final deleteAccount = DeleteAccount(authRepo);
     final resendEmailVerification = ResendEmailVerification(authRepo);
+    final sendPasswordResetEmail = SendPasswordResetEmail(authRepo);
+    final verifyPasswordResetOtp = VerifyPasswordResetOtp(authRepo);
+    final resetPassword = ResetPassword(authRepo);
 
     // Cost
     final costDatasource = CostRemoteDatasource(supabase: supabase);
@@ -256,6 +265,9 @@ final class AppDependencies {
       getCurrentAccount: getCurrentAccount,
       deleteAccount: deleteAccount,
       resendEmailVerification: resendEmailVerification,
+      sendPasswordResetEmail: sendPasswordResetEmail,
+      verifyPasswordResetOtp: verifyPasswordResetOtp,
+      resetPassword: resetPassword,
       costDatasource: costDatasource,
       costRepo: costRepo,
       getCosts: getCosts,
@@ -344,6 +356,15 @@ class AppDependencyScope extends StatelessWidget {
         ),
         RepositoryProvider<ResendEmailVerification>.value(
           value: dependencies.resendEmailVerification,
+        ),
+        RepositoryProvider<SendPasswordResetEmail>.value(
+          value: dependencies.sendPasswordResetEmail,
+        ),
+        RepositoryProvider<VerifyPasswordResetOtp>.value(
+          value: dependencies.verifyPasswordResetOtp,
+        ),
+        RepositoryProvider<ResetPassword>.value(
+          value: dependencies.resetPassword,
         ),
 
         // Cost

@@ -8,6 +8,7 @@ import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
 import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_router.dart';
+import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/config/supabase_config.dart';
 import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
@@ -28,6 +29,13 @@ Future<void> main() async {
     supabase: Supabase.instance.client,
   );
   final router = createAppRouter(authGuardBloc: dependencies.authGuardBloc);
+
+  // Listen for Supabase password recovery events (magic links or deep links)
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (data.event == AuthChangeEvent.passwordRecovery) {
+      router.go(AppRoutes.authResetPassword);
+    }
+  });
 
   runApp(AandaApp(dependencies: dependencies, router: router));
 }

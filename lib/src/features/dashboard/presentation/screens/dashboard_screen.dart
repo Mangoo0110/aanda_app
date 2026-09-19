@@ -1976,6 +1976,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(
+                  Icons.vpn_key_rounded,
+                  color: primaryCoral,
+                ),
+                title: const Text(
+                  'Change Password',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  context.push(AppRoutes.authResetPassword);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
                   Icons.logout_rounded,
                   color: Colors.redAccent,
                 ),

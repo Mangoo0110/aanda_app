@@ -21,4 +21,16 @@ abstract interface class AuthRepo {
 
   /// Resends signup confirmation email.
   AsyncRequest<void> resendEmailVerification({required String email});
+
+  /// Sends a password reset email/OTP to [email].
+  AsyncRequest<void> sendPasswordResetEmail({required String email});
+
+  /// Verifies a recovery OTP code for [email].
+  AsyncRequest<void> verifyPasswordResetOtp({
+    required String email,
+    required String token,
+  });
+
+  /// Updates password to [newPassword] for current session.
+  AsyncRequest<void> resetPassword({required String newPassword});
 }

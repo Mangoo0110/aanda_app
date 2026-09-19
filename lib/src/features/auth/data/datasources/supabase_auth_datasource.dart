@@ -135,6 +135,31 @@ class SupabaseAuthDatasource {
     await _supabase.auth.resend(type: OtpType.signup, email: email);
   }
 
+  /// Sends a password reset email/OTP to [email].
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _supabase.auth.resetPasswordForEmail(email);
+  }
+
+  /// Verifies a 6-digit recovery OTP [token] for [email].
+  /// Establishes a temporary recovery session.
+  Future<void> verifyPasswordResetOtp({
+    required String email,
+    required String token,
+  }) async {
+    await _supabase.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.recovery,
+    );
+  }
+
+  /// Updates the password for the current user session (recovery or active).
+  Future<void> resetPassword(String newPassword) async {
+    await _supabase.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+  }
+
   /// Returns the currently authenticated [AccountModel] or null.
   Future<AccountModel?> getCurrentAccount() async {
     final session = _supabase.auth.currentSession;

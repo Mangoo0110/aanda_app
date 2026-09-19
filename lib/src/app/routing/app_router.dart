@@ -11,7 +11,9 @@ import 'package:aanda/src/features/auth/presentation/bloc/login/login_bloc.dart'
 import 'package:aanda/src/features/auth/presentation/bloc/register/register_bloc.dart';
 import 'package:aanda/src/features/auth/presentation/screens/auth_shell.dart';
 import 'package:aanda/src/features/auth/presentation/screens/views/create_account_view.dart';
+import 'package:aanda/src/features/auth/presentation/screens/views/forgot_password_view.dart';
 import 'package:aanda/src/features/auth/presentation/screens/views/login_name_view.dart';
+import 'package:aanda/src/features/auth/presentation/screens/views/reset_password_view.dart';
 import 'package:aanda/src/features/auth/presentation/screens/views/welcome_view.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
@@ -41,10 +43,11 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
     redirect: (context, state) {
       final authStatus = authGuardBloc.state;
       final isAuthRoute = AppRoutes.isAuthRoute(state.uri.path);
+      final isResetPassword = state.uri.path == AppRoutes.authResetPassword;
 
       return switch (authStatus) {
         LoadingAuthSignature() => null,
-        Authenticated() when isAuthRoute => AppRoutes.home,
+        Authenticated() when isAuthRoute && !isResetPassword => AppRoutes.home,
         UnAuthenticated() when !isAuthRoute => AppRoutes.auth,
         _ => null,
       };
@@ -93,6 +96,24 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
             pageBuilder: (context, state) => NoTransitionPage(
               key: state.pageKey,
               child: const CreateAccountView(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.authForgotPassword,
+            name: 'auth-forgot-password',
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: ForgotPasswordView(
+                initialEmail: state.extra as String?,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.authResetPassword,
+            name: 'auth-reset-password',
+            pageBuilder: (context, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const ResetPasswordView(),
             ),
           ),
         ],

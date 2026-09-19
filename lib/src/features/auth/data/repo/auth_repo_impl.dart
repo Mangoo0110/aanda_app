@@ -90,4 +90,38 @@ class AuthRepoImpl with ErrorHandler implements AuthRepo {
       },
     );
   }
+
+  @override
+  AsyncRequest<void> sendPasswordResetEmail({required String email}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.sendPasswordResetEmail(email);
+        return const SuccessRepoCall(data: null);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> verifyPasswordResetOtp({
+    required String email,
+    required String token,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.verifyPasswordResetOtp(email: email, token: token);
+        return const SuccessRepoCall(data: null);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> resetPassword({required String newPassword}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.resetPassword(newPassword);
+        return const SuccessRepoCall(data: null);
+      },
+    );
+  }
 }
+
