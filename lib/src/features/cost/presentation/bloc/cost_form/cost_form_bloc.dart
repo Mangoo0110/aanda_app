@@ -66,7 +66,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     if (members.isEmpty) {
       try {
         final res = await Supabase.instance.client
-            .from('house_members')
+            .from('expense_account_members')
             .select(
                 'id, house_id, user_id, role, joined_at, profiles(username, full_name, avatar_url)')
             .eq('house_id', houseId);
@@ -105,7 +105,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     List<({String id, String name})> houses = const [];
     try {
       final res = await Supabase.instance.client
-          .from('houses')
+          .from('expense_accounts')
           .select('id, name')
           .order('name');
       houses = (res as List)

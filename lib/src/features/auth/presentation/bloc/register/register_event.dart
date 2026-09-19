@@ -18,3 +18,7 @@ final class RegisterPasswordChanged extends RegisterEvent {
 }
 
 final class RegisterSubmitted extends RegisterEvent {}
+
+final class RegisterResendEmailRequested extends RegisterEvent {}
+
+final class RegisterEditEmailRequested extends RegisterEvent {}

@@ -3,11 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
+import 'package:aanda/src/features/dashboard/domain/entities/dashboard_activity.dart';
 import 'package:aanda/src/features/dashboard/presentation/bloc/dashboard_bloc.dart';
+import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,96 +27,217 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const Color darkText = Color(0xFF1B1D1F);
   static const Color subText = Color(0xFF8C8D8E);
 
-  List<Map<String, dynamic>> _houses = [];
-  Map<String, dynamic>? _currentHouse;
-  List<Map<String, dynamic>> _recentCosts = [];
-  List<Map<String, dynamic>> _categories = [];
-
   @override
   void initState() {
     super.initState();
-    _loadAllDashboardData();
-  }
-
-  Future<void> _loadAllDashboardData() async {
-    try {
-      final supabase = Supabase.instance.client;
-
-      // 1. Fetch Houses
-      final houseRes = await supabase
-          .from('houses')
-          .select('id, name, house_members(id, user_id, role, display_name)');
-      final houses = (houseRes as List).cast<Map<String, dynamic>>();
-
-      Map<String, dynamic>? activeHouse = _currentHouse;
-      if (houses.isNotEmpty) {
-        if (activeHouse == null ||
-            !houses.any((h) => h['id'] == activeHouse?['id'])) {
-          activeHouse = houses.first;
-        } else {
-          activeHouse = houses.firstWhere((h) => h['id'] == activeHouse?['id']);
-        }
-      }
-
-      // 2. Fetch Recent Costs
-      var costsQuery = supabase
-          .from('costs')
-          .select(
-            'id, name, amount, purchase_date, cost_scope, note, cost_categories(id, name, icon)',
-          )
-          .order('purchase_date', ascending: false)
-          .limit(5);
-
-      if (activeHouse != null) {
-        costsQuery = supabase
-            .from('costs')
-            .select(
-              'id, name, amount, purchase_date, cost_scope, note, cost_categories(id, name, icon)',
-            )
-            .or('house_id.eq.${activeHouse['id']},cost_scope.eq.personal')
-            .order('purchase_date', ascending: false)
-            .limit(5);
-      }
-
-      final costsData = await costsQuery;
-      final recentCosts = (costsData as List).cast<Map<String, dynamic>>();
-
-      // 3. Fetch Categories
-      final catRes = await supabase
-          .from('cost_categories')
-          .select('id, name, icon')
-          .order('created_at', ascending: true)
-          .limit(8);
-      final categories = (catRes as List).cast<Map<String, dynamic>>();
-
-      if (mounted) {
-        setState(() {
-          _houses = houses;
-          _currentHouse = activeHouse;
-          _recentCosts = recentCosts;
-          _categories = categories;
-        });
-      }
-    } catch (_) {}
+    final houseCtx = context.read<HouseContextCubit>();
+    if (!houseCtx.state.hasHouses &&
+        houseCtx.state.status != HouseContextStatus.loading) {
+      houseCtx.load();
+    }
+    // Load dashboard for active account (personal account or selected house).
+    context.read<DashboardBloc>().add(
+      DashboardHouseFilterChanged(houseCtx.state.activeAccountId),
+    );
   }
 
   Future<void> _refresh() async {
     context.read<DashboardBloc>().add(const DashboardRefreshRequested());
-    await _loadAllDashboardData();
+    context.read<HouseContextCubit>().refresh();
+  }
+
+  void _showCyclePicker(BuildContext context, DashboardState state) {
+    final cycles = state.cycles;
+    final selectedCycle = state.selectedCycle;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cardColor,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetCtx).height * 0.6,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'Select Cycle',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (cycles.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text(
+                          'No cycles recorded yet for this house.',
+                          style: TextStyle(color: subText, fontSize: 13),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: cycles.length,
+                        separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          color: Colors.black.withValues(alpha: 0.05),
+                        ),
+                        itemBuilder: (_, index) {
+                          final cycle = cycles[index];
+                          final isSelected = cycle.id == selectedCycle?.id;
+                          final isOpen = cycle.status == SprintStatus.open;
+                          final startFormatted =
+                              DateFormat('d MMM yyyy').format(cycle.startDate);
+                          final endFormatted = isOpen
+                              ? 'Now (Open)'
+                              : DateFormat('d MMM yyyy').format(cycle.endDate!);
+
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(sheetCtx).pop();
+                              context.read<DashboardBloc>().add(
+                                DashboardCycleChanged(cycle),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: isSelected
+                                        ? primaryCoral.withValues(alpha: 0.15)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    child: Icon(
+                                      isOpen
+                                          ? Icons.timelapse_rounded
+                                          : Icons.lock_clock_rounded,
+                                      size: 18,
+                                      color: isSelected
+                                          ? primaryCoral
+                                          : subText,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              cycle.label,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: isSelected
+                                                    ? primaryCoral
+                                                    : darkText,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: isOpen
+                                                    ? const Color(0xFFE8F5E9)
+                                                    : const Color(0xFFEEEEEE),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                isOpen ? 'ACTIVE' : 'CLOSED',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: isOpen
+                                                      ? const Color(0xFF2E7D32)
+                                                      : const Color(0xFF757575),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '$startFormatted – $endFormatted',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: subText,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: primaryCoral,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _navigateToMeals() {
-    final houseId =
-        _currentHouse?['id'] as String? ??
-        (_houses.isNotEmpty ? _houses.first['id'] as String? : null);
-    if (houseId != null) {
-      context.push(AppRoutes.houseMeals(houseId));
+    final house = context.read<HouseContextCubit>().state.selectedHouse;
+    if (house != null) {
+      context.push(AppRoutes.houseMeals(house.id));
     } else {
       context.push(AppRoutes.meals);
     }
   }
 
-  void _showQuickActionSheet(BuildContext context) {
+  void _showQuickActionSheet() {
+    final isPersonal =
+        context.read<HouseContextCubit>().state.isPersonalView;
     showModalBottomSheet(
       context: context,
       backgroundColor: cardColor,
@@ -153,105 +277,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(fontSize: 12, color: subText),
                 ),
                 const SizedBox(height: 16),
-                // 1. Add Expense Option
-                InkWell(
+                _buildQuickActionTile(
+                  emoji: '📝',
+                  title: 'Add Expense',
+                  subtitle: 'Record personal or shared house cost',
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
                     final res = await context.push(AppRoutes.costAdd);
                     if (res == true && mounted) _refresh();
                   },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF5EE),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Row(
-                      children: [
-                        Text('📝', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Add Expense',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: darkText,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Record personal or shared house cost',
-                                style: TextStyle(fontSize: 12, color: subText),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: subText,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 10),
-                // 2. Meal Log Option
-                InkWell(
-                  onTap: () {
+                _buildQuickActionTile(
+                  emoji: '🏷️',
+                  title: 'New Expense Category',
+                  subtitle: 'Create a custom category for expenses',
+                  onTap: () async {
                     Navigator.of(sheetContext).pop();
-                    _navigateToMeals();
+                    await context.push(AppRoutes.costCategoryAdd);
+                    if (mounted) _refresh();
                   },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF5EE),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Row(
-                      children: [
-                        Text('🍲', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Meal Log (Add Meal)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: darkText,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Record breakfast, lunch & dinner for today',
-                                style: TextStyle(fontSize: 12, color: subText),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: subText,
-                          size: 22,
-                        ),
-                      ],
-                    ),
+                ),
+                if (!isPersonal) ...[
+                  const SizedBox(height: 10),
+                  _buildQuickActionTile(
+                    emoji: '🍲',
+                    title: 'Meal Log (Add Meal)',
+                    subtitle: 'Record breakfast, lunch & dinner for today',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _navigateToMeals();
+                    },
                   ),
+                ],
+                const SizedBox(height: 10),
+                _buildQuickActionTile(
+                  emoji: '🏠',
+                  title: 'Create Shared House',
+                  subtitle: 'Start a new house/flat with flatmates',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final res = await context.push(AppRoutes.houseCreate);
+                    if (res == true && mounted) {
+                      context.read<HouseContextCubit>().refresh();
+                      _refresh();
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildQuickActionTile(
+                  emoji: '🔑',
+                  title: 'Join House with Code',
+                  subtitle: 'Enter an invite code shared by flatmates',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final res = await context.push(AppRoutes.houseJoin);
+                    if (res == true && mounted) {
+                      context.read<HouseContextCubit>().refresh();
+                      _refresh();
+                    }
+                  },
                 ),
               ],
             ),
@@ -261,287 +346,474 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildQuickActionTile({
+    required String emoji,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF5EE),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: subText),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: subText,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
     final currencyFormat = NumberFormat('#,##0');
 
-    final houseName = _currentHouse?['name'] as String? ?? 'Dhaka Flat';
+    final houseCtxState = context.watch<HouseContextCubit>().state;
+    final isPersonal = houseCtxState.isPersonalView;
+    final houseName = houseCtxState.selectedHouse?.name ?? 'My House';
+    final chipLabel = isPersonal ? 'Personal Account' : houseName;
+    final chipIcon = isPersonal ? '👤' : '🏠';
     final user = Supabase.instance.client.auth.currentUser;
     final userEmail = user?.email ?? '';
     final avatarLetter = userEmail.isNotEmpty
         ? userEmail[0].toUpperCase()
         : 'U';
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showQuickActionSheet(context),
-        backgroundColor: primaryCoral,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
-      body: SafeArea(
-        child: BlocConsumer<DashboardBloc, DashboardState>(
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.errorMessage!),
-                  backgroundColor: colors.errorColor,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            // Total spend: totalHouseSpent + personalSpent or state summary
-            final totalPeriodSpend = state.summary != null
-                ? (state.totalHouseSpent > 0
-                      ? state.totalHouseSpent
-                      : state.personalSpent)
-                : 18450.0;
+    return BlocListener<HouseContextCubit, HouseContextState>(
+      listenWhen: (prev, curr) =>
+          prev.selectedHouse?.id != curr.selectedHouse?.id ||
+          prev.isPersonalView != curr.isPersonalView ||
+          prev.personalAccount?.id != curr.personalAccount?.id,
+      listener: (context, houseState) {
+        final currentAccount = houseState.activeAccountId;
+        final currentBlocHouse =
+            context.read<DashboardBloc>().state.selectedHouseId;
+        if (currentAccount != currentBlocHouse) {
+          context.read<DashboardBloc>().add(
+            DashboardHouseFilterChanged(currentAccount),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        floatingActionButton: FloatingActionButton(
+          onPressed: _showQuickActionSheet,
+          backgroundColor: primaryCoral,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
+        body: SafeArea(
+          child: BlocConsumer<DashboardBloc, DashboardState>(
+            listener: (context, state) {
+              if (state.errorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(state.errorMessage!),
+                    backgroundColor: colors.errorColor,
+                  ),
+                );
+              }
+            },
+            builder: (context, state) {
+              // Cycle label and index
+              final cycle = state.selectedCycle;
+              final String cycleLabel;
+              if (cycle != null) {
+                final startFormatted =
+                    DateFormat('d MMM').format(cycle.startDate);
+                final endFormatted = cycle.endDate == null
+                    ? 'Now'
+                    : DateFormat('d MMM').format(cycle.endDate!);
+                cycleLabel = '${cycle.label} • $startFormatted – $endFormatted';
+              } else {
+                cycleLabel = 'No Active Cycle';
+              }
 
-            // Cycle label
-            final now = DateTime.now();
-            final isCurrentMonth =
-                state.selectedMonth.year == now.year &&
-                state.selectedMonth.month == now.month;
-            final cycleLabel = isCurrentMonth
-                ? '${DateFormat('MMMM d, yyyy').format(DateTime(now.year, now.month, 1))} – Now'
-                : DateFormat('MMMM yyyy').format(state.selectedMonth);
+              final cycleIndex =
+                  cycle != null ? state.cycles.indexOf(cycle) : -1;
+              final hasOlderCycle = cycleIndex != -1 &&
+                  cycleIndex < state.cycles.length - 1;
+              final hasNewerCycle = cycleIndex > 0;
 
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              color: primaryCoral,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                color: primaryCoral,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                  // ── 1. Top Bar: House Chip | Streak Badge | User Avatar ──────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          // House Selector Pill
-                          InkWell(
-                            onTap: _showHousePicker,
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                    // ── 1. Top Bar: House Chip | Streak Badge | User Avatar ──────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            // Account/House Selector Pill
+                            GestureDetector(
+                              onTap: _showHousePicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.02),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      chipLabel,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: darkText,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      chipIcon,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 16,
+                                      color: subText,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                color: cardColor,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.02),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
+                            ),
+
+                            const Spacer(),
+
+                            // User Avatar
+                            InkWell(
+                              onTap: () => _showUserMenu(context),
+                              borderRadius: BorderRadius.circular(18),
+                              child: CircleAvatar(
+                                radius: 17,
+                                backgroundColor: const Color(0xFFF2D1B3),
+                                child: Text(
+                                  avatarLetter,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF5D3A1A),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14).toSliver(),
+
+                    // ── 2. Settlement Cycle Navigator Pill ──
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.chevron_left_rounded,
+                                  size: 18,
+                                ),
+                                color: hasOlderCycle
+                                    ? darkText
+                                    : subText.withValues(alpha: 0.3),
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                onPressed: hasOlderCycle
+                                    ? () {
+                                        final older =
+                                            state.cycles[cycleIndex + 1];
+                                        context.read<DashboardBloc>().add(
+                                          DashboardCycleChanged(older),
+                                        );
+                                      }
+                                    : null,
+                              ),
+                              const SizedBox(width: 4),
+                              InkWell(
+                                onTap: () => _showCyclePicker(context, state),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 4,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        cycleLabel,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: darkText,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 16,
+                                        color: subText,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                ),
+                                color: hasNewerCycle
+                                    ? darkText
+                                    : subText.withValues(alpha: 0.3),
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                onPressed: hasNewerCycle
+                                    ? () {
+                                        final newer =
+                                            state.cycles[cycleIndex - 1];
+                                        context.read<DashboardBloc>().add(
+                                          DashboardCycleChanged(newer),
+                                        );
+                                      }
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14).toSliver(),
+
+                    // ── 3. Hero Spend Stat & Settle Pill ─────────────────────────
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Column(
+                                  children: [
+                                    Text(
+                                      isPersonal
+                                          ? '৳${currencyFormat.format(state.personalSpent)}'
+                                          : '৳${currencyFormat.format(state.myTotalSpent)}',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w800,
+                                        color: darkText,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isPersonal
+                                          ? 'Personal Spending'
+                                          : 'Your Account Spending',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: subText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (!isPersonal) ...[
+                                  const SizedBox(width: 14),
+                                  InkWell(
+                                    onTap: () => _handleSettle(context),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDE745B),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.arrow_drop_down_rounded,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                          SizedBox(width: 2),
+                                          Text(
+                                            'Settle',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    houseName,
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            // Secondary Badges: House Pool & Personal
+                            if (!isPersonal)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.02),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    'House Pool: ৳${currencyFormat.format(state.totalHouseSpent)}',
                                     style: const TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                       color: darkText,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    '🏠',
-                                    style: TextStyle(fontSize: 13),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 16,
-                                    color: subText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const Spacer(),
-
-                          // User Avatar
-                          InkWell(
-                            onTap: () => _showUserMenu(context),
-                            borderRadius: BorderRadius.circular(18),
-                            child: CircleAvatar(
-                              radius: 17,
-                              backgroundColor: const Color(0xFFF2D1B3),
-                              child: Text(
-                                avatarLetter,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF5D3A1A),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14).toSliver(),
-
-                  // ── 2. Settlement Cycle Navigator Pill ───────────────────────
-                  SliverToBoxAdapter(
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cardColor,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(
-                                Icons.chevron_left_rounded,
-                                size: 18,
-                              ),
-                              color: subText,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
-                              ),
-                              onPressed: () {
-                                final prev = DateTime(
-                                  state.selectedMonth.year,
-                                  state.selectedMonth.month - 1,
-                                );
-                                context.read<DashboardBloc>().add(
-                                  DashboardMonthChanged(prev),
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              cycleLabel,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: darkText,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.chevron_right_rounded,
-                                size: 18,
-                              ),
-                              color: subText,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 28,
-                                minHeight: 28,
-                              ),
-                              onPressed: () {
-                                final next = DateTime(
-                                  state.selectedMonth.year,
-                                  state.selectedMonth.month + 1,
-                                );
-                                context.read<DashboardBloc>().add(
-                                  DashboardMonthChanged(next),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14).toSliver(),
-
-                  // ── 3. Hero Spend Stat & Settle Pill ─────────────────────────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            '৳${currencyFormat.format(totalPeriodSpend)}',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: darkText,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          InkWell(
-                            onTap: () => _handleSettle(context),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDE745B),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  SizedBox(width: 2),
-                                  Text(
-                                    'Settle',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                                if (state.personalSpent > 0) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cardColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.02),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      'Personal: ৳${currencyFormat.format(state.personalSpent)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: subText,
+                                      ),
                                     ),
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
                   const SizedBox(height: 12).toSliver(),
 
-                  // ── 3.5 Core Feature Shortcuts (Expenses & Meal Log) ────────
+                   // ── 3.5 Core Feature Shortcuts ─────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -590,47 +862,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: InkWell(
-                              onTap: _navigateToMeals,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cardColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.02,
+                          // Meal Log shortcut only shown for shared house
+                          if (!isPersonal) ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: InkWell(
+                                onTap: _navigateToMeals,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.02,
+                                        ),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('🍲', style: TextStyle(fontSize: 15)),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Meal Log',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: darkText,
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('🍲', style: TextStyle(fontSize: 15)),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Meal Log',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: darkText,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -696,7 +971,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ],
                         ),
-                        child: _buildRecentList(currencyFormat),
+                        child: _buildRecentList(currencyFormat, state.activities),
                       ),
                     ),
                   ),
@@ -785,17 +1060,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 12),
-
-                              // Add Meal Action Card
-                              Expanded(
-                                child: _QuickActionCard(
-                                  iconEmoji: '🍲',
-                                  title: 'Add Meal',
-                                  subtitle: 'Shared house',
-                                  onTap: _navigateToMeals,
+                              // Add Meal Action Card only for shared house
+                              if (!isPersonal) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _QuickActionCard(
+                                    iconEmoji: '🍲',
+                                    title: 'Add Meal',
+                                    subtitle: 'Shared house',
+                                    onTap: _navigateToMeals,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ],
@@ -810,68 +1086,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
       ),
+    ),
     );
   }
 
   // ── Recent List Builder ───────────────────────────────────────────────────
 
-  Widget _buildRecentList(NumberFormat currencyFormat) {
-    // If recent costs loaded from DB, use them; else fallback to mockup items
-    final items = _recentCosts.isNotEmpty
-        ? _recentCosts
-        : [
-            {
-              'name': 'Starbucks',
-              'note': 'Coffee',
-              'amount': 450.0,
-              'date_label': 'today',
-              'emoji': '☕',
-            },
-            {
-              'name': 'Supermarket',
-              'note': 'Groceries',
-              'amount': 3200.0,
-              'date_label': 'Mar 4',
-              'emoji': '🛒',
-            },
-            {
-              'name': 'House',
-              'note': 'Rent',
-              'amount': 12000.0,
-              'date_label': 'Mar 1',
-              'emoji': '🏠',
-            },
-          ];
+  Widget _buildRecentList(
+    NumberFormat currencyFormat,
+    List<DashboardActivity> activities,
+  ) {
+    if (activities.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Text(
+          'No recent activity yet. Start adding expenses or meals!',
+          style: TextStyle(fontSize: 13, color: subText),
+        ),
+      );
+    }
 
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: items.length,
+      itemCount: activities.length,
       separatorBuilder: (_, __) => Divider(
         height: 1,
         indent: 64,
         color: Colors.black.withValues(alpha: 0.04),
       ),
       itemBuilder: (context, index) {
-        final item = items[index];
-        final name = item['name'] as String? ?? 'Expense';
-        final note = (item['note'] as String?)?.isNotEmpty == true
-            ? item['note'] as String
-            : (item['cost_categories'] != null &&
-                      item['cost_categories']['name'] != null
-                  ? item['cost_categories']['name'] as String
-                  : 'General');
-
-        final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
-        final dateLabel =
-            item['date_label'] as String? ??
-            (item['purchase_date'] != null
-                ? _formatRecentDate(item['purchase_date'] as String)
-                : 'today');
-
-        final emoji =
-            item['emoji'] as String? ??
-            _resolveEmoji(name, note, item['cost_categories']?['icon']);
+        final activity = activities[index];
+        final emoji = activity.type.name == 'meal' ? '🍲' : '💳';
+        final amount = activity.amount ?? 0.0;
+        final dateLabel = _formatRecentDate(
+          activity.timestamp.toIso8601String(),
+        );
 
         return InkWell(
           onTap: () async {
@@ -880,7 +1130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
           borderRadius: BorderRadius.vertical(
             top: index == 0 ? const Radius.circular(22) : Radius.zero,
-            bottom: index == items.length - 1
+            bottom: index == activities.length - 1
                 ? const Radius.circular(22)
                 : Radius.zero,
           ),
@@ -888,7 +1138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                // Icon in soft tinted rounded container
+                // Icon
                 Container(
                   width: 42,
                   height: 42,
@@ -901,14 +1151,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
-
-                // Name & Note/Category
+                // Title
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        activity.tag,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -919,7 +1168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        note,
+                        activity.title,
                         style: const TextStyle(fontSize: 12, color: subText),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -927,19 +1176,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-
                 // Amount & Date
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '-৳${currencyFormat.format(amount)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: darkText,
+                    if (amount > 0)
+                      Text(
+                        '-৳${currencyFormat.format(amount)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: darkText,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 2),
                     Text(
                       dateLabel,
@@ -1063,41 +1312,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  String _resolveEmoji(String name, String note, String? icon) {
-    if (icon != null && icon.isNotEmpty && icon.length <= 4) {
-      return icon;
-    }
-    final combined = '$name $note'.toLowerCase();
-    if (combined.contains('coffee') ||
-        combined.contains('tea') ||
-        combined.contains('starbucks')) {
-      return '☕';
-    }
-    if (combined.contains('market') ||
-        combined.contains('grocer') ||
-        combined.contains('bazar') ||
-        combined.contains('food')) {
-      return '🛒';
-    }
-    if (combined.contains('rent') ||
-        combined.contains('house') ||
-        combined.contains('flat')) {
-      return '🏠';
-    }
-    if (combined.contains('gas') ||
-        combined.contains('utilit') ||
-        combined.contains('electric') ||
-        combined.contains('wifi') ||
-        combined.contains('bill')) {
-      return '⚡';
-    }
-    return '💳';
-  }
 
   // ── Actions & Bottom Sheets ───────────────────────────────────────────────
 
   void _handleSettle(BuildContext context) {
-    if (_currentHouse == null) {
+    final house = context.read<HouseContextCubit>().state.selectedHouse;
+    if (house == null) {
       _showHousePicker();
       return;
     }
@@ -1105,8 +1325,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showSettlementSheet(BuildContext context) {
-    final houseName = _currentHouse?['name'] as String? ?? 'Shared House';
-    final houseId = _currentHouse?['id'] as String?;
+    final house = context.read<HouseContextCubit>().state.selectedHouse;
+    final houseName = house?.name ?? 'Shared House';
+    final houseId = house?.id;
     final now = DateTime.now();
     final dateStr = DateFormat('d MMM yyyy, h:mm a').format(now);
 
@@ -1294,7 +1515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 18),
                   const Text(
-                    'Select Shared House',
+                    'Switch Account',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -1302,88 +1523,146 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (_houses.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        'No shared houses joined yet.',
-                        style: TextStyle(color: subText, fontSize: 13),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _houses.length,
-                        itemBuilder: (context, idx) {
-                          final h = _houses[idx];
-                          final isSelected = h['id'] == _currentHouse?['id'];
-                          final members = h['house_members'] as List? ?? [];
+                  Flexible(
+                    child: BlocBuilder<HouseContextCubit, HouseContextState>(
+                      builder: (context, houseCtxState) {
+                        final isPersonalSelected = houseCtxState.isPersonalView;
 
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: isSelected
-                                  ? primaryCoral.withValues(alpha: 0.15)
-                                  : Colors.black.withValues(alpha: 0.05),
-                              child: Text(
-                                (h['name'] as String? ?? 'H')[0].toUpperCase(),
+                        return ListView(
+                          shrinkWrap: true,
+                          children: [
+                            // —— Personal Account option ——
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: isPersonalSelected
+                                    ? primaryCoral.withValues(alpha: 0.15)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                child: Icon(
+                                  Icons.person_rounded,
+                                  size: 18,
+                                  color: isPersonalSelected
+                                      ? primaryCoral
+                                      : darkText,
+                                ),
+                              ),
+                              title: Text(
+                                'My Personal Account',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
-                                  color: isSelected ? primaryCoral : darkText,
+                                  color: isPersonalSelected ? primaryCoral : darkText,
                                 ),
                               ),
-                            ),
-                            title: Text(
-                              h['name'] as String? ?? 'House',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: isSelected ? primaryCoral : darkText,
+                              subtitle: const Text(
+                                'Only your personal expenses',
+                                style: TextStyle(fontSize: 11, color: subText),
                               ),
+                              trailing: isPersonalSelected
+                                  ? const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: primaryCoral,
+                                      size: 20,
+                                    )
+                                  : null,
+                              onTap: () {
+                                context
+                                    .read<HouseContextCubit>()
+                                    .selectPersonal();
+                                Navigator.of(sheetContext).pop();
+                                _refresh();
+                              },
                             ),
-                            subtitle: Text(
-                              '${members.length} members',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: subText,
-                              ),
+                            Divider(
+                              height: 1,
+                              color: Colors.black.withValues(alpha: 0.06),
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.restaurant_rounded,
-                                    size: 20,
+                            if (houseCtxState.hasSharedHouses) ...[
+                              // —— Shared houses ——
+                              ...houseCtxState.sharedHouses.map((h) {
+                                final isSelected =
+                                    !isPersonalSelected &&
+                                    h.id == houseCtxState.selectedHouse?.id;
+
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: CircleAvatar(
+                                    backgroundColor: isSelected
+                                        ? primaryCoral.withValues(alpha: 0.15)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    child: Text(
+                                      h.name[0].toUpperCase(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: isSelected
+                                            ? primaryCoral
+                                            : darkText,
+                                      ),
+                                    ),
                                   ),
-                                  color: primaryCoral,
-                                  tooltip: 'Open Meals',
-                                  onPressed: () {
+                                  title: Text(
+                                    h.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isSelected ? primaryCoral : darkText,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    '${h.members.length} member${h.members.length == 1 ? '' : 's'}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: subText,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.restaurant_rounded,
+                                          size: 20,
+                                        ),
+                                        color: primaryCoral,
+                                        tooltip: 'Open Meals',
+                                        onPressed: () {
+                                          Navigator.of(sheetContext).pop();
+                                          context.push(
+                                            AppRoutes.houseMeals(h.id),
+                                          );
+                                        },
+                                      ),
+                                      if (isSelected)
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: primaryCoral,
+                                          size: 20,
+                                        ),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    context
+                                        .read<HouseContextCubit>()
+                                        .selectHouse(h);
                                     Navigator.of(sheetContext).pop();
-                                    context.push(
-                                      AppRoutes.houseMeals(h['id'] as String),
-                                    );
+                                    _refresh();
                                   },
-                                ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: primaryCoral,
-                                    size: 20,
+                                );
+                              }),
+                            ] else ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                child: Center(
+                                  child: Text(
+                                    'No shared houses joined yet.',
+                                    style: TextStyle(fontSize: 12, color: subText),
                                   ),
-                              ],
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _currentHouse = h;
-                              });
-                              Navigator.of(sheetContext).pop();
-                              _refresh();
-                            },
-                          );
-                        },
-                      ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
+                  ),
                   const SizedBox(height: 16),
                   Divider(
                     height: 1,
@@ -1408,7 +1687,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             final res = await context.push(
                               AppRoutes.houseCreate,
                             );
-                            if (res == true && mounted) _refresh();
+                            if (res == true && mounted) {
+                              context.read<HouseContextCubit>().refresh();
+                              _refresh();
+                            }
                           },
                         ),
                       ),
@@ -1426,7 +1708,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           onPressed: () async {
                             Navigator.of(sheetContext).pop();
                             final res = await context.push(AppRoutes.houseJoin);
-                            if (res == true && mounted) _refresh();
+                            if (res == true && mounted) {
+                              context.read<HouseContextCubit>().refresh();
+                              _refresh();
+                            }
                           },
                         ),
                       ),
@@ -1508,7 +1793,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                if (_categories.isEmpty)
+                if (context
+                        .read<HouseContextCubit>()
+                        .state
+                        .selectedHouse ==
+                    null)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
                     child: Text(
@@ -1517,44 +1806,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   )
                 else
-                  ..._categories.map((cat) {
-                    final catName = cat['name'] as String? ?? 'Category';
-                    final catIcon = cat['icon'] as String? ?? '🏷️';
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFBF4EB),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: Text(
-                            catIcon,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      title: Text(
-                        catName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: darkText,
-                        ),
-                      ),
-                      trailing: const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18,
-                        color: subText,
-                      ),
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _addExpenseForCategory(catName);
-                      },
-                    );
-                  }),
+                  BlocBuilder<HouseContextCubit, HouseContextState>(
+                    builder: (context, houseCtxState) {
+                      return const SizedBox.shrink();
+                    },
+                  ),
               ],
             ),
           ),
@@ -1564,6 +1820,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showCreateCategoryDialog() {
+    final houseId =
+        context.read<HouseContextCubit>().state.selectedHouse?.id;
     final controller = TextEditingController();
     showDialog(
       context: context,
@@ -1608,7 +1866,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   await supabase.from('cost_categories').insert({
                     'name': text,
                     'icon': '🏷️',
-                    if (_currentHouse != null) 'house_id': _currentHouse!['id'],
+                    if (houseId != null) 'house_id': houseId,
                   });
                   _refresh();
                 } catch (_) {}
@@ -1735,7 +1993,199 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   await logout(const NoParams());
                 },
               ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.delete_forever_rounded,
+                  color: Color(0xFF8C8D8E),
+                ),
+                title: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFF8C8D8E),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showDeleteAccountConfirmation(context);
+                },
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountConfirmation(BuildContext context) {
+    bool isDeleting = false;
+    String? errorMessage;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardColor,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Icon
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEEEC),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.delete_forever_rounded,
+                    color: Color(0xFFD85A38),
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Delete Account?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: darkText,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Your login access will be immediately revoked. '
+                  'Shared expense and meal history you\'ve contributed '
+                  'to will be preserved for your housemates.\n\n'
+                  'This cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: subText,
+                    height: 1.5,
+                  ),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEEEC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFD85A38).withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFD85A38),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: isDeleting
+                        ? null
+                        : () async {
+                            setState(() {
+                              isDeleting = true;
+                              errorMessage = null;
+                            });
+                            try {
+                              final deleteAccount =
+                                  context.read<DeleteAccount>();
+                              final result =
+                                  await deleteAccount(const NoParams());
+                              if (result.success) {
+                                // Auth deletion triggers the auth stream →
+                                // auto-redirect to auth screen.
+                                if (sheetCtx.mounted) {
+                                  Navigator.of(sheetCtx).pop();
+                                }
+                              } else {
+                                setState(() {
+                                  isDeleting = false;
+                                  errorMessage = result.message.isNotEmpty
+                                      ? result.message
+                                      : 'Failed to delete account. Please try again.';
+                                });
+                              }
+                            } catch (e) {
+                              setState(() {
+                                isDeleting = false;
+                                errorMessage = e.toString();
+                              });
+                            }
+                          },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFD85A38),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: isDeleting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Yes, Delete My Account',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: isDeleting
+                        ? null
+                        : () => Navigator.of(sheetCtx).pop(),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: subText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

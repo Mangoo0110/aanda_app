@@ -28,4 +28,16 @@ class SettlementRepoImpl with ErrorHandler implements SettlementRepo {
       },
     );
   }
+
+  @override
+  AsyncRequest<Settlement?> getCycleSettlement({required String cycleId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final settlement = await _datasource.getPersistedSettlement(
+          cycleId: cycleId,
+        );
+        return SuccessRepoCall(data: settlement);
+      },
+    );
+  }
 }

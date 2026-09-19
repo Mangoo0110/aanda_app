@@ -8,13 +8,13 @@ class CreateSprintParams {
     required this.houseId,
     required this.label,
     required this.startDate,
-    required this.endDate,
+    this.endDate, // null = open cycle; set only when admin closes it
   });
 
   final String houseId;
   final String label;
   final DateTime startDate;
-  final DateTime endDate;
+  final DateTime? endDate;
 }
 
 final class CreateSprint implements AsyncUsecase<Sprint, CreateSprintParams> {

@@ -15,4 +15,10 @@ abstract interface class AuthRepo {
   AsyncRequest<Account?> getCurrentAccount();
 
   AsyncRequest<bool> isUsernameAvailable(String username);
+
+  /// Archives the profile and deletes the auth user so login is impossible.
+  AsyncRequest<void> deleteAccount();
+
+  /// Resends signup confirmation email.
+  AsyncRequest<void> resendEmailVerification({required String email});
 }

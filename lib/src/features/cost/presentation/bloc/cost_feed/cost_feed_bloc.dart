@@ -208,10 +208,12 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
 
     if (state.selectedSprint != null) {
       startDate = state.selectedSprint!.startDate;
+      // Open cycle has no end date — use end of today as effective boundary
+      final sprintEnd = state.selectedSprint!.endDate ?? DateTime.now();
       endDate = DateTime(
-        state.selectedSprint!.endDate.year,
-        state.selectedSprint!.endDate.month,
-        state.selectedSprint!.endDate.day,
+        sprintEnd.year,
+        sprintEnd.month,
+        sprintEnd.day,
         23,
         59,
         59,

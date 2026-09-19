@@ -22,6 +22,7 @@ final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
     required GetSprints getSprints,
     required GetSprintStats getSprintStats,
     required ComputeSettlement computeSettlement,
+    GetCycleSettlement? getCycleSettlement,
     required CloseSprint closeSprint,
     required CreateSprint createSprint,
   }) : _getHouseDetail = getHouseDetail,
@@ -32,6 +33,7 @@ final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
        _getSprints = getSprints,
        _getSprintStats = getSprintStats,
        _computeSettlement = computeSettlement,
+       _getCycleSettlement = getCycleSettlement,
        _closeSprint = closeSprint,
        _createSprint = createSprint,
        super(HouseDetailState(houseId: houseId)) {
@@ -54,22 +56,19 @@ final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
   final GetSprints _getSprints;
   final GetSprintStats _getSprintStats;
   final ComputeSettlement _computeSettlement;
+  final GetCycleSettlement? _getCycleSettlement;
   final CloseSprint _closeSprint;
   final CreateSprint _createSprint;
 
   Future<void> _onStarted(
     HouseDetailStarted event,
     Emitter<HouseDetailState> emit,
-  ) async {
-    await _load(emit);
-  }
+  ) async => _load(emit);
 
   Future<void> _onRefresh(
     HouseDetailRefreshRequested event,
     Emitter<HouseDetailState> emit,
-  ) async {
-    await _load(emit);
-  }
+  ) async => _load(emit);
 
   Future<void> _onSprintSelected(
     HouseDetailSprintSelected event,
@@ -87,6 +86,25 @@ final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
     if (sprint == null) return;
 
     emit(state.copyWith(isComputingSettlement: true, clearError: true));
+
+    // If sprint is closed, check persisted settlement first
+    if (!sprint.isOpen && _getCycleSettlement != null) {
+      final persisted = await handleFutureRequest<Settlement?>(
+        request: () => _getCycleSettlement(
+          GetCycleSettlementParams(cycleId: sprint.id),
+        ),
+        debugger: ControllerDebugger(),
+      );
+      if (persisted != null) {
+        emit(
+          state.copyWith(
+            isComputingSettlement: false,
+            settlement: persisted,
+          ),
+        );
+        return;
+      }
+    }
 
     final tapDate = DateTime.now();
     final settlement = await handleFutureRequest<Settlement>(
@@ -300,7 +318,7 @@ final class HouseDetailBloc extends Bloc<HouseDetailEvent, HouseDetailState> {
           houseId: state.houseId,
           cycleId: sprint.id,
           startDate: sprint.startDate,
-          endDate: sprint.endDate,
+          endDate: sprint.endDate ?? DateTime.now(),
         ),
       ),
       debugger: ControllerDebugger(),

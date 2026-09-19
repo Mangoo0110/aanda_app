@@ -4,9 +4,18 @@ import 'package:aanda/src/features/dashboard/domain/entities/dashboard_summary.d
 import 'package:aanda/src/features/dashboard/domain/repo/dashboard_repo.dart';
 
 class GetDashboardSummaryParams {
-  const GetDashboardSummaryParams({this.houseId, this.month});
+  const GetDashboardSummaryParams({
+    this.houseId,
+    this.cycleId,
+    this.startDate,
+    this.endDate,
+    this.month,
+  });
 
   final String? houseId;
+  final String? cycleId;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final String? month;
 }
 
@@ -20,6 +29,9 @@ final class GetDashboardSummary
   AsyncRequest<DashboardSummary> call(GetDashboardSummaryParams params) {
     return _repo.getDashboardSummary(
       houseId: params.houseId,
+      cycleId: params.cycleId,
+      startDate: params.startDate,
+      endDate: params.endDate,
       month: params.month,
     );
   }

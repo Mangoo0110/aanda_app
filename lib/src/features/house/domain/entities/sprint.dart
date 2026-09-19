@@ -6,7 +6,7 @@ class Sprint {
     required this.houseId,
     required this.label,
     required this.startDate,
-    required this.endDate,
+    this.endDate,        // null = open cycle (no end date yet)
     required this.status,
     this.breakfastWeight = 1.0,
     this.lunchWeight = 1.0,
@@ -19,7 +19,7 @@ class Sprint {
   final String houseId;
   final String label;
   final DateTime startDate;
-  final DateTime endDate;
+  final DateTime? endDate;   // null when cycle is open
   final SprintStatus status;
   final double breakfastWeight;
   final double lunchWeight;
@@ -32,8 +32,9 @@ class Sprint {
 
   String get dateRangeFormatted {
     final startStr = '${startDate.day} ${_monthName(startDate.month)}';
-    final endStr = '${endDate.day} ${_monthName(endDate.month)}';
-    return '$startStr - $endStr';
+    if (endDate == null) return '$startStr – Ongoing';
+    final endStr = '${endDate!.day} ${_monthName(endDate!.month)}';
+    return '$startStr – $endStr';
   }
 
   static String _monthName(int month) {

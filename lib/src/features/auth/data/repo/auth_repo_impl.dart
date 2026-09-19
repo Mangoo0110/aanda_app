@@ -31,6 +31,11 @@ class AuthRepoImpl with ErrorHandler implements AuthRepo {
     return asyncTryCatch(
       tryFunc: () async {
         final account = await _datasource.signUpWithEmail(params);
+        if (account.token == null) {
+          return SuccessRepoCall(
+            data: UnconfirmedEmail(email: account.email),
+          );
+        }
         return SuccessRepoCall(data: Authenticated(account));
       },
     );
@@ -62,6 +67,26 @@ class AuthRepoImpl with ErrorHandler implements AuthRepo {
       tryFunc: () async {
         final available = await _datasource.isUsernameAvailable(username);
         return SuccessRepoCall(data: available);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> deleteAccount() {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.deleteAccount();
+        return const SuccessRepoCall(data: null);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> resendEmailVerification({required String email}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.resendEmailVerification(email);
+        return const SuccessRepoCall(data: null);
       },
     );
   }

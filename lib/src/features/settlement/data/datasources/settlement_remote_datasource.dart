@@ -39,4 +39,23 @@ class SettlementRemoteDatasource {
 
     return SettlementModel.fromJson(payload);
   }
+
+  /// Attempts to fetch an already-persisted settlement from the `cycle_settlements` table.
+  /// Returns null if not yet persisted or table doesn't exist yet.
+  Future<Settlement?> getPersistedSettlement({required String cycleId}) async {
+    try {
+      final res = await _supabase
+          .from('cycle_settlements')
+          .select('*')
+          .eq('cycle_id', cycleId)
+          .maybeSingle();
+
+      if (res != null) {
+        return SettlementModel.fromJson(res);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }

@@ -122,7 +122,7 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
     required String houseId,
     required String label,
     required DateTime startDate,
-    required DateTime endDate,
+    DateTime? endDate,
   }) {
     return asyncTryCatch(
       tryFunc: () async {

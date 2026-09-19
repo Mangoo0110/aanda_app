@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
@@ -41,36 +42,14 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
   MealViewMode _viewMode = MealViewMode.daily;
   String? _selectedMemberUserId;
 
-  String _houseName = 'Dhaka Flat';
-  int _memberCount = 5;
-  List<Map<String, dynamic>> _houses = [];
-
   @override
   void initState() {
     super.initState();
-    _loadHouseDetails();
-  }
-
-  Future<void> _loadHouseDetails() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final data = await supabase
-          .from('houses')
-          .select('id, name, house_members(id, user_id, role, display_name)');
-      final list = (data as List).cast<Map<String, dynamic>>();
-      if (mounted && list.isNotEmpty) {
-        final current = list.firstWhere(
-          (h) => h['id'] == widget.houseId,
-          orElse: () => list.first,
-        );
-        final members = current['house_members'] as List? ?? [];
-        setState(() {
-          _houses = list;
-          _houseName = current['name'] as String? ?? 'Dhaka Flat';
-          _memberCount = members.isNotEmpty ? members.length : 5;
-        });
-      }
-    } catch (_) {}
+    final houseCtx = context.read<HouseContextCubit>();
+    if (!houseCtx.state.hasHouses &&
+        houseCtx.state.status != HouseContextStatus.loading) {
+      houseCtx.load();
+    }
   }
 
   @override
@@ -105,15 +84,40 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
             }
           },
           builder: (context, state) {
+            if (state.isLoading && state.members.isEmpty) {
+              return const Scaffold(
+                backgroundColor: backgroundColor,
+                body: Center(
+                  child: CircularProgressIndicator(color: primaryCoral),
+                ),
+              );
+            }
+
+            final houseCtx = context.watch<HouseContextCubit>();
+            final currentHouse = houseCtx.state.houses.where(
+              (h) => h.id == widget.houseId,
+            ).firstOrNull ?? houseCtx.state.selectedHouse;
+            final houseName = currentHouse?.name ?? 'My House';
+            final memberCount = state.members.isNotEmpty
+                ? state.members.length
+                : (currentHouse?.members.length ?? 0);
+
             final selectedDate = state.selectedDate;
             final totalMeals = state.totalMealsForSelectedDate;
-            final members = state.members.isNotEmpty
-                ? state.members
-                : _fallbackMembers();
+            final members = state.members;
 
             final selectedMember = members.firstWhere(
               (m) => m.userId == (_selectedMemberUserId ?? currentUserId),
-              orElse: () => members.first,
+              orElse: () => members.isNotEmpty
+                  ? members.first
+                  : HouseMember(
+                      id: '',
+                      houseId: widget.houseId,
+                      userId: currentUserId ?? '',
+                      role: MemberRole.member,
+                      joinedAt: DateTime.now(),
+                      fullName: 'Member',
+                    ),
             );
 
             final now = DateTime.now();
@@ -130,11 +134,13 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                   )
                 : DateTime(now.year, now.month, 1);
             final sprintEnd = activeSprint != null
-                ? DateTime(
-                    activeSprint.endDate.year,
-                    activeSprint.endDate.month,
-                    activeSprint.endDate.day,
-                  )
+                ? (activeSprint.endDate != null
+                    ? DateTime(
+                        activeSprint.endDate!.year,
+                        activeSprint.endDate!.month,
+                        activeSprint.endDate!.day,
+                      )
+                    : DateTime(now.year, now.month, now.day)) // open cycle = today
                 : DateTime(now.year, now.month + 1, 0);
 
             final List<DateTime> sprintDays = [];
@@ -198,8 +204,8 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                                         alpha: 0.12,
                                       ),
                                       child: Text(
-                                        _houseName.isNotEmpty
-                                            ? _houseName[0].toUpperCase()
+                                        houseName.isNotEmpty
+                                            ? houseName[0].toUpperCase()
                                             : 'H',
                                         style: const TextStyle(
                                           fontSize: 12,
@@ -233,7 +239,7 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          _houseName,
+                                          houseName,
                                           style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
@@ -248,7 +254,7 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                                       ],
                                     ),
                                     Text(
-                                      '$_memberCount members',
+                                      '$memberCount members',
                                       style: const TextStyle(
                                         fontSize: 10,
                                         color: subText,
@@ -830,7 +836,7 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                               const SizedBox(width: 8),
                               Text(
                                 activeSprint != null
-                                    ? '${activeSprint.label}  ${DateFormat('d MMM').format(activeSprint.startDate)}–${DateFormat('d MMM').format(activeSprint.endDate)}'
+                                    ? '${activeSprint.label}  ${DateFormat('d MMM').format(activeSprint.startDate)}–${activeSprint.endDate != null ? DateFormat('d MMM').format(activeSprint.endDate!) : 'Now'}'
                                     : 'Select Cycle',
                                 style: const TextStyle(
                                   fontSize: 13,
@@ -1041,11 +1047,13 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
     DateTime date,
   ) {
     // Find the member from state
-    final state = context.read<HouseMealsBloc>().state;
-    final member = state.members.firstWhere(
-      (m) => m.userId == userId,
-      orElse: () => _fallbackMembers().first,
-    );
+    final member = context
+        .read<HouseMealsBloc>()
+        .state
+        .members
+        .where((m) => m.userId == userId)
+        .firstOrNull;
+    if (member == null) return;
     _showEditMealForMemberSheet(context, member, currentLog, date);
   }
 
@@ -1078,9 +1086,8 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
 
   void _showQuickLogSheet(BuildContext context) {
     final state = context.read<HouseMealsBloc>().state;
-    final members = state.members.isNotEmpty
-        ? state.members
-        : _fallbackMembers();
+    final members = state.members;
+    if (members.isEmpty) return;
 
     double breakfast = 1.0;
     double lunch = 1.0;
@@ -1555,71 +1562,77 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  if (_houses.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        'No shared houses joined yet.',
-                        style: TextStyle(color: subText, fontSize: 13),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _houses.length,
-                        itemBuilder: (context, idx) {
-                          final h = _houses[idx];
-                          final isSelected = h['id'] == widget.houseId;
-                          final members = h['house_members'] as List? ?? [];
+                  Flexible(
+                    child: BlocBuilder<HouseContextCubit, HouseContextState>(
+                      builder: (context, houseCtxState) {
+                        if (houseCtxState.houses.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Text(
+                              'No shared houses joined yet.',
+                              style: TextStyle(color: subText, fontSize: 13),
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: houseCtxState.houses.length,
+                          itemBuilder: (context, idx) {
+                            final h = houseCtxState.houses[idx];
+                            final isSelected = h.id == widget.houseId;
 
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: CircleAvatar(
-                              backgroundColor: isSelected
-                                  ? primaryCoral.withValues(alpha: 0.15)
-                                  : Colors.black.withValues(alpha: 0.05),
-                              child: Text(
-                                (h['name'] as String? ?? 'H')[0].toUpperCase(),
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: isSelected
+                                    ? primaryCoral.withValues(alpha: 0.15)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                child: Text(
+                                  h.name.isNotEmpty
+                                      ? h.name[0].toUpperCase()
+                                      : 'H',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected ? primaryCoral : darkText,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                h.name,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: isSelected ? primaryCoral : darkText,
                                 ),
                               ),
-                            ),
-                            title: Text(
-                              h['name'] as String? ?? 'House',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: isSelected ? primaryCoral : darkText,
+                              subtitle: Text(
+                                '${h.members.length} members',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: subText,
+                                ),
                               ),
-                            ),
-                            subtitle: Text(
-                              '${members.length} members',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: subText,
-                              ),
-                            ),
-                            trailing: isSelected
-                                ? const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: primaryCoral,
-                                    size: 20,
-                                  )
-                                : null,
-                            onTap: () {
-                              Navigator.of(sheetContext).pop();
-                              if (h['id'] != widget.houseId) {
-                                context.pushReplacement(
-                                  AppRoutes.houseMeals(h['id'] as String),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
+                              trailing: isSelected
+                                  ? const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: primaryCoral,
+                                      size: 20,
+                                    )
+                                  : null,
+                              onTap: () {
+                                context.read<HouseContextCubit>().selectHouse(h);
+                                Navigator.of(sheetContext).pop();
+                                if (h.id != widget.houseId) {
+                                  context.pushReplacement(
+                                    AppRoutes.houseMeals(h.id),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
                     ),
+                  ),
                 ],
               ),
             ),
@@ -1704,8 +1717,9 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
                           return _buildCycleTile(
                             context: sheetCtx,
                             label: cycle.label,
-                            dateRange:
-                                '${DateFormat('d MMM').format(cycle.startDate)} – ${DateFormat('d MMM').format(cycle.endDate)}',
+                            dateRange: cycle.endDate == null
+                                ? '${DateFormat('d MMM').format(cycle.startDate)} – Now'
+                                : '${DateFormat('d MMM').format(cycle.startDate)} – ${DateFormat('d MMM').format(cycle.endDate!)}',
                             isSelected: isSelected,
                             isOpen: cycle.isOpen,
                             onTap: isSelected
@@ -1951,51 +1965,7 @@ class _HouseMealsScreenState extends State<HouseMealsScreen> {
     );
   }
 
-  List<HouseMember> _fallbackMembers() {
-    final now = DateTime.now();
-    return [
-      HouseMember(
-        id: '1',
-        houseId: widget.houseId,
-        userId: 'user-1',
-        role: MemberRole.member,
-        joinedAt: now,
-        fullName: 'Tanvir',
-      ),
-      HouseMember(
-        id: '2',
-        houseId: widget.houseId,
-        userId: 'user-2',
-        role: MemberRole.admin,
-        joinedAt: now,
-        fullName: 'Rahim',
-      ),
-      HouseMember(
-        id: '3',
-        houseId: widget.houseId,
-        userId: 'user-3',
-        role: MemberRole.member,
-        joinedAt: now,
-        fullName: 'Sadia',
-      ),
-      HouseMember(
-        id: '4',
-        houseId: widget.houseId,
-        userId: 'user-4',
-        role: MemberRole.member,
-        joinedAt: now,
-        fullName: 'Karim',
-      ),
-      HouseMember(
-        id: '5',
-        houseId: widget.houseId,
-        userId: 'user-5',
-        role: MemberRole.member,
-        joinedAt: now,
-        fullName: 'Farhan',
-      ),
-    ];
-  }
+
 }
 
 // ── Member Meal Row Widget ──────────────────────────────────────────────────

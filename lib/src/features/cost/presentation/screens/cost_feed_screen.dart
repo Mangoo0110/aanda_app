@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
@@ -26,29 +27,30 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
   static const Color darkText = Color(0xFF1B1D1F);
   static const Color subText = Color(0xFF8C8D8E);
 
-  Map<String, dynamic>? _currentHouse;
-  List<Map<String, dynamic>> _houses = [];
-
   @override
   void initState() {
     super.initState();
-    _loadHouseDetails();
-  }
-
-  Future<void> _loadHouseDetails() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final data = await supabase
-          .from('houses')
-          .select('id, name, house_members(id, user_id, role, display_name)');
-      final list = (data as List).cast<Map<String, dynamic>>();
-      if (mounted && list.isNotEmpty) {
-        setState(() {
-          _houses = list;
-          _currentHouse = list.first;
-        });
+    final houseCtx = context.read<HouseContextCubit>();
+    if (!houseCtx.state.hasHouses &&
+        houseCtx.state.status != HouseContextStatus.loading) {
+      houseCtx.load();
+    }
+    final houseCtxState = houseCtx.state;
+    if (houseCtxState.isPersonalView) {
+      if (context.read<CostFeedBloc>().state.selectedHouseId != null) {
+        context.read<CostFeedBloc>().add(
+          const CostFeedHouseFilterChanged(null),
+        );
       }
-    } catch (_) {}
+    } else {
+      final currentHouseId = houseCtxState.selectedHouse?.id;
+      if (currentHouseId != null &&
+          context.read<CostFeedBloc>().state.selectedHouseId != currentHouseId) {
+        context.read<CostFeedBloc>().add(
+          CostFeedHouseFilterChanged(currentHouseId),
+        );
+      }
+    }
   }
 
   @override
@@ -56,34 +58,56 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
     final colors = AppColors.context(context);
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return BlocConsumer<CostFeedBloc, CostFeedState>(
-      listenWhen: (previous, current) =>
-          current.errorMessage != null &&
-          current.errorMessage != previous.errorMessage,
-      listener: (context, state) {
-        if (state.errorMessage != null) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.errorMessage!),
-              backgroundColor: colors.errorColor,
-            ),
+    return BlocListener<HouseContextCubit, HouseContextState>(
+      listenWhen: (prev, curr) =>
+          prev.selectedHouse?.id != curr.selectedHouse?.id ||
+          prev.isPersonalView != curr.isPersonalView,
+      listener: (context, houseState) {
+        if (houseState.isPersonalView) {
+          context.read<CostFeedBloc>().add(
+            const CostFeedHouseFilterChanged(null),
           );
+        } else {
+          final houseId = houseState.selectedHouse?.id;
+          if (houseId != context.read<CostFeedBloc>().state.selectedHouseId) {
+            context.read<CostFeedBloc>().add(
+              CostFeedHouseFilterChanged(houseId),
+            );
+          }
         }
       },
-      builder: (context, state) {
-        final displayCosts = state.displayCosts;
-        final totalSpend = displayCosts.fold(0.0, (s, c) => s + c.amount);
-        final currencyFormat = NumberFormat('#,##0');
+      child: BlocConsumer<CostFeedBloc, CostFeedState>(
+        listenWhen: (previous, current) =>
+            current.errorMessage != null &&
+            current.errorMessage != previous.errorMessage,
+        listener: (context, state) {
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.errorMessage!),
+                backgroundColor: colors.errorColor,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          final displayCosts = state.displayCosts;
+          final totalSpend = displayCosts.fold(0.0, (s, c) => s + c.amount);
+          final currencyFormat = NumberFormat('#,##0');
 
-        final houseName = _currentHouse?['name'] as String? ?? 'Dhaka Flat';
-        final memberList = _currentHouse?['house_members'] as List? ?? [];
-        final memberCount = memberList.isNotEmpty ? memberList.length : 5;
+          final houseCtx = context.watch<HouseContextCubit>();
+          final isPersonal = houseCtx.state.isPersonalView;
+          final selectedHouse = houseCtx.state.selectedHouse;
+          final houseName = isPersonal
+              ? 'Personal Account'
+              : (selectedHouse?.name ?? 'Shared House');
+          final memberCount = selectedHouse?.members.length ?? 0;
 
         return Scaffold(
           backgroundColor: backgroundColor,
           floatingActionButton: FloatingActionButton(
-            onPressed: () => _showQuickActionSheet(context),
+            onPressed: _showQuickActionSheet,
             backgroundColor: primaryCoral,
             foregroundColor: Colors.white,
             elevation: 4,
@@ -98,7 +122,7 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                 context.read<CostFeedBloc>().add(
                   const CostFeedRefreshRequested(),
                 );
-                await _loadHouseDetails();
+                context.read<HouseContextCubit>().refresh();
               },
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -121,7 +145,8 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                           const SizedBox(width: 8),
                           InkWell(
                             onTap: () {
-                              final houseId = _currentHouse?['id'] as String?;
+                              final houseId =
+                                  context.read<HouseContextCubit>().state.selectedHouse?.id;
                               if (houseId != null) {
                                 context.push(AppRoutes.houseMeals(houseId));
                               } else {
@@ -176,16 +201,22 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                     backgroundColor: primaryCoral.withValues(
                                       alpha: 0.12,
                                     ),
-                                    child: Text(
-                                      houseName.isNotEmpty
-                                          ? houseName[0].toUpperCase()
-                                          : 'H',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: primaryCoral,
-                                      ),
-                                    ),
+                                    child: isPersonal
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            size: 16,
+                                            color: primaryCoral,
+                                          )
+                                        : Text(
+                                            houseName.isNotEmpty
+                                                ? houseName[0].toUpperCase()
+                                                : 'H',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: primaryCoral,
+                                            ),
+                                          ),
                                   ),
                                   const SizedBox(width: 8),
                                   Column(
@@ -202,6 +233,7 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                               color: darkText,
                                             ),
                                           ),
+                                          const SizedBox(width: 2),
                                           const Icon(
                                             Icons.keyboard_arrow_down_rounded,
                                             size: 14,
@@ -214,14 +246,18 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                                           Container(
                                             width: 5,
                                             height: 5,
-                                            decoration: const BoxDecoration(
-                                              color: Colors.green,
+                                            decoration: BoxDecoration(
+                                              color: isPersonal
+                                                  ? primaryCoral
+                                                  : Colors.green,
                                               shape: BoxShape.circle,
                                             ),
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            '$memberCount members',
+                                            isPersonal
+                                                ? 'Personal costs'
+                                                : '$memberCount members',
                                             style: const TextStyle(
                                               fontSize: 10,
                                               color: subText,
@@ -661,8 +697,9 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 
   Widget _activeChip({required String label, required VoidCallback onDeleted}) {
     return Container(
@@ -741,72 +778,217 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
   }
 
   void _showHousePicker() {
-    if (_houses.isEmpty) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => ConstrainedBox(
+      builder: (sheetContext) => ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(ctx).height * 0.6,
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 const Text(
-                  'Select House',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  'Switch Account',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: darkText,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 14),
                 Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _houses.length,
-                    itemBuilder: (context, idx) {
-                      final h = _houses[idx];
-                      return ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFFDEEE6),
-                          child: Icon(
-                            Icons.home_work_rounded,
-                            color: Color(0xFFD85A38),
+                  child: BlocBuilder<HouseContextCubit, HouseContextState>(
+                    builder: (context, houseCtxState) {
+                      final isPersonalSelected = houseCtxState.isPersonalView;
+
+                      return ListView(
+                        shrinkWrap: true,
+                        children: [
+                          // Personal account
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: isPersonalSelected
+                                  ? primaryCoral.withValues(alpha: 0.15)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              child: Icon(
+                                Icons.person_rounded,
+                                size: 18,
+                                color: isPersonalSelected ? primaryCoral : darkText,
+                              ),
+                            ),
+                            title: Text(
+                              'My Personal Account',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: isPersonalSelected ? primaryCoral : darkText,
+                              ),
+                            ),
+                            subtitle: const Text(
+                              'Only your personal expenses',
+                              style: TextStyle(fontSize: 11, color: subText),
+                            ),
+                            trailing: isPersonalSelected
+                                ? const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: primaryCoral,
+                                    size: 20,
+                                  )
+                                : null,
+                            onTap: () {
+                              context.read<HouseContextCubit>().selectPersonal();
+                              context.read<CostFeedBloc>().add(
+                                const CostFeedHouseFilterChanged(null),
+                              );
+                              Navigator.of(sheetContext).pop();
+                            },
                           ),
-                        ),
-                        title: Text(
-                          h['name'] as String,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        trailing: _currentHouse?['id'] == h['id']
-                            ? const Icon(
-                                Icons.check_rounded,
-                                color: Color(0xFFD85A38),
-                              )
-                            : null,
-                        onTap: () {
-                          setState(() => _currentHouse = h);
-                          Navigator.of(ctx).pop();
-                          context.read<CostFeedBloc>().add(
-                            CostFeedHouseFilterChanged(h['id'] as String),
-                          );
-                        },
+                          Divider(
+                            height: 1,
+                            color: Colors.black.withValues(alpha: 0.06),
+                          ),
+                          if (houseCtxState.hasSharedHouses) ...[
+                            // Shared houses
+                            ...houseCtxState.sharedHouses.map((h) {
+                              final isSelected = !isPersonalSelected &&
+                                  h.id == houseCtxState.selectedHouse?.id;
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundColor: isSelected
+                                      ? primaryCoral.withValues(alpha: 0.15)
+                                      : Colors.black.withValues(alpha: 0.05),
+                                  child: Text(
+                                    h.name.isNotEmpty
+                                        ? h.name[0].toUpperCase()
+                                        : 'H',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isSelected ? primaryCoral : darkText,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  h.name,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected ? primaryCoral : darkText,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${h.members.length} member${h.members.length == 1 ? '' : 's'}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: subText,
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? const Icon(
+                                        Icons.check_circle_rounded,
+                                        color: primaryCoral,
+                                        size: 20,
+                                      )
+                                    : null,
+                                onTap: () {
+                                  context.read<HouseContextCubit>().selectHouse(h);
+                                  context.read<CostFeedBloc>().add(
+                                    CostFeedHouseFilterChanged(h.id),
+                                  );
+                                  Navigator.of(sheetContext).pop();
+                                },
+                              );
+                            }),
+                          ] else ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              child: Center(
+                                child: Text(
+                                  'No shared houses joined yet.',
+                                  style: TextStyle(fontSize: 12, color: subText),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       );
                     },
                   ),
+                ),
+                const SizedBox(height: 16),
+                Divider(
+                  height: 1,
+                  color: Colors.black.withValues(alpha: 0.06),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Create House'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryCoral,
+                          side: const BorderSide(color: primaryCoral),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          final res = await context.push(AppRoutes.houseCreate);
+                          if (res == true && mounted) {
+                            context.read<HouseContextCubit>().refresh();
+                            context.read<CostFeedBloc>().add(
+                              const CostFeedRefreshRequested(),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.group_add_rounded, size: 18),
+                        label: const Text('Join House'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: primaryCoral,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          Navigator.of(sheetContext).pop();
+                          final res = await context.push(AppRoutes.houseJoin);
+                          if (res == true && mounted) {
+                            context.read<HouseContextCubit>().refresh();
+                            context.read<CostFeedBloc>().add(
+                              const CostFeedRefreshRequested(),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -835,7 +1017,11 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
     }
   }
 
-  void _showQuickActionSheet(BuildContext context) {
+  void _showQuickActionSheet() {
+    final houseCtx = context.read<HouseContextCubit>();
+    final isPersonal = houseCtx.state.isPersonalView;
+    final selectedHouseId = houseCtx.state.selectedHouse?.id;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: cardColor,
@@ -875,115 +1061,136 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
                   style: TextStyle(fontSize: 12, color: subText),
                 ),
                 const SizedBox(height: 16),
-                // 1. Add Expense Option
-                InkWell(
+                _buildQuickActionTile(
+                  emoji: '📝',
+                  title: 'Add Expense',
+                  subtitle: 'Record personal or shared house cost',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _navigateToAddExpense(context);
                   },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF5EE),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Row(
-                      children: [
-                        Text('📝', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Add Expense',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: darkText,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Record personal or shared house cost',
-                                style: TextStyle(fontSize: 12, color: subText),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: subText,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 10),
-                // 2. Meal Log Option
-                InkWell(
-                  onTap: () {
+                _buildQuickActionTile(
+                  emoji: '🏷️',
+                  title: 'New Expense Category',
+                  subtitle: 'Create a custom category for expenses',
+                  onTap: () async {
                     Navigator.of(sheetContext).pop();
-                    final houseId = _currentHouse?['id'] as String?;
-                    if (houseId != null) {
-                      context.push(AppRoutes.houseMeals(houseId));
-                    } else {
-                      context.push(AppRoutes.meals);
+                    final res = await context.push(AppRoutes.costCategoryAdd);
+                    if (res == true && mounted) {
+                      context.read<CostFeedBloc>().add(
+                        const CostFeedRefreshRequested(),
+                      );
                     }
                   },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF5EE),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Row(
-                      children: [
-                        Text('🍲', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Meal Log (Add Meal)',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: darkText,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Record breakfast, lunch & dinner for today',
-                                style: TextStyle(fontSize: 12, color: subText),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: subText,
-                          size: 22,
-                        ),
-                      ],
-                    ),
+                ),
+                if (!isPersonal) ...[
+                  const SizedBox(height: 10),
+                  _buildQuickActionTile(
+                    emoji: '🍲',
+                    title: 'Meal Log (Add Meal)',
+                    subtitle: 'Record breakfast, lunch & dinner for today',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      if (selectedHouseId != null) {
+                        context.push(AppRoutes.houseMeals(selectedHouseId));
+                      } else {
+                        context.push(AppRoutes.meals);
+                      }
+                    },
                   ),
+                ],
+                const SizedBox(height: 10),
+                _buildQuickActionTile(
+                  emoji: '🏠',
+                  title: 'Create Shared House',
+                  subtitle: 'Start a new house/flat with flatmates',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final res = await context.push(AppRoutes.houseCreate);
+                    if (res == true && mounted) {
+                      context.read<HouseContextCubit>().refresh();
+                      context.read<CostFeedBloc>().add(
+                        const CostFeedRefreshRequested(),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildQuickActionTile(
+                  emoji: '🔑',
+                  title: 'Join House with Code',
+                  subtitle: 'Enter an invite code shared by flatmates',
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    final res = await context.push(AppRoutes.houseJoin);
+                    if (res == true && mounted) {
+                      context.read<HouseContextCubit>().refresh();
+                      context.read<CostFeedBloc>().add(
+                        const CostFeedRefreshRequested(),
+                      );
+                    }
+                  },
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildQuickActionTile({
+    required String emoji,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF5EE),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: subText),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: subText,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -994,9 +1201,7 @@ class _CostFeedScreenState extends State<CostFeedScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _FilterExpensesSheet(
         state: state,
-        memberCount: _currentHouse?['house_members'] != null
-            ? (_currentHouse!['house_members'] as List).length
-            : 5,
+        memberCount: context.read<HouseContextCubit>().state.selectedHouse?.members.length ?? 0,
         onApply: (sprint, payerId, categoryId, scope) {
           context.read<CostFeedBloc>().add(
             CostFeedFiltersApplied(

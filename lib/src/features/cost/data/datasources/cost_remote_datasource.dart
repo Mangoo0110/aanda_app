@@ -129,9 +129,7 @@ class CostRemoteDatasource {
           'cost_type': data.costType.name,
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
-          if (data.costScope == CostScope.shared &&
-              data.houseId != null &&
-              data.houseId!.isNotEmpty)
+          if (data.houseId != null && data.houseId!.isNotEmpty)
             'house_id': data.houseId,
           if (data.cycleId != null && data.cycleId!.isNotEmpty)
             'cycle_id': data.cycleId,
@@ -164,9 +162,7 @@ class CostRemoteDatasource {
           ? data.paidBy!
           : _currentUserId,
       'purchase_date': dateStr,
-      if (data.costScope == CostScope.shared &&
-          data.houseId != null &&
-          data.houseId!.isNotEmpty)
+      if (data.houseId != null && data.houseId!.isNotEmpty)
         'house_id': data.houseId,
       if (data.cycleId != null && data.cycleId!.isNotEmpty)
         'cycle_id': data.cycleId,
@@ -207,9 +203,7 @@ class CostRemoteDatasource {
           'cost_type': data.costType.name,
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
-          'house_id': (data.costScope == CostScope.shared &&
-                  data.houseId != null &&
-                  data.houseId!.isNotEmpty)
+          'house_id': (data.houseId != null && data.houseId!.isNotEmpty)
               ? data.houseId
               : null,
           'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)
@@ -242,9 +236,7 @@ class CostRemoteDatasource {
       'cost_type': data.costType.name,
       'cost_scope': data.costScope.name,
       'purchase_date': dateStr,
-      'house_id': (data.costScope == CostScope.shared &&
-              data.houseId != null &&
-              data.houseId!.isNotEmpty)
+      'house_id': (data.houseId != null && data.houseId!.isNotEmpty)
           ? data.houseId
           : null,
       'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)

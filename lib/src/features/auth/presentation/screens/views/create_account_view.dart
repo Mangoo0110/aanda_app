@@ -6,6 +6,7 @@ import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/presentation/bloc/register/register_bloc.dart';
 
 /// Registration screen: email, optional full name, and password.
+/// Displays an email confirmation view when verification is required.
 class CreateAccountView extends StatefulWidget {
   const CreateAccountView({super.key});
 
@@ -33,11 +34,23 @@ class _CreateAccountViewState extends State<CreateAccountView> {
 
     return BlocConsumer<RegisterBloc, RegisterState>(
       listenWhen: (prev, curr) =>
-          prev.isSubmitting && !curr.isSubmitting && curr.errorMessage == null,
+          prev.resendSuccessMessage != curr.resendSuccessMessage &&
+          curr.resendSuccessMessage != null,
       listener: (context, state) {
-        // Successful registration: auth guard will redirect via router.
+        if (state.resendSuccessMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.resendSuccessMessage!),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       },
       builder: (context, state) {
+        if (state.needsEmailConfirmation) {
+          return _buildEmailConfirmationView(context, state, colors);
+        }
+
         return Scaffold(
           backgroundColor: colors.appBackgroundColor,
           appBar: AppBar(
@@ -147,6 +160,198 @@ class _CreateAccountViewState extends State<CreateAccountView> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmailConfirmationView(
+    BuildContext context,
+    RegisterState state,
+    AppColors colors,
+  ) {
+    return Scaffold(
+      backgroundColor: colors.appBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: colors.appBackgroundColor,
+        elevation: 0,
+        leading: BackButton(
+          onPressed: () => context.read<RegisterBloc>().add(
+            RegisterEditEmailRequested(),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Mail Icon Container
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD85A38).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: const Icon(
+                    Icons.mark_email_unread_rounded,
+                    size: 46,
+                    color: Color(0xFFD85A38),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Check your email',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+
+                const Text(
+                  'We sent a verification link to',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF8C8D8E)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+
+                // Email badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    state.email,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1B1D1F),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Tap the link in your email to activate your account.\nOnce verified, you can sign in to Aanda.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF8C8D8E),
+                    height: 1.5,
+                  ),
+                ),
+
+                if (state.errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEEEC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      state.errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFD85A38),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 32),
+
+                // Primary Button: Go to Sign In
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => context.go(AppRoutes.authLogin),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFD85A38),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Back to Sign In',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Resend Email button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: state.isResendingEmail
+                        ? null
+                        : () => context.read<RegisterBloc>().add(
+                              RegisterResendEmailRequested(),
+                            ),
+                    icon: state.isResendingEmail
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(
+                      state.isResendingEmail
+                          ? 'Sending...'
+                          : 'Resend verification email',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Edit email / wrong email
+                TextButton(
+                  onPressed: () => context.read<RegisterBloc>().add(
+                        RegisterEditEmailRequested(),
+                      ),
+                  child: const Text(
+                    'Wrong email? Edit details',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF8C8D8E),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

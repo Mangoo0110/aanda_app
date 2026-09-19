@@ -45,12 +45,12 @@ class _HouseCreateScreenState extends State<HouseCreateScreen> {
       }
 
       final houseData = await supabase
-          .from('houses')
-          .insert({'name': name, 'created_by': user.id, 'currency': 'BDT'})
+          .from('expense_accounts')
+          .insert({'name': name, 'created_by': user.id, 'currency': 'BDT', 'account_type': 'shared'})
           .select()
           .single();
 
-      await supabase.from('house_members').insert({
+      await supabase.from('expense_account_members').insert({
         'house_id': houseData['id'],
         'user_id': user.id,
         'role': 'admin',

@@ -22,15 +22,15 @@ class HouseRemoteDatasource {
 
   Future<House> createHouse({required String name}) async {
     final data = await _supabase
-        .from('houses')
-        .insert({'name': name, 'created_by': _currentUserId})
+        .from('expense_accounts')
+        .insert({'name': name, 'created_by': _currentUserId, 'account_type': 'shared'})
         .select()
         .single();
 
     final house = HouseModel.fromJson(data);
 
     // Insert the creator as admin member.
-    await _supabase.from('house_members').insert({
+    await _supabase.from('expense_account_members').insert({
       'house_id': house.id,
       'user_id': _currentUserId,
       'role': 'admin',
@@ -42,7 +42,7 @@ class HouseRemoteDatasource {
   Future<House> joinHouse({required String inviteCode}) async {
     // Find the house by invite code.
     final houseData = await _supabase
-        .from('houses')
+        .from('expense_accounts')
         .select()
         .eq('invite_code', inviteCode.trim().toUpperCase())
         .maybeSingle();
@@ -55,7 +55,7 @@ class HouseRemoteDatasource {
 
     // Check not already a member.
     final existing = await _supabase
-        .from('house_members')
+        .from('expense_account_members')
         .select('id')
         .eq('house_id', house.id)
         .eq('user_id', _currentUserId)
@@ -65,7 +65,7 @@ class HouseRemoteDatasource {
       throw Exception('You are already a member of this house.');
     }
 
-    await _supabase.from('house_members').insert({
+    await _supabase.from('expense_account_members').insert({
       'house_id': house.id,
       'user_id': _currentUserId,
       'role': 'member',
@@ -76,18 +76,18 @@ class HouseRemoteDatasource {
 
   Future<List<House>> getMyHouses() async {
     final rows = await _supabase
-        .from('house_members')
-        .select('house_id, houses(*)')
+        .from('expense_account_members')
+        .select('house_id, expense_accounts(*)')
         .eq('user_id', _currentUserId);
 
     return rows
-        .map((r) => HouseModel.fromJson(r['houses'] as Map<String, dynamic>))
+        .map((r) => HouseModel.fromJson(r['expense_accounts'] as Map<String, dynamic>))
         .toList();
   }
 
   Future<House> getHouseDetail({required String houseId}) async {
     final houseData = await _supabase
-        .from('houses')
+        .from('expense_accounts')
         .select()
         .eq('id', houseId)
         .single();
@@ -100,7 +100,7 @@ class HouseRemoteDatasource {
 
   Future<HouseInvite> getHouseInvite({required String houseId}) async {
     final data = await _supabase
-        .from('houses')
+        .from('expense_accounts')
         .select('id, invite_code')
         .eq('id', houseId)
         .single();
@@ -111,7 +111,7 @@ class HouseRemoteDatasource {
   Future<HouseInvite> regenerateInviteCode({required String houseId}) async {
     final newCode = _generateCode();
     await _supabase
-        .from('houses')
+        .from('expense_accounts')
         .update({'invite_code': newCode})
         .eq('id', houseId);
     return HouseInviteModel(code: newCode, houseId: houseId);
@@ -121,7 +121,7 @@ class HouseRemoteDatasource {
 
   Future<List<HouseMember>> getHouseMembers({required String houseId}) async {
     final rows = await _supabase
-        .from('house_members')
+        .from('expense_account_members')
         .select('*, profiles(username, full_name, avatar_url)')
         .eq('house_id', houseId)
         .order('joined_at');
@@ -131,7 +131,7 @@ class HouseRemoteDatasource {
 
   Future<void> leaveHouse({required String houseId}) async {
     await _supabase
-        .from('house_members')
+        .from('expense_account_members')
         .delete()
         .eq('house_id', houseId)
         .eq('user_id', _currentUserId);
@@ -142,7 +142,7 @@ class HouseRemoteDatasource {
     required String userId,
   }) async {
     await _supabase
-        .from('house_members')
+        .from('expense_account_members')
         .delete()
         .eq('house_id', houseId)
         .eq('user_id', userId);
@@ -187,13 +187,13 @@ class HouseRemoteDatasource {
 
     final now = DateTime.now();
     final startDate = DateTime(now.year, now.month, 1);
-    final endDate = DateTime(now.year, now.month + 1, 0);
 
+    // Open cycles have no end_date — it is set only when the admin closes the cycle.
     return createSprint(
       houseId: houseId,
       label: 'Cycle ${count + 1}',
       startDate: startDate,
-      endDate: endDate,
+      endDate: null,
     );
   }
 
@@ -201,7 +201,7 @@ class HouseRemoteDatasource {
     required String houseId,
     required String label,
     required DateTime startDate,
-    required DateTime endDate,
+    DateTime? endDate, // null = open cycle; set when admin closes it
   }) async {
     final data = await _supabase
         .from('billing_cycles')
@@ -209,9 +209,9 @@ class HouseRemoteDatasource {
           'house_id': houseId,
           'label': label,
           'start_date': startDate.toIso8601String().substring(0, 10),
-          'end_date': endDate.toIso8601String().substring(0, 10),
+          if (endDate != null)
+            'end_date': endDate.toIso8601String().substring(0, 10),
           'status': 'open',
-          'cycle_type': 'dynamic',
           'created_by': _currentUserId,
         })
         .select()

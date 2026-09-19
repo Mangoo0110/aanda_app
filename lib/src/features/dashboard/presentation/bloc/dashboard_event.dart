@@ -21,3 +21,8 @@ final class DashboardHouseFilterChanged extends DashboardEvent {
   const DashboardHouseFilterChanged(this.houseId);
   final String? houseId;
 }
+
+final class DashboardCycleChanged extends DashboardEvent {
+  const DashboardCycleChanged(this.cycle);
+  final Sprint cycle;
+}

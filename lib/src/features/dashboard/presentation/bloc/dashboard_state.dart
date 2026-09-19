@@ -8,6 +8,8 @@ final class DashboardState {
     this.summary,
     DateTime? selectedMonth,
     this.selectedHouseId,
+    this.cycles = const [],
+    this.selectedCycle,
     this.errorMessage,
   }) : selectedMonth =
            selectedMonth ?? DateTime(DateTime.now().year, DateTime.now().month);
@@ -16,6 +18,8 @@ final class DashboardState {
   final DashboardSummary? summary;
   final DateTime selectedMonth;
   final String? selectedHouseId;
+  final List<Sprint> cycles;
+  final Sprint? selectedCycle;
   final String? errorMessage;
 
   bool get isLoading => status == DashboardStatus.loading;
@@ -23,6 +27,7 @@ final class DashboardState {
   double get personalSpent => summary?.personalSpent ?? 0.0;
   double get totalHouseSpent => summary?.totalHouseSpent ?? 0.0;
   double get myHouseContribution => summary?.myHouseContribution ?? 0.0;
+  double get myTotalSpent => myHouseContribution + personalSpent;
   List<DashboardActivity> get activities => summary?.activities ?? const [];
 
   DashboardState copyWith({
@@ -31,6 +36,9 @@ final class DashboardState {
     DateTime? selectedMonth,
     String? selectedHouseId,
     bool clearHouse = false,
+    List<Sprint>? cycles,
+    Sprint? selectedCycle,
+    bool clearCycle = false,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -41,6 +49,10 @@ final class DashboardState {
       selectedHouseId: clearHouse
           ? null
           : (selectedHouseId ?? this.selectedHouseId),
+      cycles: cycles ?? this.cycles,
+      selectedCycle: clearCycle
+          ? null
+          : (selectedCycle ?? this.selectedCycle),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }

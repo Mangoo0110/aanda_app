@@ -4,6 +4,9 @@ import 'package:aanda/src/features/dashboard/domain/entities/dashboard_summary.d
 abstract interface class DashboardRepo {
   AsyncRequest<DashboardSummary> getDashboardSummary({
     String? houseId,
+    String? cycleId,
+    DateTime? startDate,
+    DateTime? endDate,
     String? month,
   });
 }

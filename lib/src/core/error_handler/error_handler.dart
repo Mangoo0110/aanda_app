@@ -54,7 +54,7 @@ mixin class ErrorHandler {
       );
     } on FunctionException catch (e, s) {
       error = FailedRepoCall<T>(
-        message: 'The service is temporarily unavailable. Please try again.',
+        message: _formatFunctionError(e),
         exception: e,
         stackTrace: s,
       );
@@ -175,6 +175,22 @@ mixin class ErrorHandler {
       return 'Please choose a stronger password.';
     }
     return _sanitizeMessage(e.message);
+  }
+
+  /// Converts Edge Function exceptions into user-friendly messages.
+  String _formatFunctionError(FunctionException e) {
+    if (e.details is Map) {
+      final map = e.details as Map;
+      if (map['error'] != null) return map['error'].toString();
+      if (map['message'] != null) return map['message'].toString();
+    }
+    if (e.details is String && (e.details as String).isNotEmpty) {
+      return e.details as String;
+    }
+    if (e.reasonPhrase != null && e.reasonPhrase!.isNotEmpty) {
+      return e.reasonPhrase!;
+    }
+    return 'The service request failed. Please try again.';
   }
 
   /// Maps database column names to user-friendly field descriptions.

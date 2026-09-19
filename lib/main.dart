@@ -5,10 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:aanda/di/app_dependencies.dart';
 import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
+import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_router.dart';
 import 'package:aanda/src/core/config/supabase_config.dart';
 import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
+import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,18 +54,26 @@ class _AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AppThemeCubit, ThemeMode>(
-      builder: (context, themeMode) {
-        final theme = AppTheme();
-        return MaterialApp.router(
-          title: 'Aanda',
-          theme: theme.lightTheme,
-          darkTheme: theme.darkTheme,
-          themeMode: themeMode,
-          routerConfig: router,
-          debugShowCheckedModeBanner: false,
-        );
+    return BlocListener<AppAuthGuardBloc, AuthStatus>(
+      listenWhen: (prev, curr) =>
+          prev is! Authenticated && curr is Authenticated,
+      listener: (context, _) {
+        // Load the house list whenever the user signs in.
+        context.read<HouseContextCubit>().load();
       },
+      child: BlocBuilder<AppThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          final theme = AppTheme();
+          return MaterialApp.router(
+            title: 'Aanda',
+            theme: theme.lightTheme,
+            darkTheme: theme.darkTheme,
+            themeMode: themeMode,
+            routerConfig: router,
+            debugShowCheckedModeBanner: false,
+          );
+        },
+      ),
     );
   }
 }

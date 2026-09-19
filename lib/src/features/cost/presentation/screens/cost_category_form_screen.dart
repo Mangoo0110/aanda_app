@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/features/cost/domain/entities/category_emoji.dart';
@@ -42,7 +43,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
 
   // House selection
   String? _selectedHouseId;
-  String _selectedHouseName = 'Dhaka Flat';
+  String _selectedHouseName = '';
   List<House> _availableHouses = [];
 
   // Emojis list (loaded from repo/cache or defaults)
@@ -60,11 +61,10 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedHouseId = widget.initialHouseId;
-    if (widget.initialHouseName != null &&
-        widget.initialHouseName!.isNotEmpty) {
-      _selectedHouseName = widget.initialHouseName!;
-    }
+    final selectedHouse = context.read<HouseContextCubit>().state.selectedHouse;
+    _selectedHouseId = widget.initialHouseId ?? selectedHouse?.id;
+    _selectedHouseName =
+        widget.initialHouseName ?? selectedHouse?.name ?? '';
     _loadHouses();
     _loadEmojis();
   }

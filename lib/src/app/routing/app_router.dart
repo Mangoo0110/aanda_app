@@ -62,6 +62,8 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
               BlocProvider(
                 create: (_) => RegisterBloc(
                   signUpWithEmail: context.read<SignUpWithEmail>(),
+                  resendEmailVerification:
+                      context.read<ResendEmailVerification>(),
                 ),
               ),
             ],
@@ -107,6 +109,7 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
             child: BlocProvider(
               create: (_) => DashboardBloc(
                 getDashboardSummary: context.read<GetDashboardSummary>(),
+                getSprints: context.read<GetSprints>(),
               )..add(const DashboardStarted()),
               child: const DashboardScreen(),
             ),
@@ -234,6 +237,7 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
                   getSprints: context.read<GetSprints>(),
                   getSprintStats: context.read<GetSprintStats>(),
                   computeSettlement: context.read<ComputeSettlement>(),
+                  getCycleSettlement: context.read<GetCycleSettlement>(),
                   closeSprint: context.read<CloseSprint>(),
                   createSprint: context.read<CreateSprint>(),
                 ),

@@ -43,7 +43,7 @@ abstract interface class HouseRepo {
     required String houseId,
     required String label,
     required DateTime startDate,
-    required DateTime endDate,
+    DateTime? endDate, // null = open cycle
   });
 
   /// Closes an open sprint with effective closed/end date.

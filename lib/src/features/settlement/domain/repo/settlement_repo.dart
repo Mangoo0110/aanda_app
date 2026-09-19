@@ -7,4 +7,6 @@ abstract interface class SettlementRepo {
     DateTime? calculationDate,
     bool save = false,
   });
+
+  AsyncRequest<Settlement?> getCycleSettlement({required String cycleId});
 }

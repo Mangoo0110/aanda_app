@@ -117,6 +117,24 @@ class SupabaseAuthDatasource {
     await _supabase.auth.signOut();
   }
 
+  /// Permanently deactivates the account.
+  ///
+  /// Invokes the `delete-account` edge function which:
+  ///  1. Sets profile.account_status = 'archived' and deleted_at = now()
+  ///  2. Removes the user from all house_members rows
+  ///  3. Calls Supabase Admin deleteUser() to kill the auth entry
+  ///
+  /// Then signs the local session out immediately.
+  Future<void> deleteAccount() async {
+    await _supabase.functions.invoke('delete-account');
+    await _supabase.auth.signOut();
+  }
+
+  /// Resends verification email for a user signup.
+  Future<void> resendEmailVerification(String email) async {
+    await _supabase.auth.resend(type: OtpType.signup, email: email);
+  }
+
   /// Returns the currently authenticated [AccountModel] or null.
   Future<AccountModel?> getCurrentAccount() async {
     final session = _supabase.auth.currentSession;

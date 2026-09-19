@@ -9,16 +9,22 @@ part 'register_event.dart';
 part 'register_state.dart';
 
 final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
-  RegisterBloc({required SignUpWithEmail signUpWithEmail})
-    : _signUpWithEmail = signUpWithEmail,
-      super(RegisterState.initial()) {
+  RegisterBloc({
+    required SignUpWithEmail signUpWithEmail,
+    ResendEmailVerification? resendEmailVerification,
+  })  : _signUpWithEmail = signUpWithEmail,
+        _resendEmailVerification = resendEmailVerification,
+        super(RegisterState.initial()) {
     on<RegisterEmailChanged>(_onEmailChanged);
     on<RegisterFullNameChanged>(_onFullNameChanged);
     on<RegisterPasswordChanged>(_onPasswordChanged);
     on<RegisterSubmitted>(_onSubmitted);
+    on<RegisterResendEmailRequested>(_onResendEmailRequested);
+    on<RegisterEditEmailRequested>(_onEditEmailRequested);
   }
 
   final SignUpWithEmail _signUpWithEmail;
+  final ResendEmailVerification? _resendEmailVerification;
 
   void _onEmailChanged(
     RegisterEmailChanged event,
@@ -78,12 +84,72 @@ final class RegisterBloc extends Bloc<RegisterEvent, RegisterState> {
         );
       },
       onSuccess: (status) {
-        emit(state.copyWith(isSubmitting: false, clearError: true));
+        if (status is UnconfirmedEmail) {
+          emit(
+            state.copyWith(
+              isSubmitting: false,
+              needsEmailConfirmation: true,
+              clearError: true,
+            ),
+          );
+        } else {
+          emit(state.copyWith(isSubmitting: false, clearError: true));
+        }
       },
     );
 
     if (result == null && state.isSubmitting) {
       emit(state.copyWith(isSubmitting: false));
     }
+  }
+
+  Future<void> _onResendEmailRequested(
+    RegisterResendEmailRequested event,
+    Emitter<RegisterState> emit,
+  ) async {
+    final resend = _resendEmailVerification;
+    if (resend == null || state.isResendingEmail) return;
+    emit(
+      state.copyWith(
+        isResendingEmail: true,
+        clearError: true,
+        clearResendMessage: true,
+      ),
+    );
+
+    await handleFutureRequest<void>(
+      request: () => resend(state.email),
+      debugger: AuthDebugger(),
+      onError: (failure) {
+        emit(
+          state.copyWith(
+            isResendingEmail: false,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      onSuccess: (_) {
+        emit(
+          state.copyWith(
+            isResendingEmail: false,
+            resendSuccessMessage:
+                'Verification email resent! Please check your inbox.',
+          ),
+        );
+      },
+    );
+  }
+
+  void _onEditEmailRequested(
+    RegisterEditEmailRequested event,
+    Emitter<RegisterState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        needsEmailConfirmation: false,
+        clearResendMessage: true,
+        clearError: true,
+      ),
+    );
   }
 }

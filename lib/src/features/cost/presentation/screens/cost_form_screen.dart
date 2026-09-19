@@ -1,4 +1,3 @@
-import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1019,7 +1018,8 @@ class _CostFormScreenState extends State<CostFormScreen> {
       ),
     );
 
-    if (result != null && mounted) {
+    if (!context.mounted) return;
+    if (result != null) {
       context.read<CostFormBloc>().add(CostFormCategoryChanged(result));
       if (result.costNature != 'variable' &&
           result.defaultAmount != null &&

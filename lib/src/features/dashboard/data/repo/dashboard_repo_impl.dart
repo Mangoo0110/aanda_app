@@ -14,12 +14,18 @@ final class DashboardRepoImpl with ErrorHandler implements DashboardRepo {
   @override
   AsyncRequest<DashboardSummary> getDashboardSummary({
     String? houseId,
+    String? cycleId,
+    DateTime? startDate,
+    DateTime? endDate,
     String? month,
   }) {
     return asyncTryCatch(
       tryFunc: () async {
         final summary = await _datasource.getDashboardSummary(
           houseId: houseId,
+          cycleId: cycleId,
+          startDate: startDate,
+          endDate: endDate,
           month: month,
         );
         return SuccessRepoCall(data: summary);

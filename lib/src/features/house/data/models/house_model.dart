@@ -7,6 +7,7 @@ class HouseModel extends House {
     required super.name,
     required super.createdBy,
     required super.createdAt,
+    super.accountType,
     super.members,
   });
 
@@ -14,8 +15,13 @@ class HouseModel extends House {
     return HouseModel(
       id: json['id'] as String,
       name: json['name'] as String,
-      createdBy: json['created_by'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdBy: json['created_by'] as String? ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      accountType: json['account_type'] == 'personal'
+          ? AccountType.personal
+          : AccountType.shared,
     );
   }
 
@@ -26,8 +32,13 @@ class HouseModel extends House {
     return HouseModel(
       id: json['id'] as String,
       name: json['name'] as String,
-      createdBy: json['created_by'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdBy: json['created_by'] as String? ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      accountType: json['account_type'] == 'personal'
+          ? AccountType.personal
+          : AccountType.shared,
       members: members,
     );
   }
@@ -37,5 +48,6 @@ class HouseModel extends House {
     'name': name,
     'created_by': createdBy,
     'created_at': createdAt.toIso8601String(),
+    'account_type': accountType.name,
   };
 }

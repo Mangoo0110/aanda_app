@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
 import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 
 // Auth
 import 'package:aanda/src/features/auth/data/datasources/supabase_auth_datasource.dart';
@@ -56,6 +57,8 @@ final class AppDependencies {
     required this.signUpWithEmail,
     required this.logout,
     required this.getCurrentAccount,
+    required this.deleteAccount,
+    required this.resendEmailVerification,
     // Cost
     required this.costDatasource,
     required this.costRepo,
@@ -94,6 +97,7 @@ final class AppDependencies {
     required this.settlementDatasource,
     required this.settlementRepo,
     required this.computeSettlement,
+    required this.getCycleSettlement,
     // Dashboard
     required this.dashboardDatasource,
     required this.dashboardRepo,
@@ -101,6 +105,7 @@ final class AppDependencies {
     // Blocs
     required this.authGuardBloc,
     required this.appThemeCubit,
+    required this.houseContextCubit,
   });
 
   final SupabaseClient supabase;
@@ -113,6 +118,8 @@ final class AppDependencies {
   final SignUpWithEmail signUpWithEmail;
   final Logout logout;
   final GetCurrentAccount getCurrentAccount;
+  final DeleteAccount deleteAccount;
+  final ResendEmailVerification resendEmailVerification;
 
   // ── Cost ──────────────────────────────────────────────────────────────────
   final CostRemoteDatasource costDatasource;
@@ -155,6 +162,7 @@ final class AppDependencies {
   final SettlementRemoteDatasource settlementDatasource;
   final SettlementRepo settlementRepo;
   final ComputeSettlement computeSettlement;
+  final GetCycleSettlement getCycleSettlement;
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   final DashboardRemoteDatasource dashboardDatasource;
@@ -164,6 +172,7 @@ final class AppDependencies {
   // ── App blocs ─────────────────────────────────────────────────────────────
   final AppAuthGuardBloc authGuardBloc;
   final AppThemeCubit appThemeCubit;
+  final HouseContextCubit houseContextCubit;
 
   static AppDependencies create({required SupabaseClient supabase}) {
     // Auth
@@ -174,6 +183,8 @@ final class AppDependencies {
     final signUpWithEmail = SignUpWithEmail(authRepo);
     final logout = Logout(authRepo);
     final getCurrentAccount = GetCurrentAccount(authRepo);
+    final deleteAccount = DeleteAccount(authRepo);
+    final resendEmailVerification = ResendEmailVerification(authRepo);
 
     // Cost
     final costDatasource = CostRemoteDatasource(supabase: supabase);
@@ -221,6 +232,7 @@ final class AppDependencies {
     final settlementDatasource = SettlementRemoteDatasource(supabase: supabase);
     final settlementRepo = SettlementRepoImpl(datasource: settlementDatasource);
     final computeSettlement = ComputeSettlement(settlementRepo);
+    final getCycleSettlement = GetCycleSettlement(settlementRepo);
 
     // Dashboard
     final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
@@ -231,6 +243,7 @@ final class AppDependencies {
     final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
       ..add(const AppAuthGuardStarted());
     final appThemeCubit = AppThemeCubit();
+    final houseContextCubit = HouseContextCubit(getMyHouses: getMyHouses);
 
     return AppDependencies._(
       supabase: supabase,
@@ -241,6 +254,8 @@ final class AppDependencies {
       signUpWithEmail: signUpWithEmail,
       logout: logout,
       getCurrentAccount: getCurrentAccount,
+      deleteAccount: deleteAccount,
+      resendEmailVerification: resendEmailVerification,
       costDatasource: costDatasource,
       costRepo: costRepo,
       getCosts: getCosts,
@@ -275,17 +290,20 @@ final class AppDependencies {
       settlementDatasource: settlementDatasource,
       settlementRepo: settlementRepo,
       computeSettlement: computeSettlement,
+      getCycleSettlement: getCycleSettlement,
       dashboardDatasource: dashboardDatasource,
       dashboardRepo: dashboardRepo,
       getDashboardSummary: getDashboardSummary,
       authGuardBloc: authGuardBloc,
       appThemeCubit: appThemeCubit,
+      houseContextCubit: houseContextCubit,
     );
   }
 
   Future<void> dispose() async {
     await authGuardBloc.close();
     await appThemeCubit.close();
+    await houseContextCubit.close();
   }
 }
 
@@ -320,6 +338,12 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<Logout>.value(value: dependencies.logout),
         RepositoryProvider<GetCurrentAccount>.value(
           value: dependencies.getCurrentAccount,
+        ),
+        RepositoryProvider<DeleteAccount>.value(
+          value: dependencies.deleteAccount,
+        ),
+        RepositoryProvider<ResendEmailVerification>.value(
+          value: dependencies.resendEmailVerification,
         ),
 
         // Cost
@@ -385,6 +409,9 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<ComputeSettlement>.value(
           value: dependencies.computeSettlement,
         ),
+        RepositoryProvider<GetCycleSettlement>.value(
+          value: dependencies.getCycleSettlement,
+        ),
 
         // Dashboard
         RepositoryProvider<DashboardRepo>.value(
@@ -399,6 +426,9 @@ class AppDependencyScope extends StatelessWidget {
           BlocProvider<AppThemeCubit>.value(value: dependencies.appThemeCubit),
           BlocProvider<AppAuthGuardBloc>.value(
             value: dependencies.authGuardBloc,
+          ),
+          BlocProvider<HouseContextCubit>.value(
+            value: dependencies.houseContextCubit,
           ),
         ],
         child: child,
