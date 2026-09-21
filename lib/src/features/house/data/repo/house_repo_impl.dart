@@ -156,7 +156,7 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
   @override
   AsyncRequest<Map<String, dynamic>> getSprintStats({
     required String houseId,
-    required String cycleId,
+    String? cycleId,
     required DateTime startDate,
     required DateTime endDate,
   }) {

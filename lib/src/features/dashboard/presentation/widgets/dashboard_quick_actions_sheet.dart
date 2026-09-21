@@ -10,11 +10,17 @@ class DashboardQuickActionsSheet extends StatelessWidget {
     required this.isPersonal,
     required this.onRefresh,
     required this.onNavigateToMeals,
+    this.houseId,
+    this.houseName,
+    this.isAdmin,
   });
 
   final bool isPersonal;
   final VoidCallback onRefresh;
   final VoidCallback onNavigateToMeals;
+  final String? houseId;
+  final String? houseName;
+  final bool? isAdmin;
 
   static const Color cardColor = Colors.white;
   static const Color darkText = Color(0xFF1B1D1F);
@@ -25,6 +31,9 @@ class DashboardQuickActionsSheet extends StatelessWidget {
     required bool isPersonal,
     required VoidCallback onRefresh,
     required VoidCallback onNavigateToMeals,
+    String? houseId,
+    String? houseName,
+    bool? isAdmin,
   }) {
     showModalBottomSheet(
       context: context,
@@ -36,6 +45,9 @@ class DashboardQuickActionsSheet extends StatelessWidget {
         isPersonal: isPersonal,
         onRefresh: onRefresh,
         onNavigateToMeals: onNavigateToMeals,
+        houseId: houseId,
+        houseName: houseName,
+        isAdmin: isAdmin,
       ),
     );
   }
@@ -107,6 +119,25 @@ class DashboardQuickActionsSheet extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).pop();
                   onNavigateToMeals();
+                },
+              ),
+              const SizedBox(height: 10),
+              _buildTile(
+                context: context,
+                emoji: '⚖️',
+                title: 'Start Settlement',
+                subtitle: 'Settle shared costs for a date range',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  if (houseId != null) {
+                    context.push(
+                      AppRoutes.settlementStart(houseId!),
+                      extra: {
+                        'houseName': houseName ?? 'Account',
+                        'isAdmin': isAdmin ?? false,
+                      },
+                    );
+                  }
                 },
               ),
             ],

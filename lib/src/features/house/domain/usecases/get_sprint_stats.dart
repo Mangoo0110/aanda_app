@@ -5,13 +5,13 @@ import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 class GetSprintStatsParams {
   const GetSprintStatsParams({
     required this.houseId,
-    required this.cycleId,
+    this.cycleId,
     required this.startDate,
     required this.endDate,
   });
 
   final String houseId;
-  final String cycleId;
+  final String? cycleId;
   final DateTime startDate;
   final DateTime endDate;
 }

@@ -10,6 +10,7 @@ import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/config/supabase_config.dart';
+import 'package:aanda/src/core/network/presentation/network_aware_root.dart';
 import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
@@ -79,6 +80,7 @@ class _AppRoot extends StatelessWidget {
             themeMode: themeMode,
             routerConfig: router,
             debugShowCheckedModeBanner: false,
+            builder: (context, child) => NetworkAwareRoot(child: child),
           );
         },
       ),

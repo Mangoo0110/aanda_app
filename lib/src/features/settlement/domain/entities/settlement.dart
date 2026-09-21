@@ -35,30 +35,53 @@ class MemberSettlementSummary {
   bool get isOwedMoney => netBalance < -0.01;
 }
 
+enum SettlementStatus { draft, finalised }
+
 class Settlement {
   const Settlement({
     required this.houseId,
-    required this.cycleId,
+    this.cycleId,
+    required this.fromDate,
+    required this.toDate,
     required this.totalFoodCost,
     required this.totalFixedCost,
     required this.totalOtherCost,
     required this.totalMealCount,
     required this.mealRate,
     required this.memberSummaries,
+    this.status = SettlementStatus.finalised,
     this.computedAt,
-    this.calculationEndDate,
+    this.settlementId,
+    this.includedCostIds = const [],
   });
 
   final String houseId;
-  final String cycleId;
+  final String? cycleId;
+  final DateTime fromDate;
+  final DateTime toDate;
   final double totalFoodCost;
   final double totalFixedCost;
   final double totalOtherCost;
   final double totalMealCount;
   final double mealRate;
   final List<MemberSettlementSummary> memberSummaries;
+  final SettlementStatus status;
   final DateTime? computedAt;
-  final DateTime? calculationEndDate;
+  final String? settlementId;
+  final List<String> includedCostIds;
 
   double get totalExpenses => totalFoodCost + totalFixedCost + totalOtherCost;
+
+  String get dateRangeLabel {
+    String fmt(DateTime d) => '${d.day} ${_monthName(d.month)} ${d.year}';
+    return '${fmt(fromDate)} – ${fmt(toDate)}';
+  }
+
+  static String _monthName(int m) {
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return m >= 1 && m <= 12 ? months[m] : '';
+  }
 }

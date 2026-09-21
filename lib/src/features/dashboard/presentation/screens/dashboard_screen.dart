@@ -6,10 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
+import 'package:aanda/src/features/cost/domain/usecases/get_cost_categories.dart';
+import 'package:aanda/src/features/cost/presentation/widgets/category_icon_view.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_activity.dart';
 import 'package:aanda/src/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:aanda/src/features/dashboard/presentation/widgets/dashboard_category_card.dart';
-import 'package:aanda/src/features/dashboard/presentation/widgets/dashboard_cycle_picker_sheet.dart';
 import 'package:aanda/src/features/dashboard/presentation/widgets/dashboard_profile_sheet.dart';
 import 'package:aanda/src/features/dashboard/presentation/widgets/dashboard_quick_action_card.dart';
 import 'package:aanda/src/features/dashboard/presentation/widgets/dashboard_quick_actions_sheet.dart';
@@ -31,6 +33,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const Color darkText = Color(0xFF1B1D1F);
   static const Color subText = Color(0xFF8C8D8E);
 
+  List<CostCategory> _categories = [];
+  bool _isLoadingCategories = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,16 +48,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<DashboardBloc>().add(
       DashboardHouseFilterChanged(houseCtx.state.activeAccountId),
     );
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final houseCtx = context.read<HouseContextCubit>();
+    final houseId = houseCtx.state.selectedHouse?.id;
+    try {
+      setState(() => _isLoadingCategories = true);
+      final getCostCategories = context.read<GetCostCategories>();
+      final res = await getCostCategories(
+        GetCostCategoriesParams(houseId: houseId),
+      );
+      if (mounted) {
+        setState(() {
+          _categories = res.data ?? [];
+          _isLoadingCategories = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingCategories = false);
+      }
+    }
+  }
+
+  Future<void> _openAddCategoryScreen() async {
+    final houseCtx = context.read<HouseContextCubit>().state;
+    final houseId = houseCtx.selectedHouse?.id;
+    final houseName = houseCtx.selectedHouse?.name;
+    final uri = Uri(
+      path: AppRoutes.costCategoryAdd,
+      queryParameters: {
+        if (houseId != null) 'houseId': houseId,
+        if (houseName != null) 'houseName': houseName,
+      },
+    );
+    await context.push(uri.toString());
+    if (mounted) {
+      await _loadCategories();
+    }
   }
 
   Future<void> _refresh() async {
     context.read<DashboardBloc>().add(const DashboardRefreshRequested());
     context.read<HouseContextCubit>().refresh();
+    await _loadCategories();
   }
 
-  void _showCyclePicker(BuildContext context, DashboardState state) {
-    DashboardCyclePickerSheet.show(context, state);
-  }
 
   void _navigateToMeals() {
     final house = context.read<HouseContextCubit>().state.selectedHouse;
@@ -104,6 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             DashboardHouseFilterChanged(currentAccount),
           );
         }
+        _loadCategories();
       },
       child: Scaffold(
         backgroundColor: backgroundColor,
@@ -128,25 +172,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             },
             builder: (context, state) {
-              // Cycle label and index
-              final cycle = state.selectedCycle;
-              final String cycleLabel;
-              if (cycle != null) {
-                final startFormatted =
-                    DateFormat('d MMM').format(cycle.startDate);
-                final endFormatted = cycle.endDate == null
-                    ? 'Now'
-                    : DateFormat('d MMM').format(cycle.endDate!);
-                cycleLabel = '${cycle.label} • $startFormatted – $endFormatted';
-              } else {
-                cycleLabel = 'No Active Cycle';
-              }
-
-              final cycleIndex =
-                  cycle != null ? state.cycles.indexOf(cycle) : -1;
-              final hasOlderCycle = cycleIndex != -1 &&
-                  cycleIndex < state.cycles.length - 1;
-              final hasNewerCycle = cycleIndex > 0;
 
               return RefreshIndicator(
                 onRefresh: _refresh,
@@ -233,114 +258,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 14).toSliver(),
-
-                    // ── 2. Settlement Cycle Navigator Pill ──
-                    SliverToBoxAdapter(
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.chevron_left_rounded,
-                                  size: 18,
-                                ),
-                                color: hasOlderCycle
-                                    ? darkText
-                                    : subText.withValues(alpha: 0.3),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
-                                ),
-                                onPressed: hasOlderCycle
-                                    ? () {
-                                        final older =
-                                            state.cycles[cycleIndex + 1];
-                                        context.read<DashboardBloc>().add(
-                                          DashboardCycleChanged(older),
-                                        );
-                                      }
-                                    : null,
-                              ),
-                              const SizedBox(width: 4),
-                              InkWell(
-                                onTap: () => _showCyclePicker(context, state),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        cycleLabel,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: darkText,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 16,
-                                        color: subText,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                ),
-                                color: hasNewerCycle
-                                    ? darkText
-                                    : subText.withValues(alpha: 0.3),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
-                                ),
-                                onPressed: hasNewerCycle
-                                    ? () {
-                                        final newer =
-                                            state.cycles[cycleIndex - 1];
-                                        context.read<DashboardBloc>().add(
-                                          DashboardCycleChanged(newer),
-                                        );
-                                      }
-                                    : null,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
 
                     const SizedBox(height: 14).toSliver(),
 
@@ -879,89 +796,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Categories 2x2 Grid ───────────────────────────────────────────────────
+  // ── Categories Dynamic Grid ────────────────────────────────────────────────
 
   Widget _buildCategoriesGrid() {
-    final defaultGrid = [
-      {
-        'emoji': '🏠',
-        'title': 'Rent',
-        'amount': '৳12K',
-        'target': '৳12K',
-        'sub': 'House · Mar 1',
-      },
-      {
-        'emoji': '☕',
-        'title': 'Coffee',
-        'amount': '৳850',
-        'target': '৳1.5K',
-        'sub': 'Starbucks · 3 logs',
-      },
-      {
-        'emoji': '🛒',
-        'title': 'Supermarket',
-        'amount': '৳4.2K',
-        'target': '৳7.0K',
-        'sub': 'Kitchen Pool · Daily',
-      },
-      {
-        'emoji': '⚡',
-        'title': 'Utilities',
-        'amount': '৳1.4K',
-        'target': '৳3.0K',
-        'sub': 'Wifi & Gas',
-      },
-    ];
+    if (_isLoadingCategories && _categories.isEmpty) {
+      return Container(
+        height: 110,
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(primaryCoral),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_categories.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFDEEE8),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.category_outlined,
+                color: primaryCoral,
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'No Categories Yet',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: darkText,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Create category presets with custom uploaded images.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: subText,
+              ),
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: _openAddCategoryScreen,
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text(
+                'Add Category',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: primaryCoral,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final col1 = <CostCategory>[];
+    final col2 = <CostCategory>[];
+    for (int i = 0; i < _categories.length; i++) {
+      if (i % 2 == 0) {
+        col1.add(_categories[i]);
+      } else {
+        col2.add(_categories[i]);
+      }
+    }
+
+    Widget buildCard(CostCategory cat) {
+      final subtitle = cat.costNature == 'variable'
+          ? (cat.isFood ? 'Meal Pool' : 'Variable')
+          : (cat.defaultAmount != null
+              ? '৳${cat.defaultAmount!.toInt()} · Fixed'
+              : 'Fixed');
+
+      return CategoryCard(
+        icon: cat.icon,
+        title: cat.name,
+        subtitle: subtitle,
+        onAdd: () => _addExpenseForCategory(cat),
+        onTap: () => _addExpenseForCategory(cat),
+      );
+    }
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Column 1
         Expanded(
           child: Column(
             children: [
-              CategoryCard(
-                emoji: defaultGrid[0]['emoji']!,
-                title: defaultGrid[0]['title']!,
-                amount: defaultGrid[0]['amount']!,
-                target: defaultGrid[0]['target']!,
-                subtitle: defaultGrid[0]['sub']!,
-                onAdd: () => _addExpenseForCategory(defaultGrid[0]['title']!),
-              ),
-              const SizedBox(height: 12),
-              CategoryCard(
-                emoji: defaultGrid[2]['emoji']!,
-                title: defaultGrid[2]['title']!,
-                amount: defaultGrid[2]['amount']!,
-                target: defaultGrid[2]['target']!,
-                subtitle: defaultGrid[2]['sub']!,
-                onAdd: () => _addExpenseForCategory(defaultGrid[2]['title']!),
-              ),
+              for (int i = 0; i < col1.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                buildCard(col1[i]),
+              ],
             ],
           ),
         ),
         const SizedBox(width: 12),
-
-        // Column 2
         Expanded(
           child: Column(
             children: [
-              CategoryCard(
-                emoji: defaultGrid[1]['emoji']!,
-                title: defaultGrid[1]['title']!,
-                amount: defaultGrid[1]['amount']!,
-                target: defaultGrid[1]['target']!,
-                subtitle: defaultGrid[1]['sub']!,
-                onAdd: () => _addExpenseForCategory(defaultGrid[1]['title']!),
-              ),
-              const SizedBox(height: 12),
-              CategoryCard(
-                emoji: defaultGrid[3]['emoji']!,
-                title: defaultGrid[3]['title']!,
-                amount: defaultGrid[3]['amount']!,
-                target: defaultGrid[3]['target']!,
-                subtitle: defaultGrid[3]['sub']!,
-                onAdd: () => _addExpenseForCategory(defaultGrid[3]['title']!),
-              ),
+              for (int i = 0; i < col2.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                buildCard(col2[i]),
+              ],
             ],
           ),
         ),
@@ -969,8 +946,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _addExpenseForCategory(String categoryName) async {
-    final res = await context.push(AppRoutes.costAdd);
+  void _addExpenseForCategory(CostCategory category) async {
+    final res = await context.push(
+      AppRoutes.costAdd,
+      extra: category,
+    );
     if (res == true && mounted) _refresh();
   }
 
@@ -979,11 +959,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dt = DateTime.parse(dateStr);
       final now = DateTime.now();
       if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-        return 'today';
+        return 'Today, ${DateFormat('h:mm a').format(dt)}';
       }
-      return DateFormat('d MMM').format(dt);
+      return DateFormat('MMM d, h:mm a').format(dt);
     } catch (_) {
-      return 'today';
+      return dateStr;
     }
   }
 
@@ -1012,152 +992,165 @@ class _DashboardScreenState extends State<DashboardScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: cardColor,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Expense Categories',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: darkText,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.75,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    InkWell(
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        _showCreateCategoryDialog();
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.add_rounded,
-                              size: 16,
-                              color: primaryCoral,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'New',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Expense Categories',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: darkText,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _openAddCategoryScreen();
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.add_rounded,
+                                size: 16,
                                 color: primaryCoral,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'New',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryCoral,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (_categories.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const Text(
+                              'No categories found.',
+                              style: TextStyle(color: subText, fontSize: 13),
+                            ),
+                            const SizedBox(height: 10),
+                            FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                _openAddCategoryScreen();
+                              },
+                              icon: const Icon(Icons.add_rounded, size: 16),
+                              label: const Text('Create Category'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: primaryCoral,
                               ),
                             ),
                           ],
                         ),
                       ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _categories.length,
+                        separatorBuilder: (_, __) => const Divider(
+                          color: Color(0xFFF2ECE4),
+                          height: 1,
+                        ),
+                        itemBuilder: (ctx, index) {
+                          final cat = _categories[index];
+                          final subtitle = cat.costNature == 'variable'
+                              ? (cat.isFood
+                                  ? 'Variable (Meal Pool)'
+                                  : 'Variable Expense')
+                              : (cat.defaultAmount != null
+                                  ? 'Fixed · ৳${cat.defaultAmount!.toInt()}'
+                                  : 'Fixed Expense');
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
+                            leading: CategoryIconView(
+                              icon: cat.icon,
+                              categoryName: cat.name,
+                              size: 38,
+                              fallbackEmoji: '🏷️',
+                            ),
+                            title: Text(
+                              cat.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: darkText,
+                              ),
+                            ),
+                            subtitle: Text(
+                              subtitle,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: subText,
+                              ),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: primaryCoral,
+                                size: 22,
+                              ),
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                _addExpenseForCategory(cat);
+                              },
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                if (context
-                        .read<HouseContextCubit>()
-                        .state
-                        .selectedHouse ==
-                    null)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'Standard system categories (Food, Rent, Utilities, Coffee, etc.) are active.',
-                      style: TextStyle(color: subText, fontSize: 13),
-                    ),
-                  )
-                else
-                  BlocBuilder<HouseContextCubit, HouseContextState>(
-                    builder: (context, houseCtxState) {
-                      return const SizedBox.shrink();
-                    },
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );
       },
-    );
-  }
-
-  void _showCreateCategoryDialog() {
-    final houseId =
-        context.read<HouseContextCubit>().state.selectedHouse?.id;
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text(
-          'Create Category',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'e.g. Internet, Laundry, Groceries',
-            filled: true,
-            fillColor: const Color(0xFFFBF4EB),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: subText)),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: primaryCoral,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () async {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) {
-                Navigator.of(dialogCtx).pop();
-                try {
-                  final supabase = Supabase.instance.client;
-                  await supabase.from('cost_categories').insert({
-                    'name': text,
-                    'icon': '🏷️',
-                    if (houseId != null) 'house_id': houseId,
-                  });
-                  _refresh();
-                } catch (_) {}
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
     );
   }
 

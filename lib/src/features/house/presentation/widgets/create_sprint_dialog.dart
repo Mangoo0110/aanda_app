@@ -126,13 +126,8 @@ class _CreateSprintDialogState extends State<CreateSprintDialog> {
             final label = _nameCtrl.text.trim();
             if (label.isEmpty) return;
             Navigator.of(context).pop();
-            context.read<HouseDetailBloc>().add(
-              HouseDetailCreateSprintRequested(
-                label: label,
-                startDate: _startDate,
-                endDate: _endDate,
-              ),
-            );
+            // Sprint creation is no longer used;
+            // settlements are now date-range based via the FAB.
           },
           child: const Text('Start Cycle'),
         ),

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/bloc/app_theme_cubit.dart';
 import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
+import 'package:aanda/src/core/network/cubit/network_status_cubit.dart';
 
 // Auth
 import 'package:aanda/src/features/auth/data/datasources/supabase_auth_datasource.dart';
@@ -100,7 +101,9 @@ final class AppDependencies {
     required this.settlementDatasource,
     required this.settlementRepo,
     required this.computeSettlement,
-    required this.getCycleSettlement,
+    required this.prepareSettlement,
+    required this.finaliseSettlement,
+    required this.getSettlements,
     // Dashboard
     required this.dashboardDatasource,
     required this.dashboardRepo,
@@ -109,6 +112,7 @@ final class AppDependencies {
     required this.authGuardBloc,
     required this.appThemeCubit,
     required this.houseContextCubit,
+    required this.networkStatusCubit,
   });
 
   final SupabaseClient supabase;
@@ -164,11 +168,13 @@ final class AppDependencies {
   final GetMealLogs getMealLogs;
   final UpsertMealLog upsertMealLog;
 
-  // ── Settlement ────────────────────────────────────────────────────────────
+  // ── Settlement ───────────────────────────────────────────────────────
   final SettlementRemoteDatasource settlementDatasource;
   final SettlementRepo settlementRepo;
   final ComputeSettlement computeSettlement;
-  final GetCycleSettlement getCycleSettlement;
+  final PrepareSettlement prepareSettlement;
+  final FinaliseSettlement finaliseSettlement;
+  final GetSettlements getSettlements;
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   final DashboardRemoteDatasource dashboardDatasource;
@@ -179,6 +185,7 @@ final class AppDependencies {
   final AppAuthGuardBloc authGuardBloc;
   final AppThemeCubit appThemeCubit;
   final HouseContextCubit houseContextCubit;
+  final NetworkStatusCubit networkStatusCubit;
 
   static AppDependencies create({required SupabaseClient supabase}) {
     // Auth
@@ -241,7 +248,9 @@ final class AppDependencies {
     final settlementDatasource = SettlementRemoteDatasource(supabase: supabase);
     final settlementRepo = SettlementRepoImpl(datasource: settlementDatasource);
     final computeSettlement = ComputeSettlement(settlementRepo);
-    final getCycleSettlement = GetCycleSettlement(settlementRepo);
+    final prepareSettlement = PrepareSettlement(settlementRepo);
+    final finaliseSettlement = FinaliseSettlement(settlementRepo);
+    final getSettlements = GetSettlements(settlementRepo);
 
     // Dashboard
     final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
@@ -253,6 +262,7 @@ final class AppDependencies {
       ..add(const AppAuthGuardStarted());
     final appThemeCubit = AppThemeCubit();
     final houseContextCubit = HouseContextCubit(getMyHouses: getMyHouses);
+    final networkStatusCubit = NetworkStatusCubit();
 
     return AppDependencies._(
       supabase: supabase,
@@ -302,13 +312,16 @@ final class AppDependencies {
       settlementDatasource: settlementDatasource,
       settlementRepo: settlementRepo,
       computeSettlement: computeSettlement,
-      getCycleSettlement: getCycleSettlement,
+      prepareSettlement: prepareSettlement,
+      finaliseSettlement: finaliseSettlement,
+      getSettlements: getSettlements,
       dashboardDatasource: dashboardDatasource,
       dashboardRepo: dashboardRepo,
       getDashboardSummary: getDashboardSummary,
       authGuardBloc: authGuardBloc,
       appThemeCubit: appThemeCubit,
       houseContextCubit: houseContextCubit,
+      networkStatusCubit: networkStatusCubit,
     );
   }
 
@@ -316,6 +329,7 @@ final class AppDependencies {
     await authGuardBloc.close();
     await appThemeCubit.close();
     await houseContextCubit.close();
+    await networkStatusCubit.close();
   }
 }
 
@@ -430,8 +444,14 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<ComputeSettlement>.value(
           value: dependencies.computeSettlement,
         ),
-        RepositoryProvider<GetCycleSettlement>.value(
-          value: dependencies.getCycleSettlement,
+        RepositoryProvider<PrepareSettlement>.value(
+          value: dependencies.prepareSettlement,
+        ),
+        RepositoryProvider<FinaliseSettlement>.value(
+          value: dependencies.finaliseSettlement,
+        ),
+        RepositoryProvider<GetSettlements>.value(
+          value: dependencies.getSettlements,
         ),
 
         // Dashboard
@@ -450,6 +470,9 @@ class AppDependencyScope extends StatelessWidget {
           ),
           BlocProvider<HouseContextCubit>.value(
             value: dependencies.houseContextCubit,
+          ),
+          BlocProvider<NetworkStatusCubit>.value(
+            value: dependencies.networkStatusCubit,
           ),
         ],
         child: child,

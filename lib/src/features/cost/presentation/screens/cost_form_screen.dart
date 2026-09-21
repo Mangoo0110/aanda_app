@@ -4,17 +4,34 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_category_form_screen.dart';
+import 'package:aanda/src/features/cost/presentation/widgets/category_icon_view.dart';
 import 'package:aanda/src/features/cost/presentation/widgets/cost_account_picker_sheet.dart';
 import 'package:aanda/src/features/cost/presentation/widgets/cost_category_picker_sheet.dart';
 import 'package:aanda/src/features/cost/presentation/widgets/cost_keypad.dart';
 import 'package:aanda/src/features/cost/presentation/widgets/cost_payer_picker_sheet.dart';
 
 class CostFormScreen extends StatefulWidget {
-  const CostFormScreen({super.key});
+  const CostFormScreen({
+    super.key,
+    this.initialCost,
+    this.initialCategory,
+    this.categoryPreset,
+    this.initialCategoryId,
+    this.initialHouseId,
+  });
+
+  final Cost? initialCost;
+  final CostCategory? initialCategory;
+  final CostCategory? categoryPreset;
+  final String? initialCategoryId;
+  final String? initialHouseId;
+
+  CostCategory? get effectiveCategory => initialCategory ?? categoryPreset;
 
   @override
   State<CostFormScreen> createState() => _CostFormScreenState();
@@ -28,7 +45,26 @@ class _CostFormScreenState extends State<CostFormScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<CostFormBloc>().add(const CostFormStarted());
+    final cat = widget.effectiveCategory;
+    if (widget.initialCost != null) {
+      final c = widget.initialCost!;
+      _amountStr = c.amount.toStringAsFixed(
+        c.amount.truncateToDouble() == c.amount ? 0 : 2,
+      );
+      _noteStr = c.note ?? '';
+      _selectedDate = c.purchaseDate;
+    } else if (cat?.defaultAmount != null && cat!.defaultAmount! > 0) {
+      final amt = cat.defaultAmount!;
+      _amountStr = amt % 1 == 0 ? amt.toInt().toString() : amt.toString();
+    }
+    context.read<CostFormBloc>().add(
+      CostFormStarted(
+        initialCost: widget.initialCost,
+        initialCategory: cat,
+        initialCategoryId: widget.initialCategoryId ?? cat?.id,
+        defaultHouseId: widget.initialHouseId,
+      ),
+    );
   }
 
   void _onKeyPress(String key) {
@@ -282,7 +318,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
           backgroundColor: backgroundColor,
           appBar: AppBar(
             leading: const AppBackButton(icon: Icons.close_rounded),
-            title: const Text('Add Expense'),
+            title: Text(state.isEditing ? 'Edit Expense' : 'Add Expense'),
           ),
           body: SafeArea(
             bottom: true,
@@ -372,23 +408,11 @@ class _CostFormScreenState extends State<CostFormScreen> {
                         child: Row(
                           children: [
                             // Category icon with soft peach background & subtle border
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF2EE),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0xFFFFDCD3),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  category?.icon ?? '🍱',
-                                  style: const TextStyle(fontSize: 22),
-                                ),
-                              ),
+                            CategoryIconView(
+                              icon: category?.icon,
+                              categoryName: categoryName,
+                              size: 44,
+                              fallbackEmoji: '🏷️',
                             ),
                             const SizedBox(width: 14),
                 
@@ -660,9 +684,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
       context: context,
       state: state,
       onCategorySelected: (cat) {
-        if (cat.costNature != 'variable' &&
-            cat.defaultAmount != null &&
-            cat.defaultAmount! > 0) {
+        if (cat.defaultAmount != null && cat.defaultAmount! > 0) {
           final amt = cat.defaultAmount!;
           setState(() {
             _amountStr = amt % 1 == 0

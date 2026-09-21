@@ -5,8 +5,15 @@ sealed class CostFormEvent {
 }
 
 final class CostFormStarted extends CostFormEvent {
-  const CostFormStarted({this.initialCost, this.defaultHouseId});
+  const CostFormStarted({
+    this.initialCost,
+    this.initialCategory,
+    this.initialCategoryId,
+    this.defaultHouseId,
+  });
   final Cost? initialCost;
+  final CostCategory? initialCategory;
+  final String? initialCategoryId;
   final String? defaultHouseId;
 }
 

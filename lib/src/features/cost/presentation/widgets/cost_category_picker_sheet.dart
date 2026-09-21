@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_category_form_screen.dart';
+import 'package:aanda/src/features/cost/presentation/widgets/category_icon_view.dart';
 
 class CostCategoryPickerSheet extends StatelessWidget {
   const CostCategoryPickerSheet({
@@ -138,36 +139,16 @@ class CostCategoryPickerSheet extends StatelessWidget {
                   itemBuilder: (ctx, index) {
                     final cat = state.availableCategories[index];
                     final isSel = state.selectedCategory?.id == cat.id;
-                    final isEmoji = cat.icon != null &&
-                        cat.icon!.isNotEmpty &&
-                        cat.icon!.length <= 4 &&
-                        int.tryParse(cat.icon!) == null;
 
                     return ListTile(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      leading: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: isSel
-                              ? const Color(0xFFEBEBEB)
-                              : const Color(0xFFF6F6F6),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: isEmoji
-                              ? Text(
-                                  cat.icon!,
-                                  style: const TextStyle(fontSize: 18),
-                                )
-                              : const Icon(
-                                  Icons.category_rounded,
-                                  color: Color(0xFF4A4D50),
-                                  size: 18,
-                                ),
-                        ),
+                      leading: CategoryIconView(
+                        icon: cat.icon,
+                        categoryName: cat.name,
+                        size: 38,
+                        fallbackEmoji: '🏷️',
                       ),
                       title: Text(
                         cat.name,

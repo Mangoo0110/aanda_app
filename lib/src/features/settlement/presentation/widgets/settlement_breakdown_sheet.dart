@@ -1,29 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
-import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/settlement/domain/entities/settlement.dart';
 
+/// Read-only settlement breakdown sheet — used from settlement history.
 class SettlementBreakdownSheet extends StatelessWidget {
-  const SettlementBreakdownSheet({
-    super.key,
-    required this.settlement,
-    this.sprint,
-    required this.isAdmin,
-    required this.onConfirmClose,
-  });
+  const SettlementBreakdownSheet({super.key, required this.settlement});
 
   final Settlement settlement;
-  final Sprint? sprint;
-  final bool isAdmin;
-  final VoidCallback onConfirmClose;
 
   static void show({
     required BuildContext context,
     required Settlement settlement,
-    Sprint? sprint,
-    required bool isAdmin,
-    required VoidCallback onConfirmClose,
   }) {
     final colors = AppColors.context(context);
     showModalBottomSheet(
@@ -33,32 +21,15 @@ class SettlementBreakdownSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => SettlementBreakdownSheet(
-        settlement: settlement,
-        sprint: sprint,
-        isAdmin: isAdmin,
-        onConfirmClose: () {
-          Navigator.of(ctx).pop();
-          onConfirmClose();
-        },
-      ),
+      builder: (_) => SettlementBreakdownSheet(settlement: settlement),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
-    final currencyFormat = NumberFormat('#,##0', 'en_US');
-    final dateFormat = DateFormat('d MMM yyyy');
-
-    final startDateStr = sprint != null
-        ? dateFormat.format(sprint!.startDate)
-        : '';
-    final cutoffDate =
-        settlement.calculationEndDate ??
-        settlement.computedAt ??
-        DateTime.now();
-    final cutoffDateStr = dateFormat.format(cutoffDate);
+    final currFmt = NumberFormat('#,##0.00');
+    final dateFmt = DateFormat('d MMM yyyy');
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
@@ -84,41 +55,42 @@ class SettlementBreakdownSheet extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.calculate_rounded, color: colors.primaryColor),
+                  Icon(Icons.receipt_long_rounded, color: colors.primaryColor),
                   const SizedBox(width: 8),
-                  Text(
-                    'Cycle Settlement',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: colors.textColor,
+                  Expanded(
+                    child: Text(
+                      'Settlement',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: colors.textColor,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  if (sprint != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.primaryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        sprint!.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: colors.primaryColor,
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'FINALISED',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: Colors.green,
                       ),
                     ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
 
-              // Date Range Notice (Calculation from start date to tap date)
+              // Date range pill
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -131,21 +103,17 @@ class SettlementBreakdownSheet extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.access_time_rounded,
+                      Icons.date_range_rounded,
                       size: 14,
                       color: colors.primaryColor,
                     ),
                     const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        startDateStr.isNotEmpty
-                            ? 'Calculated from $startDateStr to $cutoffDateStr (tap date)'
-                            : 'Calculated up to $cutoffDateStr',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colors.primaryColor,
-                        ),
+                    Text(
+                      '${dateFmt.format(settlement.fromDate)}  –  ${dateFmt.format(settlement.toDate)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primaryColor,
                       ),
                     ),
                   ],
@@ -153,7 +121,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
 
-              // Overview breakdown
+              // Totals card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -163,29 +131,29 @@ class SettlementBreakdownSheet extends StatelessWidget {
                 child: Column(
                   children: [
                     _MetricRow(
-                      label: 'Total Food Expenses',
-                      value:
-                          '৳ ${currencyFormat.format(settlement.totalFoodCost)}',
+                      label: 'Food Expenses',
+                      value: '৳ ${currFmt.format(settlement.totalFoodCost)}',
                     ),
                     const SizedBox(height: 8),
                     _MetricRow(
-                      label: 'Fixed & Other Expenses',
+                      label: 'Fixed & Other',
                       value:
-                          '৳ ${currencyFormat.format(settlement.totalFixedCost + settlement.totalOtherCost)}',
-                    ),
-                    const SizedBox(height: 8),
-                    _MetricRow(
-                      label: 'Total Meals Consumed',
-                      value:
-                          '${settlement.totalMealCount.toStringAsFixed(1)} meals',
+                          '৳ ${currFmt.format(settlement.totalFixedCost + settlement.totalOtherCost)}',
                     ),
                     const Divider(height: 20),
                     _MetricRow(
-                      label: 'Calculated Meal Rate',
-                      value:
-                          '৳ ${settlement.mealRate.toStringAsFixed(2)} / meal',
+                      label: 'Total',
+                      value: '৳ ${currFmt.format(settlement.totalExpenses)}',
                       isHighlighted: true,
                     ),
+                    if (settlement.totalMealCount > 0) ...[
+                      const SizedBox(height: 8),
+                      _MetricRow(
+                        label: 'Meal Rate',
+                        value:
+                            '৳ ${currFmt.format(settlement.mealRate)} / meal',
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -223,9 +191,8 @@ class SettlementBreakdownSheet extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: colors.primaryColor.withValues(
-                          alpha: 0.1,
-                        ),
+                        backgroundColor:
+                            colors.primaryColor.withValues(alpha: 0.1),
                         child: Text(
                           m.displayName.isNotEmpty
                               ? m.displayName[0].toUpperCase()
@@ -251,12 +218,20 @@ class SettlementBreakdownSheet extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '${m.totalMeals.toStringAsFixed(1)} meals (৳${m.foodCharge.toStringAsFixed(0)}) • Paid ৳${m.totalPaid.toStringAsFixed(0)}',
+                              '${m.totalMeals.toStringAsFixed(1)} meals  ·  Paid ৳${currFmt.format(m.totalPaid)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: colors.grey,
                               ),
                             ),
+                            if (m.carryForwardIn.abs() > 0.01)
+                              Text(
+                                'Carry fwd: ৳${currFmt.format(m.carryForwardIn)}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: colors.grey,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -274,7 +249,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '৳ ${currencyFormat.format(net.abs())}',
+                            '৳ ${currFmt.format(net.abs())}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
@@ -288,23 +263,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                 );
               }),
 
-              const SizedBox(height: 24),
-              if (isAdmin && sprint?.isOpen == true)
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  icon: const Icon(Icons.check_circle_outline_rounded),
-                  label: const Text(
-                    'Confirm & Close Cycle',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                  onPressed: onConfirmClose,
-                ),
+              const SizedBox(height: 8),
             ],
           ),
         );

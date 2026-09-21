@@ -52,10 +52,10 @@ abstract interface class HouseRepo {
     DateTime? closedAt,
   });
 
-  /// Quick stats for sprint header.
+  /// Quick stats for an account's date range (no cycle required).
   AsyncRequest<Map<String, dynamic>> getSprintStats({
     required String houseId,
-    required String cycleId,
+    String? cycleId,
     required DateTime startDate,
     required DateTime endDate,
   });

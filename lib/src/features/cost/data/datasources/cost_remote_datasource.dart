@@ -283,8 +283,6 @@ class CostRemoteDatasource {
   }
 
   Future<List<CostCategory>> getCategories({String? houseId}) async {
-    final list = <CostCategory>[...CostCategory.predefinedCategories];
-
     if (houseId != null) {
       // 1. Try Edge Function endpoint
       try {
@@ -296,31 +294,42 @@ class CostRemoteDatasource {
             res.data is Map &&
             (res.data as Map)['success'] == true) {
           final rows = res.data['data'] as List;
-          final custom = rows
+          return rows
               .map((r) => CostCategoryModel.fromJson(r as Map<String, dynamic>))
               .toList();
-          list.addAll(custom);
-          return list;
         }
       } catch (_) {
         // Fallback
       }
 
       // 2. Direct query fallback
+      try {
+        final rows = await _supabase
+            .from('cost_categories')
+            .select()
+            .eq('house_id', houseId)
+            .order('name');
+
+        return (rows as List)
+            .map((r) => CostCategoryModel.fromJson(r as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
+
+    try {
       final rows = await _supabase
           .from('cost_categories')
           .select()
-          .eq('house_id', houseId)
           .order('name');
 
-      final custom = (rows as List)
+      return (rows as List)
           .map((r) => CostCategoryModel.fromJson(r as Map<String, dynamic>))
           .toList();
-
-      list.addAll(custom);
+    } catch (_) {
+      return [];
     }
-
-    return list;
   }
 
   Future<CostCategory> createCategory(CreateCostCategoryData data) async {

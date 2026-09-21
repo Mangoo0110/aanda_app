@@ -16,6 +16,7 @@ class CostModel extends Cost {
     super.payerName,
     super.houseId,
     super.cycleId,
+    super.settlementId,
     super.categoryId,
     super.categoryName,
     super.categoryIcon,
@@ -59,6 +60,7 @@ class CostModel extends Cost {
       payerName: payerName,
       houseId: json['house_id'] as String?,
       cycleId: json['cycle_id'] as String?,
+      settlementId: json['settlement_id'] as String?,
       categoryId: categoryId,
       categoryName: categoryName,
       categoryIcon: categoryIcon,
@@ -80,6 +82,7 @@ class CostModel extends Cost {
     'created_at': createdAt.toIso8601String(),
     if (houseId != null) 'house_id': houseId,
     if (cycleId != null) 'cycle_id': cycleId,
+    if (settlementId != null) 'settlement_id': settlementId,
     if (categoryId != null && !categoryId!.startsWith('predefined_'))
       'category_id': categoryId,
     if (note != null) 'note': note,

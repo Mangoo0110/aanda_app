@@ -175,11 +175,46 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
         ),
       );
     } else {
+      CostCategory? targetCategory;
+      if (event.initialCategory != null) {
+        targetCategory = categories
+            .where((cat) =>
+                cat.id == event.initialCategory!.id ||
+                cat.name.trim().toLowerCase() ==
+                    event.initialCategory!.name.trim().toLowerCase())
+            .firstOrNull ??
+            event.initialCategory;
+      } else if (event.initialCategoryId != null) {
+        targetCategory = categories
+            .where((cat) =>
+                cat.id == event.initialCategoryId ||
+                cat.name.trim().toLowerCase() ==
+                    event.initialCategoryId!.trim().toLowerCase())
+            .firstOrNull;
+      }
+      targetCategory ??= categories.firstOrNull;
+
+      final costType = (targetCategory?.costNature == 'fixed')
+          ? CostType.fixed
+          : CostType.variable;
+
+      final initialAmount = (targetCategory?.defaultAmount != null &&
+              targetCategory!.defaultAmount! > 0)
+          ? targetCategory.defaultAmount!
+          : 0.0;
+
+      final effectiveCategories = (targetCategory != null &&
+              !categories.any((c) => c.id == targetCategory!.id))
+          ? [targetCategory, ...categories]
+          : categories;
+
       emit(
         state.copyWith(
-          availableCategories: categories,
+          availableCategories: effectiveCategories,
           availableHouses: houses,
-          selectedCategory: categories.firstOrNull,
+          selectedCategory: targetCategory,
+          costType: costType,
+          amount: initialAmount > 0 ? initialAmount : null,
           selectedHouseId: initialHouseId,
           costScope: initialHouseId != null
               ? CostScope.shared
@@ -232,9 +267,15 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormCategoryChanged event,
     Emitter<CostFormState> emit,
   ) {
+    final newCostType = event.category?.costNature == 'fixed'
+        ? CostType.fixed
+        : (event.category?.costNature == 'variable'
+            ? CostType.variable
+            : state.costType);
     emit(
       state.copyWith(
         selectedCategory: event.category,
+        costType: newCostType,
         clearCategory: event.category == null,
       ),
     );

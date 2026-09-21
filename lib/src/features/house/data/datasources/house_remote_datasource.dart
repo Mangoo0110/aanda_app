@@ -243,14 +243,14 @@ class HouseRemoteDatasource {
 
   Future<Map<String, dynamic>> getSprintStats({
     required String houseId,
-    required String cycleId,
+    required String? cycleId,   // kept for API compatibility, now optional
     required DateTime startDate,
     required DateTime endDate,
   }) async {
     final startStr = startDate.toIso8601String().substring(0, 10);
     final endStr = endDate.toIso8601String().substring(0, 10);
 
-    // 1. Costs in sprint
+    // 1. Costs in date range
     final costs = await _supabase
         .from('costs')
         .select('amount, paid_by, cost_type, cost_categories(is_food)')
@@ -275,12 +275,15 @@ class HouseRemoteDatasource {
       }
     }
 
-    // 2. Meals in sprint
-    final meals = await _supabase
+    // 2. Meals in date range (no longer filtered by cycle_id)
+    var mealQuery = _supabase
         .from('meal_logs')
         .select('user_id, breakfast, lunch, dinner')
         .eq('house_id', houseId)
-        .eq('cycle_id', cycleId);
+        .gte('log_date', startStr)
+        .lte('log_date', endStr);
+
+    final meals = await mealQuery;
 
     double totalMeals = 0;
     double myMeals = 0;
@@ -319,3 +322,4 @@ class HouseRemoteDatasource {
     ).join();
   }
 }
+

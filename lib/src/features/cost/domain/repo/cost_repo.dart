@@ -94,7 +94,7 @@ abstract interface class CostRepo {
 class CreateCostCategoryData {
   const CreateCostCategoryData({
     required this.name,
-    required this.icon,
+    this.icon,
     this.isFood = false,
     this.houseId,
     this.defaultAmount,
@@ -102,7 +102,7 @@ class CreateCostCategoryData {
   });
 
   final String name;
-  final String icon;
+  final String? icon;
   final bool isFood;
   final String? houseId;
   final double? defaultAmount;

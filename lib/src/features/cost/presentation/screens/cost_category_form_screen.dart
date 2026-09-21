@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
@@ -9,6 +13,8 @@ import 'package:aanda/src/features/cost/domain/entities/category_emoji.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
+import 'package:aanda/src/features/cost/presentation/helpers/category_color_helper.dart';
+import 'package:aanda/src/features/cost/presentation/widgets/category_icon_view.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 
@@ -27,31 +33,32 @@ class CostCategoryFormScreen extends StatefulWidget {
 }
 
 class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
+  // Theme constants matching warm cream minimal aesthetic
   static const Color backgroundColor = Color(0xFFFFF7EE);
   static const Color cardColor = Colors.white;
-  static const Color primaryCoral = Color(0xFFE05344);
+  static const Color primaryCoral = Color(0xFFD85A38);
   static const Color softPeach = Color(0xFFFDEEE8);
   static const Color darkText = Color(0xFF1B1D1F);
   static const Color subText = Color(0xFF8C8D8E);
-  static const Color inputBg = Color(0xFFF9F7F4);
+  static const Color inputBg = Color(0xFFFAF8F5);
 
-  final TextEditingController _nameController = TextEditingController(text: '');
-  final TextEditingController _amountController = TextEditingController(
-    text: '',
-  );
-  final FocusNode _amountFocusNode = FocusNode();
+  final _nameController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _amountFocusNode = FocusNode();
 
-  // House selection
   String? _selectedHouseId;
   String _selectedHouseName = '';
   List<House> _availableHouses = [];
 
-  // Emojis list (loaded from repo/cache or defaults)
-  List<CategoryEmoji> _emojis = CategoryEmoji.defaultEmojis;
-  String _selectedEmoji = '⚡';
+  // Image upload & in-house presets
+  String? _pickedImagePath;
+  String? _selectedImageUrl;
+  String? _selectedEmoji;
+  List<CategoryEmoji> _inHousePresets = CategoryEmoji.defaultEmojis;
+  String? _selectedPresetId;
 
-  // Cost nature: 'fixed' or 'variable'
-  String _costNature = 'fixed';
+  // Cost nature: default to 'variable'
+  String _costNature = 'variable';
 
   // Meal costing link
   bool _isMealCosting = false;
@@ -66,7 +73,19 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
     _selectedHouseName =
         widget.initialHouseName ?? selectedHouse?.name ?? '';
     _loadHouses();
-    _loadEmojis();
+    _loadInHousePresets();
+  }
+
+  Future<void> _loadInHousePresets() async {
+    try {
+      final getCategoryEmojis = context.read<GetCategoryEmojis>();
+      final result = await getCategoryEmojis(const GetCategoryEmojisParams());
+      if (mounted && result.data != null && result.data!.isNotEmpty) {
+        setState(() {
+          _inHousePresets = result.data!;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadHouses() async {
@@ -91,14 +110,30 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadEmojis() async {
+  Future<void> _pickImage() async {
     try {
-      final getEmojis = context.read<GetCategoryEmojis>();
-      final result = await getEmojis(const GetCategoryEmojisParams());
-      if (mounted && result.data != null && result.data!.isNotEmpty) {
-        setState(() => _emojis = result.data!);
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        setState(() {
+          _pickedImagePath = picked.path;
+          _selectedImageUrl = null;
+          _selectedEmoji = null;
+          _selectedPresetId = null;
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select image: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -202,11 +237,47 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
         ? null
         : double.tryParse(_amountController.text.trim());
 
+    final createCategoryUseCase = context.read<CreateCostCategory>();
     setState(() => _isSubmitting = true);
+
+    String? iconUrl = _selectedEmoji ?? _selectedImageUrl;
+
+    // Upload picked image file to Supabase storage
+    if (_pickedImagePath != null) {
+      try {
+        final supabase = Supabase.instance.client;
+        final file = File(_pickedImagePath!);
+        final bytes = await file.readAsBytes();
+        final ext =
+            _pickedImagePath!.split('.').lastOrNull?.toLowerCase() ?? 'jpg';
+        final fileName =
+            'cat_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}.$ext';
+        final storagePath = 'custom/$fileName';
+
+        await supabase.storage.from('category-icons').uploadBinary(
+              storagePath,
+              bytes,
+              fileOptions: FileOptions(
+                contentType: 'image/$ext',
+                upsert: true,
+              ),
+            );
+
+        iconUrl =
+            supabase.storage.from('category-icons').getPublicUrl(storagePath);
+      } catch (e) {
+        debugPrint('Error uploading category image: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not upload image: $e')),
+          );
+        }
+      }
+    }
 
     final createData = CreateCostCategoryData(
       name: name,
-      icon: _selectedEmoji,
+      icon: iconUrl,
       isFood: _isMealCosting,
       houseId: _selectedHouseId,
       defaultAmount: defaultAmt,
@@ -215,7 +286,6 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
 
     CostCategory? createdCategory;
     try {
-      final createCategoryUseCase = context.read<CreateCostCategory>();
       final result = await createCategoryUseCase(createData);
       createdCategory = result.data;
     } catch (_) {}
@@ -224,7 +294,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
     createdCategory ??= CostCategory(
       id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
-      icon: _selectedEmoji,
+      icon: iconUrl,
       isFood: _isMealCosting,
       houseId: _selectedHouseId,
       defaultAmount: defaultAmt,
@@ -350,49 +420,68 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Big Icon Preview Box
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                width: 58,
-                                height: 58,
-                                decoration: BoxDecoration(
-                                  color: softPeach,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _selectedEmoji,
-                                    style: const TextStyle(fontSize: 28),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: -2,
-                                right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.all(5),
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 58,
+                                  height: 58,
                                   decoration: BoxDecoration(
-                                    color: cardColor,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
+                                    color: softPeach,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: primaryCoral.withValues(alpha: 0.25),
+                                      width: 1.5,
+                                    ),
                                   ),
-                                  child: const Icon(
-                                    Icons.edit_rounded,
-                                    size: 11,
-                                    color: subText,
+                                  child: Center(
+                                    child: (_pickedImagePath != null ||
+                                            _selectedImageUrl != null ||
+                                            _selectedEmoji != null)
+                                        ? CategoryIconView(
+                                            icon: _pickedImagePath ??
+                                                _selectedImageUrl ??
+                                                _selectedEmoji,
+                                            categoryName:
+                                                _nameController.text.trim(),
+                                            size: 46,
+                                          )
+                                        : const Icon(
+                                            Icons.add_a_photo_outlined,
+                                            color: primaryCoral,
+                                            size: 24,
+                                          ),
                                   ),
                                 ),
-                              ),
-                            ],
+                                Positioned(
+                                  bottom: -2,
+                                  right: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: primaryCoral,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: primaryCoral.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 11,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 16),
 
@@ -447,57 +536,248 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       const Divider(color: Color(0xFFF2ECE4), height: 1),
                       const SizedBox(height: 16),
 
-                      // Choose Icon Header
-                      const Text(
-                        'CHOOSE ICON',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.9,
-                          color: subText,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Emoji Grid (6 columns matching design mockup)
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 6,
-                              mainAxisSpacing: 8,
-                              crossAxisSpacing: 8,
+                      // Category Image Section
+                      Row(
+                        children: [
+                          const Text(
+                            'CATEGORY IMAGE',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.9,
+                              color: subText,
                             ),
-                        itemCount: _emojis.length,
-                        itemBuilder: (context, index) {
-                          final item = _emojis[index];
-                          final isSelected = _selectedEmoji == item.emoji;
-                          return InkWell(
-                            onTap: () =>
-                                setState(() => _selectedEmoji = item.emoji),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isSelected ? softPeach : inputBg,
-                                borderRadius: BorderRadius.circular(12),
-                                border: isSelected
-                                    ? Border.all(
-                                        color: primaryCoral,
-                                        width: 1.5,
-                                      )
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  item.emoji,
-                                  style: const TextStyle(fontSize: 22),
+                          ),
+                          const Spacer(),
+                          if (_pickedImagePath != null ||
+                              _selectedImageUrl != null ||
+                              _selectedEmoji != null)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _pickedImagePath = null;
+                                  _selectedImageUrl = null;
+                                  _selectedEmoji = null;
+                                  _selectedPresetId = null;
+                                });
+                              },
+                              child: const Text(
+                                'Remove',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: primaryCoral,
                                 ),
                               ),
                             ),
-                          );
-                        },
+                        ],
                       ),
+                      const SizedBox(height: 12),
+
+                      // Image picker card
+                      InkWell(
+                        onTap: _pickImage,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: inputBg,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: (_pickedImagePath != null ||
+                                      _selectedImageUrl != null)
+                                  ? primaryCoral.withValues(alpha: 0.35)
+                                  : const Color(0xFFE8E2D9),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: softPeach,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: (_pickedImagePath != null ||
+                                          _selectedImageUrl != null)
+                                      ? CategoryIconView(
+                                          icon: _pickedImagePath ??
+                                              _selectedImageUrl,
+                                          size: 32,
+                                          borderRadius: 8,
+                                        )
+                                      : const Icon(
+                                          Icons.cloud_upload_outlined,
+                                          color: primaryCoral,
+                                          size: 24,
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      (_pickedImagePath != null ||
+                                              _selectedImageUrl != null)
+                                          ? 'Custom image selected'
+                                          : 'Upload category icon / image',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: darkText,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      (_pickedImagePath != null ||
+                                              _selectedImageUrl != null)
+                                          ? 'Tap to choose a different image'
+                                          : 'Tap to pick from device gallery',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: subText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: subText,
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // In-House Presets Section
+                      if (_inHousePresets.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            const Text(
+                              'OR SELECT IN-HOUSE PRESET',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.9,
+                                color: subText,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${_inHousePresets.length} in database',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: subText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Horizontal list of preset cards
+                        SizedBox(
+                          height: 112,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _inHousePresets.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 10),
+                            itemBuilder: (context, index) {
+                              final preset = _inHousePresets[index];
+                              final isSelected =
+                                  _selectedPresetId == preset.id ||
+                                  (_pickedImagePath == null &&
+                                      _selectedImageUrl == null &&
+                                      _selectedEmoji == preset.emoji);
+
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedPresetId = preset.id;
+                                    _selectedEmoji = preset.emoji;
+                                    _selectedImageUrl = null;
+                                    _pickedImagePath = null;
+                                    if (_nameController.text.trim().isEmpty ||
+                                        _inHousePresets.any(
+                                          (p) =>
+                                              p.name ==
+                                              _nameController.text.trim(),
+                                        )) {
+                                      _nameController.text = preset.name;
+                                    }
+                                    _costNature = preset.costNature;
+                                    _isMealCosting = preset.isFood;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 90,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? softPeach : inputBg,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? primaryCoral
+                                          : const Color(0xFFE8E2D9),
+                                      width: isSelected ? 1.8 : 1,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      CategoryIconView(
+                                        icon: preset.emoji,
+                                        categoryName: preset.name,
+                                        backgroundColor:
+                                            CategoryColorHelper.fromHex(
+                                          preset.color,
+                                        ),
+                                        size: 42,
+                                        fallbackEmoji: preset.emoji,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        preset.name,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w700
+                                              : FontWeight.w600,
+                                          color: isSelected
+                                              ? primaryCoral
+                                              : darkText,
+                                        ),
+                                        maxLines: 2,
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

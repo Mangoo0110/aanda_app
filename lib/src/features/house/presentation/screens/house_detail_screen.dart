@@ -7,13 +7,9 @@ import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
 import 'package:aanda/src/app/bloc/auth_guard/app_auth_guard_bloc.dart';
 import 'package:aanda/src/features/house/presentation/bloc/house_detail/house_detail_bloc.dart';
-import 'package:aanda/src/features/house/presentation/widgets/create_sprint_dialog.dart';
 import 'package:aanda/src/features/house/presentation/widgets/house_invite_code_card.dart';
 import 'package:aanda/src/features/house/presentation/widgets/house_member_tile.dart';
-import 'package:aanda/src/features/house/presentation/widgets/minimal_sprint_bar.dart';
 import 'package:aanda/src/features/house/presentation/widgets/unified_sprint_card.dart';
-import 'package:aanda/src/features/settlement/domain/entities/settlement.dart';
-import 'package:aanda/src/features/settlement/presentation/widgets/settlement_breakdown_sheet.dart';
 
 class HouseDetailScreen extends StatefulWidget {
   const HouseDetailScreen({super.key, required this.houseId});
@@ -41,10 +37,7 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
 
     return BlocConsumer<HouseDetailBloc, HouseDetailState>(
       listenWhen: (prev, curr) =>
-          (prev.isActioning &&
-              !curr.isActioning &&
-              curr.errorMessage != null) ||
-          (prev.settlement == null && curr.settlement != null),
+          prev.isActioning && !curr.isActioning && curr.errorMessage != null,
       listener: (context, state) {
         if (state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -53,8 +46,6 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
               backgroundColor: colors.errorColor,
             ),
           );
-        } else if (state.settlement != null) {
-          _showSettlementModal(context, state.settlement!);
         }
       },
       builder: (context, state) {
@@ -69,12 +60,12 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  state.house?.name ?? 'House Detail',
+                  state.house?.name ?? 'Account Detail',
                   style: Theme.of(context).appBarTheme.titleTextStyle,
                 ),
                 if (state.house != null)
                   Text(
-                    '${state.house!.members.length} members  •  ${state.sprints.length} cycles',
+                    '${state.house!.members.length} member${state.house!.members.length == 1 ? '' : 's'}',
                     style: TextStyle(fontSize: 11, color: colors.grey),
                   ),
               ],
@@ -94,39 +85,15 @@ class _HouseDetailScreenState extends State<HouseDetailScreen> {
               ? const Center(child: CircularProgressIndicator.adaptive())
               : state.house == null
               ? _ErrorBody(
-                  message: state.errorMessage ?? 'Failed to load house.',
+                  message: state.errorMessage ?? 'Failed to load account.',
                   onRetry: () => context.read<HouseDetailBloc>().add(
                     HouseDetailRefreshRequested(),
                   ),
                 )
-              : _HouseDetailContent(state: state, currentUserId: currentUserId),
-        );
-      },
-    );
-  }
-
-  void _showSettlementModal(BuildContext context, Settlement settlement) {
-    final selectedSprint = context.read<HouseDetailBloc>().state.selectedSprint;
-    final isAdmin =
-        context.read<HouseDetailBloc>().state.house?.members.any(
-          (m) =>
-              m.userId ==
-                  (switch (context.read<AppAuthGuardBloc>().state) {
-                    Authenticated(:final account) => account.id,
-                    _ => '',
-                  }) &&
-              m.isAdmin,
-        ) ??
-        false;
-
-    SettlementBreakdownSheet.show(
-      context: context,
-      settlement: settlement,
-      sprint: selectedSprint,
-      isAdmin: isAdmin,
-      onConfirmClose: () {
-        context.read<HouseDetailBloc>().add(
-          HouseDetailConfirmCloseSprintRequested(settlement.cycleId),
+              : _HouseDetailContent(
+                  state: state,
+                  currentUserId: currentUserId,
+                ),
         );
       },
     );
@@ -149,7 +116,6 @@ class _HouseDetailContent extends StatelessWidget {
         .where((m) => m.userId == currentUserId)
         .firstOrNull;
     final isAdmin = currentMember?.isAdmin ?? false;
-    final selectedSprint = state.selectedSprint;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -158,60 +124,41 @@ class _HouseDetailContent extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // ── 1. Horizontal Sprint Selector Bar ──────────────────────────────
-          if (state.sprints.isNotEmpty || isAdmin)
-            MinimalSprintBar(
-              sprints: state.sprints,
-              selectedSprint: selectedSprint,
-              isAdmin: isAdmin,
-              onSprintSelected: (s) {
-                context.read<HouseDetailBloc>().add(
-                  HouseDetailSprintSelected(s),
-                );
-              },
-              onCreateSprint: () => CreateSprintDialog.show(context),
-            ),
-
-          const SizedBox(height: 12),
-
-          // ── 2. Unified Sprint Overview Card ───────────────────────────────
-          UnifiedSprintCard(
-            sprint: selectedSprint,
-            totalSpent: state.sprintTotalSpent,
-            myContribution: state.sprintMyContribution,
-            foodSpent: state.sprintFoodSpent,
-            totalMeals: state.sprintTotalMeals,
-            myMeals: state.sprintMyMeals,
-            mealRate: state.sprintEstimatedMealRate,
-            isComputingSettlement: state.isComputingSettlement,
-            isAdmin: isAdmin,
+          // ── 1. Account Overview Card ─────────────────────────────────────
+          AccountOverviewCard(
+            accountName: house.name,
+            totalSpent: state.totalSpent,
+            myContribution: state.myContribution,
+            foodSpent: state.foodSpent,
+            totalMeals: state.totalMeals,
+            myMeals: state.myMeals,
+            mealRate: state.estimatedMealRate,
+            isPersonal: house.isPersonal,
             onViewExpenses: () {
-              final query = StringBuffer();
-              query.write('?houseId=${state.houseId}');
-              if (selectedSprint != null) {
-                query.write('&cycleId=${selectedSprint.id}');
-              }
-              context.push('${AppRoutes.costs}$query');
+              context.push('${AppRoutes.costs}?houseId=${state.houseId}');
             },
             onManageMeals: () {
-              final query = selectedSprint != null
-                  ? '?cycleId=${selectedSprint.id}'
-                  : '';
-              context.push(
-                '/houses/${state.houseId}/meals$query',
-                extra: selectedSprint,
-              );
-            },
-            onEndSprint: () {
-              context.read<HouseDetailBloc>().add(
-                HouseDetailEndSprintRequested(),
-              );
+              context.push('/houses/${state.houseId}/meals');
             },
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
-          // ── 3. Minimal Invite Code Pill ───────────────────────────────────
+          // ── 2. Settlement History link ───────────────────────────────────
+          if (house.isShared)
+            _ActionTile(
+              icon: Icons.receipt_long_rounded,
+              label: 'Settlement History',
+              subtitle: 'View past settlements for this account',
+              colors: colors,
+              onTap: () => context.push(
+                AppRoutes.settlementHistory(state.houseId),
+              ),
+            ),
+
+          const SizedBox(height: 14),
+
+          // ── 3. Invite Code Card ──────────────────────────────────────────
           if (state.invite != null) ...[
             HouseInviteCodeCard(
               inviteCode: state.invite!.code,
@@ -221,22 +168,17 @@ class _HouseDetailContent extends StatelessWidget {
             const SizedBox(height: 18),
           ],
 
-          // ── 4. Members Section ────────────────────────────────────────────
+          // ── 4. Members Section ───────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'MEMBERS (${house.members.length})',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                    letterSpacing: 0.8,
-                    color: colors.grey,
-                  ),
-                ),
-              ],
+            child: Text(
+              'MEMBERS (${house.members.length})',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: 0.8,
+                color: colors.grey,
+              ),
             ),
           ),
           Container(
@@ -336,6 +278,76 @@ class _HouseDetailContent extends StatelessWidget {
   }
 }
 
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final AppColors colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: colors.surfaceColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.borderColor.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: colors.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: colors.primaryColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: colors.textColor,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: colors.grey,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Error Body ───────────────────────────────────────────────────────────────
 
 class _ErrorBody extends StatelessWidget {
@@ -353,11 +365,7 @@ class _ErrorBody extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 48,
-              color: colors.errorColor,
-            ),
+            Icon(Icons.error_outline_rounded, size: 48, color: colors.errorColor),
             const SizedBox(height: 12),
             Text(
               message,

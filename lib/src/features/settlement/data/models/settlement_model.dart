@@ -37,40 +37,58 @@ class MemberSettlementSummaryModel extends MemberSettlementSummary {
 class SettlementModel extends Settlement {
   const SettlementModel({
     required super.houseId,
-    required super.cycleId,
+    super.cycleId,
+    required super.fromDate,
+    required super.toDate,
     required super.totalFoodCost,
     required super.totalFixedCost,
     required super.totalOtherCost,
     required super.totalMealCount,
     required super.mealRate,
     required super.memberSummaries,
+    super.status,
     super.computedAt,
-    super.calculationEndDate,
+    super.settlementId,
+    super.includedCostIds,
   });
 
   factory SettlementModel.fromJson(Map<String, dynamic> json) {
     final summariesList = (json['member_summaries'] as List? ?? [])
         .map(
-          (m) =>
-              MemberSettlementSummaryModel.fromJson(m as Map<String, dynamic>),
+          (m) => MemberSettlementSummaryModel.fromJson(m as Map<String, dynamic>),
         )
         .toList();
 
+    final statusStr = json['status'] as String? ?? 'finalised';
+    final status = statusStr == 'draft'
+        ? SettlementStatus.draft
+        : SettlementStatus.finalised;
+
+    DateTime parseDate(dynamic v) {
+      if (v == null) return DateTime.now();
+      final s = v.toString();
+      return DateTime.tryParse(s) ?? DateTime.now();
+    }
+
     return SettlementModel(
       houseId: json['house_id'] as String? ?? '',
-      cycleId: json['cycle_id'] as String? ?? '',
+      cycleId: json['cycle_id'] as String?,
+      fromDate: parseDate(json['from_date']),
+      toDate: parseDate(json['to_date']),
       totalFoodCost: (json['total_food_cost'] as num?)?.toDouble() ?? 0.0,
       totalFixedCost: (json['total_fixed_cost'] as num?)?.toDouble() ?? 0.0,
       totalOtherCost: (json['total_other_cost'] as num?)?.toDouble() ?? 0.0,
       totalMealCount: (json['total_meal_count'] as num?)?.toDouble() ?? 0.0,
       mealRate: (json['meal_rate'] as num?)?.toDouble() ?? 0.0,
       memberSummaries: summariesList,
+      status: status,
       computedAt: json['computed_at'] != null
           ? DateTime.tryParse(json['computed_at'] as String)
           : null,
-      calculationEndDate: json['calculation_end_date'] != null
-          ? DateTime.tryParse(json['calculation_end_date'] as String)
-          : null,
+      settlementId: json['settlement_id'] as String? ?? json['id'] as String?,
+      includedCostIds: (json['included_cost_ids'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 }

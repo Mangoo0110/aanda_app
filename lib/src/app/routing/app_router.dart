@@ -15,6 +15,8 @@ import 'package:aanda/src/features/auth/presentation/screens/views/forgot_passwo
 import 'package:aanda/src/features/auth/presentation/screens/views/login_name_view.dart';
 import 'package:aanda/src/features/auth/presentation/screens/views/reset_password_view.dart';
 import 'package:aanda/src/features/auth/presentation/screens/views/welcome_view.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
@@ -35,6 +37,9 @@ import 'package:aanda/src/features/meal/domain/usecases/meal_usecases.dart';
 import 'package:aanda/src/features/meal/presentation/bloc/house_meals/house_meals_bloc.dart';
 import 'package:aanda/src/features/meal/presentation/screens/house_meals_screen.dart';
 import 'package:aanda/src/features/settlement/domain/usecases/settlement_usecases.dart';
+import 'package:aanda/src/features/settlement/presentation/bloc/settlement_bloc.dart';
+import 'package:aanda/src/features/settlement/presentation/screens/settlement_screen.dart';
+import 'package:aanda/src/features/settlement/presentation/screens/settlement_history_screen.dart';
 
 GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
   return GoRouter(
@@ -169,22 +174,50 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
       GoRoute(
         path: AppRoutes.costAdd,
         name: 'cost-add',
-        pageBuilder: (context, state) => MaterialPage(
-          key: state.pageKey,
-          fullscreenDialog: true,
-          child: AuthRouteGate(
-            policy: AuthRoutePolicy.signedInOnly,
-            child: BlocProvider(
-              create: (_) => CostFormBloc(
-                addCost: context.read<AddCost>(),
-                updateCost: context.read<UpdateCost>(),
-                getCostCategories: context.read<GetCostCategories>(),
-                getHouseMembers: context.read<GetHouseMembers>(),
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          Cost? initialCost;
+          CostCategory? categoryPreset;
+          if (extra is Cost) {
+            initialCost = extra;
+          } else if (extra is CostCategory) {
+            categoryPreset = extra;
+          } else if (extra is Map<String, dynamic>) {
+            if (extra['cost'] is Cost) initialCost = extra['cost'] as Cost;
+            if (extra['category'] is CostCategory) {
+              categoryPreset = extra['category'] as CostCategory;
+            }
+            if (extra['categoryPreset'] is CostCategory) {
+              categoryPreset = extra['categoryPreset'] as CostCategory;
+            }
+          }
+
+          final categoryId = state.uri.queryParameters['categoryId'];
+          final houseId = state.uri.queryParameters['houseId'];
+
+          return MaterialPage(
+            key: state.pageKey,
+            fullscreenDialog: true,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: BlocProvider(
+                create: (_) => CostFormBloc(
+                  addCost: context.read<AddCost>(),
+                  updateCost: context.read<UpdateCost>(),
+                  getCostCategories: context.read<GetCostCategories>(),
+                  getHouseMembers: context.read<GetHouseMembers>(),
+                ),
+                child: CostFormScreen(
+                  initialCost: initialCost,
+                  initialCategory: categoryPreset,
+                  categoryPreset: categoryPreset,
+                  initialCategoryId: categoryId,
+                  initialHouseId: houseId,
+                ),
               ),
-              child: const CostFormScreen(),
             ),
-          ),
-        ),
+          );
+        },
       ),
 
       // ── Create Cost Category Preset (modal / page) ─────────────────────────
@@ -255,14 +288,71 @@ GoRouter createAppRouter({required AppAuthGuardBloc authGuardBloc}) {
                   regenerateInviteCode: context.read<RegenerateInviteCode>(),
                   leaveHouse: context.read<LeaveHouse>(),
                   removeMember: context.read<RemoveMember>(),
-                  getSprints: context.read<GetSprints>(),
                   getSprintStats: context.read<GetSprintStats>(),
-                  computeSettlement: context.read<ComputeSettlement>(),
-                  getCycleSettlement: context.read<GetCycleSettlement>(),
-                  closeSprint: context.read<CloseSprint>(),
-                  createSprint: context.read<CreateSprint>(),
                 ),
                 child: HouseDetailScreen(houseId: houseId),
+              ),
+            ),
+          );
+        },
+      ),
+
+      // ── Settlement Start (full screen wizard) ─────────────────────────────
+      GoRoute(
+        path: '/houses/:houseId/settlement',
+        name: 'settlement-start',
+        pageBuilder: (context, state) {
+          final houseId = state.pathParameters['houseId'] ?? '';
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final houseName = extra['houseName'] as String? ?? 'Account';
+          final isAdmin = extra['isAdmin'] as bool? ?? false;
+          return MaterialPage(
+            key: state.pageKey,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: BlocProvider(
+                create: (_) => SettlementBloc(
+                  prepareSettlement: context.read<PrepareSettlement>(),
+                  computeSettlement: context.read<ComputeSettlement>(),
+                  finaliseSettlement: context.read<FinaliseSettlement>(),
+                  getSettlements: context.read<GetSettlements>(),
+                )..add(SettlementStarted(houseId: houseId, isAdmin: isAdmin)),
+                child: SettlementScreen(
+                  houseId: houseId,
+                  houseName: houseName,
+                  isAdmin: isAdmin,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+
+      // ── Settlement History ────────────────────────────────────────────────
+      GoRoute(
+        path: '/houses/:houseId/settlements',
+        name: 'settlement-history',
+        pageBuilder: (context, state) {
+          final houseId = state.pathParameters['houseId'] ?? '';
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final houseName = extra['houseName'] as String? ?? 'Account';
+          final isAdmin = extra['isAdmin'] as bool? ?? false;
+          return MaterialPage(
+            key: state.pageKey,
+            child: AuthRouteGate(
+              policy: AuthRoutePolicy.signedInOnly,
+              child: BlocProvider(
+                create: (_) => SettlementBloc(
+                  prepareSettlement: context.read<PrepareSettlement>(),
+                  computeSettlement: context.read<ComputeSettlement>(),
+                  finaliseSettlement: context.read<FinaliseSettlement>(),
+                  getSettlements: context.read<GetSettlements>(),
+                ),
+                child: SettlementHistoryScreen(
+                  houseId: houseId,
+                  houseName: houseName,
+                  isAdmin: isAdmin,
+                ),
               ),
             ),
           );

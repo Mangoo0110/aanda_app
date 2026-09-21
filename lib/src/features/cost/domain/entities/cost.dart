@@ -14,6 +14,7 @@ class Cost {
     this.payerName,
     this.houseId,
     this.cycleId,
+    this.settlementId,
     this.categoryId,
     this.categoryName,
     this.categoryIcon,
@@ -29,6 +30,7 @@ class Cost {
   final String? payerName;
   final String? houseId;
   final String? cycleId;
+  final String? settlementId;   // null = not yet settled
   final String? categoryId;
   final String? categoryName;
   final String? categoryIcon;
@@ -38,4 +40,5 @@ class Cost {
 
   bool get isPersonal => costScope == CostScope.personal;
   bool get isShared => costScope == CostScope.shared;
+  bool get isSettled => settlementId != null;
 }

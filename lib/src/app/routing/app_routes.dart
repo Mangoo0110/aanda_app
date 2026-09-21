@@ -18,6 +18,8 @@ class AppRoutes {
   static const meals = '/meals';
   static String houseDetail(String houseId) => '/houses/$houseId';
   static String houseMeals(String houseId) => '/houses/$houseId/meals';
+  static String settlementStart(String houseId) => '/houses/$houseId/settlement';
+  static String settlementHistory(String houseId) => '/houses/$houseId/settlements';
 
   static bool isAuthRoute(String path) {
     return path == auth || path.startsWith('$auth/');
