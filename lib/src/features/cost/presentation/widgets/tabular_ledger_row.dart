@@ -151,7 +151,7 @@ class TabularLedgerRow extends StatelessWidget {
       return ('Personal', const Color(0xFFEBF1F5), const Color(0xFF4A6B82));
     }
     if (cat.contains('bazar') || cat.contains('meal') || cat.contains('food')) {
-      return ('Meal Pool', const Color(0xFFFDEEE6), const Color(0xFFD85A38));
+      return ('Meal Pool', const Color(0xFFEDE9FF), const Color(0xFF6C47FF));
     }
     if (cat.contains('gas') ||
         cat.contains('bill') ||

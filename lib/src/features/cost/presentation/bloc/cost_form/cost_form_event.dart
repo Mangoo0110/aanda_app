@@ -10,11 +10,13 @@ final class CostFormStarted extends CostFormEvent {
     this.initialCategory,
     this.initialCategoryId,
     this.defaultHouseId,
+    this.initialScope,
   });
   final Cost? initialCost;
   final CostCategory? initialCategory;
   final String? initialCategoryId;
   final String? defaultHouseId;
+  final CostScope? initialScope;
 }
 
 final class CostFormScopeChanged extends CostFormEvent {
@@ -67,6 +69,11 @@ final class CostFormPayerChanged extends CostFormEvent {
   const CostFormPayerChanged({required this.payerId, required this.payerName});
   final String payerId;
   final String payerName;
+}
+
+final class CostFormKeypadPressed extends CostFormEvent {
+  const CostFormKeypadPressed(this.key);
+  final String key;
 }
 
 final class CostFormSubmitted extends CostFormEvent {

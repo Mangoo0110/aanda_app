@@ -23,7 +23,11 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
        _deleteCost = deleteCost,
        _getCostCategories = getCostCategories,
        _getSprints = getSprints,
-       super(CostFeedState(selectedHouseId: initialHouseId)) {
+       super(CostFeedState(
+         selectedHouseId: initialHouseId,
+         selectedScope:
+             initialHouseId != null ? CostScope.shared : CostScope.personal,
+       )) {
     on<CostFeedStarted>(_onStarted);
     on<CostFeedRefreshRequested>(_onRefresh);
     on<CostFeedScopeFilterChanged>(_onScopeChanged);
@@ -148,11 +152,15 @@ final class CostFeedBloc extends Bloc<CostFeedEvent, CostFeedState> {
     CostFeedHouseFilterChanged event,
     Emitter<CostFeedState> emit,
   ) async {
+    final isShared = event.houseId != null;
     emit(
       state.copyWith(
         selectedHouseId: event.houseId,
-        clearHouse: event.houseId == null,
+        clearHouse: !isShared,
+        selectedScope: isShared ? CostScope.shared : CostScope.personal,
         clearSprint: true,
+        categories: [],
+        sprints: [],
       ),
     );
     await _load(emit);

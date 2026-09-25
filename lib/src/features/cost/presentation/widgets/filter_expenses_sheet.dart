@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_feed/cost_feed_bloc.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
@@ -82,15 +83,16 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryCoral = Color(0xFFD85A38);
-    const darkText = Color(0xFF1B1D1F);
-    const subText = Color(0xFF8C8D8E);
-    const unselectedChipBg = Color(0xFFF4F4F4);
+    final colors = AppColors.context(context);
+    final primaryCoral = colors.primaryColor;
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+    final unselectedChipBg = colors.softGrey;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: colors.surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
       child: SafeArea(
@@ -114,7 +116,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
             // Title Row with Active badge, Reset all, and close X
             Row(
               children: [
-                const Text(
+                Text(
                   'Filter Expenses',
                   style: TextStyle(
                     fontSize: 18,
@@ -135,7 +137,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
                     ),
                     child: Text(
                       '$_activeCount Active',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: primaryCoral,
@@ -153,8 +155,8 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
                     });
                     widget.onReset();
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     child: Text(
                       'Reset all',
                       style: TextStyle(
@@ -176,7 +178,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
                       color: Colors.grey.shade200,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close_rounded,
                       size: 16,
                       color: darkText,
@@ -188,7 +190,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
             const SizedBox(height: 20),
 
             // ── Section 1: SETTLEMENT CYCLE ─────────────────────────────────
-            const Text(
+            Text(
               'BILLING CYCLE',
               style: TextStyle(
                 fontSize: 11,
@@ -251,7 +253,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
             const SizedBox(height: 18),
 
             // ── Section 2: TAG / EXPENSE POOL ───────────────────────────────
-            const Text(
+            Text(
               'TAG / EXPENSE POOL',
               style: TextStyle(
                 fontSize: 11,
@@ -321,7 +323,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
             const SizedBox(height: 18),
 
             // ── Section 3: PAID BY MEMBER ───────────────────────────────────
-            const Text(
+            Text(
               'PAID BY MEMBER',
               style: TextStyle(
                 fontSize: 11,
@@ -377,7 +379,7 @@ class _FilterExpensesSheetState extends State<FilterExpensesSheet> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                       alignment: Alignment.center,
-                      child: const Text(
+                      child: Text(
                         'Cancel',
                         style: TextStyle(
                           fontSize: 14,

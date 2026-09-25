@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
@@ -23,6 +25,7 @@ class CostFormScreen extends StatefulWidget {
     this.categoryPreset,
     this.initialCategoryId,
     this.initialHouseId,
+    this.initialScope,
   });
 
   final Cost? initialCost;
@@ -30,6 +33,7 @@ class CostFormScreen extends StatefulWidget {
   final CostCategory? categoryPreset;
   final String? initialCategoryId;
   final String? initialHouseId;
+  final CostScope? initialScope;
 
   CostCategory? get effectiveCategory => initialCategory ?? categoryPreset;
 
@@ -38,78 +42,33 @@ class CostFormScreen extends StatefulWidget {
 }
 
 class _CostFormScreenState extends State<CostFormScreen> {
-  String _amountStr = '';
-  String _noteStr = '';
-  DateTime _selectedDate = DateTime.now();
-
   @override
   void initState() {
     super.initState();
     final cat = widget.effectiveCategory;
-    if (widget.initialCost != null) {
-      final c = widget.initialCost!;
-      _amountStr = c.amount.toStringAsFixed(
-        c.amount.truncateToDouble() == c.amount ? 0 : 2,
-      );
-      _noteStr = c.note ?? '';
-      _selectedDate = c.purchaseDate;
-    } else if (cat?.defaultAmount != null && cat!.defaultAmount! > 0) {
-      final amt = cat.defaultAmount!;
-      _amountStr = amt % 1 == 0 ? amt.toInt().toString() : amt.toString();
-    }
     context.read<CostFormBloc>().add(
       CostFormStarted(
         initialCost: widget.initialCost,
         initialCategory: cat,
         initialCategoryId: widget.initialCategoryId ?? cat?.id,
         defaultHouseId: widget.initialHouseId,
+        initialScope: widget.initialScope,
       ),
     );
   }
 
   void _onKeyPress(String key) {
-    setState(() {
-      if (key == '⌫') {
-        if (_amountStr.isNotEmpty) {
-          _amountStr = _amountStr.substring(0, _amountStr.length - 1);
-          if (_amountStr.isEmpty) _amountStr = '0';
-        }
-      } else if (key == '.') {
-        if (!_amountStr.contains('.')) {
-          _amountStr = _amountStr.isEmpty ? '0.' : '$_amountStr.';
-        }
-      } else if (key == '00') {
-        if (_amountStr != '0' && _amountStr.isNotEmpty) {
-          _amountStr += '00';
-        }
-      } else {
-        // Digits 0-9
-        if (_amountStr == '0') {
-          _amountStr = key;
-        } else {
-          // Check decimal places limit
-          if (_amountStr.contains('.')) {
-            final parts = _amountStr.split('.');
-            if (parts.length > 1 && parts[1].length >= 2) return;
-          }
-          if (_amountStr.length < 9) {
-            _amountStr += key;
-          }
-        }
-      }
-    });
-
-    final val = double.tryParse(_amountStr) ?? 0.0;
-    context.read<CostFormBloc>().add(CostFormAmountChanged(val));
+    context.read<CostFormBloc>().add(CostFormKeypadPressed(key));
   }
 
-  void _pickDate() {
-    DateTime tempDate = _selectedDate;
+  void _pickDate(CostFormState state) {
+    final colors = AppColors.context(context);
+    DateTime tempDate = state.purchaseDate;
 
     showCupertinoModalPopup<void>(
       context: context,
       builder: (BuildContext ctx) => Material(
-        color: Colors.white,
+        color: colors.surfaceColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: SizedBox(
           height: 310,
@@ -117,19 +76,17 @@ class _CostFormScreenState extends State<CostFormScreen> {
             top: false,
             child: Column(
               children: [
-                // Top Drag Handle
                 const SizedBox(height: 10),
                 Center(
                   child: Container(
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.black12,
+                      color: colors.grey.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
-                // Header Toolbar: Cancel, Title, Done
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -139,40 +96,39 @@ class _CostFormScreenState extends State<CostFormScreen> {
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text(
+                        child: Text(
                           'Cancel',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF8C8D8E),
+                            color: colors.grey,
                             decoration: TextDecoration.none,
                           ),
                         ),
                       ),
-                      const Text(
+                      Text(
                         'Select Date',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1B1D1F),
+                          color: colors.textColor,
                           decoration: TextDecoration.none,
                         ),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () {
-                          setState(() => _selectedDate = tempDate);
                           context
                               .read<CostFormBloc>()
                               .add(CostFormDateChanged(tempDate));
                           Navigator.of(ctx).pop();
                         },
-                        child: const Text(
+                        child: Text(
                           'Done',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1B1D1F),
+                            color: colors.primaryColor,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -180,37 +136,41 @@ class _CostFormScreenState extends State<CostFormScreen> {
                     ],
                   ),
                 ),
-              const Divider(height: 1, thickness: 0.5, color: Color(0xFFEBEBEB)),
-              // Cupertino Date Wheel Picker
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: _selectedDate,
-                  minimumDate: DateTime(2020),
-                  maximumDate: DateTime(2035),
-                  onDateTimeChanged: (DateTime newDate) {
-                    tempDate = newDate;
-                  },
+                const Divider(height: 1, thickness: 0.5, color: Color(0xFFEBEBEB)),
+                Expanded(
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    initialDateTime: state.purchaseDate,
+                    minimumDate: DateTime(2020),
+                    maximumDate: DateTime(2035),
+                    onDateTimeChanged: (DateTime newDate) {
+                      tempDate = newDate;
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  void _editNote() {
-    final ctrl = TextEditingController(text: _noteStr);
+  void _editNote(CostFormState state) {
+    final colors = AppColors.context(context);
+    final ctrl = TextEditingController(text: state.note);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: colors.cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Expense Note',
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            color: colors.textPrimaryColor,
+          ),
         ),
         content: TextField(
           controller: ctrl,
@@ -218,7 +178,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
           decoration: InputDecoration(
             hintText: 'e.g. Dinner bazar with friends',
             filled: true,
-            fillColor: const Color(0xFFFAF8F5),
+            fillColor: colors.tileColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -228,18 +188,17 @@ class _CostFormScreenState extends State<CostFormScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text('Cancel', style: TextStyle(color: colors.textSecondaryColor)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD85A38),
+              backgroundColor: colors.primaryColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
             onPressed: () {
-              setState(() => _noteStr = ctrl.text.trim());
-              context.read<CostFormBloc>().add(CostFormNoteChanged(_noteStr));
+              context.read<CostFormBloc>().add(CostFormNoteChanged(ctrl.text.trim()));
               Navigator.of(ctx).pop();
             },
             child: const Text('Save'),
@@ -250,35 +209,36 @@ class _CostFormScreenState extends State<CostFormScreen> {
   }
 
   void _submitExpense(CostFormState state) {
-    final val = double.tryParse(_amountStr) ?? 0.0;
-    if (val <= 0) {
+    if (state.isMealPoolConflict) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Meal pool category "${state.selectedCategory?.name}" cannot be used for personal expenses. Please change category.',
+          ),
+          backgroundColor: const Color(0xFFC81E1E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (state.amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter an amount greater than 0')),
       );
       return;
     }
-
-    final categoryName = state.selectedCategory?.name ?? 'Food & Bazar';
-    final name = _noteStr.isNotEmpty ? _noteStr : categoryName;
-
-    context.read<CostFormBloc>().add(CostFormNameChanged(name));
-    context.read<CostFormBloc>().add(CostFormAmountChanged(val));
-    context.read<CostFormBloc>().add(CostFormNoteChanged(_noteStr));
-    context.read<CostFormBloc>().add(CostFormDateChanged(_selectedDate));
-    context.read<CostFormBloc>().add(
-      CostFormScopeChanged(state.costScope),
-    );
-
     context.read<CostFormBloc>().add(const CostFormSubmitted());
   }
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFFFFF7EE);
-    const cardColor = Colors.white;
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    const darkText = Color(0xFF1B1D1F);
-    const subText = Color(0xFF8C8D8E);
+    final colors = AppColors.context(context);
+    final backgroundColor = colors.backgroundColor;
+    final cardColor = colors.cardColor;
+    final primaryColor = colors.primaryColor;
+    final darkText = colors.textPrimaryColor;
+    final subText = colors.textSecondaryColor;
 
     return BlocConsumer<CostFormBloc, CostFormState>(
       listenWhen: (previous, current) =>
@@ -287,6 +247,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
               current.errorMessage != previous.errorMessage),
       listener: (context, state) {
         if (state.isSuccess) {
+          context.read<HouseContextCubit>().notifyCostUpdated();
           context.pop(true);
         } else if (state.errorMessage != null) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -307,12 +268,12 @@ class _CostFormScreenState extends State<CostFormScreen> {
 
         final now = DateTime.now();
         final isToday =
-            _selectedDate.year == now.year &&
-            _selectedDate.month == now.month &&
-            _selectedDate.day == now.day;
+            state.purchaseDate.year == now.year &&
+            state.purchaseDate.month == now.month &&
+            state.purchaseDate.day == now.day;
         final dateLabel = isToday
             ? 'TODAY'
-            : DateFormat('d MMM').format(_selectedDate).toUpperCase();
+            : DateFormat('d MMM').format(state.purchaseDate).toUpperCase();
 
         return Scaffold(
           backgroundColor: backgroundColor,
@@ -333,7 +294,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Select a category:',
                           style: TextStyle(
                             fontSize: 14,
@@ -360,7 +321,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                 ),
                               ],
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
@@ -368,7 +329,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                   size: 15,
                                   color: darkText,
                                 ),
-                                SizedBox(width: 3),
+                                const SizedBox(width: 3),
                                 Text(
                                   'New',
                                   style: TextStyle(
@@ -424,7 +385,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                 children: [
                                   Text(
                                     categoryName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                       color: darkText,
@@ -433,7 +394,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                   const SizedBox(height: 2),
                                   Text(
                                     categoryDesc,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       color: subText,
                                     ),
@@ -443,7 +404,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                             ),
                 
                             // Dropdown chevron
-                            const Icon(
+                            Icon(
                               Icons.keyboard_arrow_down_rounded,
                               size: 22,
                               color: subText,
@@ -453,6 +414,82 @@ class _CostFormScreenState extends State<CostFormScreen> {
                       ),
                     ),
                 
+                    if (state.isMealPoolConflict) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFDE8E8),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color(0xFFF8B4B4),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFFE02424),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Meal Pool Not Allowed for Personal Account',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF9B1C1C),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '"$categoryName" is linked to meal pooling. Meal pool expenses are divided by house meal ratios and are only supported for shared houses. Please change the category or switch to a shared house.',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF9B1C1C),
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _showCategoryPicker(context, state),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE02424),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'Change Category',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 32),
                 
                     // ── Box 2: Account, Member, Amount & Keypad Card (Bottom Box) ──
@@ -495,8 +532,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                           width: 7,
                                           height: 7,
                                           decoration: BoxDecoration(
-                                            color: state.costScope ==
-                                                    CostScope.personal
+                                            color: state.costScope == CostScope.personal
                                                 ? const Color(0xFF8C8D8E)
                                                 : const Color(0xFF2E7D32),
                                             shape: BoxShape.circle,
@@ -505,12 +541,10 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: Text(
-                                            state.costScope ==
-                                                    CostScope.personal
+                                            state.costScope == CostScope.personal
                                                 ? 'Personal'
-                                                : (state.selectedHouse?.name ??
-                                                    'House'),
-                                            style: const TextStyle(
+                                                : (state.selectedHouse?.name ?? 'House'),
+                                            style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                               color: darkText,
@@ -519,7 +553,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                             maxLines: 1,
                                           ),
                                         ),
-                                        const Icon(
+                                        Icon(
                                           Icons.keyboard_arrow_down_rounded,
                                           size: 16,
                                           color: subText,
@@ -556,11 +590,10 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: Text(
-                                            state.costScope ==
-                                                    CostScope.personal
+                                            state.costScope == CostScope.personal
                                                 ? 'Paid: You'
                                                 : 'Paid: ${state.selectedPayerName ?? "You"}',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                               color: darkText,
@@ -569,12 +602,10 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                             maxLines: 1,
                                           ),
                                         ),
-                                        if (state.costScope ==
-                                            CostScope.shared)
+                                        if (state.costScope == CostScope.shared)
                                           Icon(
                                             state.isCurrentUserAdmin
-                                                ? Icons
-                                                    .keyboard_arrow_down_rounded
+                                                ? Icons.keyboard_arrow_down_rounded
                                                 : Icons.lock_outline_rounded,
                                             size: 14,
                                             color: subText,
@@ -591,7 +622,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                     
                           // Amount & Note Display Container
                           InkWell(
-                            onTap: _editNote,
+                            onTap: () => _editNote(state),
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
                               width: double.infinity,
@@ -610,7 +641,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                   Row(
                                     children: [
                                       Text(
-                                        '৳ ${_amountStr.isEmpty ? '0' : _amountStr}',
+                                        '৳ ${state.displayAmount}',
                                         style: TextStyle(
                                           fontSize: 24,
                                           fontWeight: FontWeight.w700,
@@ -621,11 +652,11 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                    
+
                                   // Note line
                                   Row(
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.description_outlined,
                                         size: 14,
                                         color: subText,
@@ -633,12 +664,12 @@ class _CostFormScreenState extends State<CostFormScreen> {
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
-                                          _noteStr.isNotEmpty
-                                              ? _noteStr
+                                          state.note.isNotEmpty
+                                              ? state.note
                                               : 'Tap to add note or details...',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: _noteStr.isNotEmpty
+                                            color: state.note.isNotEmpty
                                                 ? darkText
                                                 : subText,
                                             fontWeight: FontWeight.w500,
@@ -653,13 +684,13 @@ class _CostFormScreenState extends State<CostFormScreen> {
                               ),
                             ),
                           ),
-                    
-                          SizedBox(height: 50,),
-                    
+
+                          const SizedBox(height: 50),
+
                           // ── Custom 4x4 Keypad ────────────────────────
                           CostKeypad(
                             onKeyPress: _onKeyPress,
-                            onPickDate: _pickDate,
+                            onPickDate: () => _pickDate(state),
                             dateLabel: dateLabel,
                             onSubmit: () => _submitExpense(state),
                             isSubmitting: state.isSubmitting,
@@ -683,16 +714,7 @@ class _CostFormScreenState extends State<CostFormScreen> {
     CostCategoryPickerSheet.show(
       context: context,
       state: state,
-      onCategorySelected: (cat) {
-        if (cat.defaultAmount != null && cat.defaultAmount! > 0) {
-          final amt = cat.defaultAmount!;
-          setState(() {
-            _amountStr = amt % 1 == 0
-                ? amt.toInt().toString()
-                : amt.toString();
-          });
-        }
-      },
+      onCategorySelected: (cat) {},
     );
   }
 
@@ -724,14 +746,6 @@ class _CostFormScreenState extends State<CostFormScreen> {
     if (!context.mounted) return;
     if (result != null) {
       context.read<CostFormBloc>().add(CostFormCategoryChanged(result));
-      if (result.costNature != 'variable' &&
-          result.defaultAmount != null &&
-          result.defaultAmount! > 0) {
-        final amt = result.defaultAmount!;
-        setState(() {
-          _amountStr = amt % 1 == 0 ? amt.toInt().toString() : amt.toString();
-        });
-      }
     }
   }
 

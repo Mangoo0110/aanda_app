@@ -1,24 +1,20 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/features/cost/domain/entities/category_emoji.dart';
-import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
-import 'package:aanda/src/features/cost/domain/repo/cost_repo.dart';
 import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
+import 'package:aanda/src/features/cost/presentation/bloc/cost_category_form/cost_category_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/helpers/category_color_helper.dart';
 import 'package:aanda/src/features/cost/presentation/widgets/category_icon_view.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 
-class CostCategoryFormScreen extends StatefulWidget {
+class CostCategoryFormScreen extends StatelessWidget {
   const CostCategoryFormScreen({
     super.key,
     this.initialHouseId,
@@ -29,18 +25,47 @@ class CostCategoryFormScreen extends StatefulWidget {
   final String? initialHouseName;
 
   @override
-  State<CostCategoryFormScreen> createState() => _CostCategoryFormScreenState();
+  Widget build(BuildContext context) {
+    final houseContext = context.read<HouseContextCubit>().state;
+    final resolvedHouseId = initialHouseId ?? houseContext.activeAccountId;
+    final resolvedHouseName = initialHouseName ?? houseContext.activeAccount?.name;
+
+    return BlocProvider(
+      create: (ctx) => CostCategoryFormBloc(
+        createCostCategory: ctx.read<CreateCostCategory>(),
+        initialHouseId: resolvedHouseId,
+      ),
+      child: _CostCategoryFormView(
+        initialHouseId: resolvedHouseId,
+        initialHouseName: resolvedHouseName,
+      ),
+    );
+  }
 }
 
-class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
-  // Theme constants matching warm cream minimal aesthetic
-  static const Color backgroundColor = Color(0xFFFFF7EE);
+class _CostCategoryFormView extends StatefulWidget {
+  const _CostCategoryFormView({
+    this.initialHouseId,
+    this.initialHouseName,
+  });
+
+  final String? initialHouseId;
+  final String? initialHouseName;
+
+  @override
+  State<_CostCategoryFormView> createState() => _CostCategoryFormViewState();
+}
+
+class _CostCategoryFormViewState extends State<_CostCategoryFormView> {
+  // Theme constants matching modern purple aesthetic
+  static const Color backgroundColor = Color(0xFFFAF9F7);
   static const Color cardColor = Colors.white;
-  static const Color primaryCoral = Color(0xFFD85A38);
-  static const Color softPeach = Color(0xFFFDEEE8);
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color inputBg = Color(0xFFFAF8F5);
+  static const Color primaryPurple = Color(0xFF6C47FF);
+  static const Color secondaryContainer = Color(0xFFEDE9FF);
+  static const Color darkText = Color(0xFF141414);
+  static const Color subText = Color(0xFF78716C);
+  static const Color inputBg = Color(0xFFFAF9F7);
+  static const Color borderColor = Color(0xFFEEEAE4);
 
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
@@ -63,15 +88,13 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
   // Meal costing link
   bool _isMealCosting = false;
 
-  bool _isSubmitting = false;
-
   @override
   void initState() {
     super.initState();
-    final selectedHouse = context.read<HouseContextCubit>().state.selectedHouse;
-    _selectedHouseId = widget.initialHouseId ?? selectedHouse?.id;
+    final houseContext = context.read<HouseContextCubit>().state;
+    _selectedHouseId = widget.initialHouseId ?? houseContext.activeAccountId;
     _selectedHouseName =
-        widget.initialHouseName ?? selectedHouse?.name ?? '';
+        widget.initialHouseName ?? houseContext.activeAccount?.name ?? '';
     _loadHouses();
     _loadInHousePresets();
   }
@@ -97,8 +120,9 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
         setState(() {
           _availableHouses = houses;
           if (_selectedHouseId == null) {
-            _selectedHouseId = houses.first.id;
-            _selectedHouseName = houses.first.name;
+            final active = context.read<HouseContextCubit>().state.activeAccount;
+            _selectedHouseId = active?.id ?? houses.first.id;
+            _selectedHouseName = active?.name ?? houses.first.name;
           } else {
             final match = houses.where((h) => h.id == _selectedHouseId);
             if (match.isNotEmpty) {
@@ -175,21 +199,21 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                     ],
                   ),
                 ),
-                const Divider(),
+                const Divider(color: borderColor),
                 ..._availableHouses.map(
                   (house) => ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: house.id == _selectedHouseId
-                            ? softPeach
+                            ? secondaryContainer
                             : inputBg,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         Icons.home_work_rounded,
                         color: house.id == _selectedHouseId
-                            ? primaryCoral
+                            ? primaryPurple
                             : subText,
                         size: 20,
                       ),
@@ -204,7 +228,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       ),
                     ),
                     trailing: house.id == _selectedHouseId
-                        ? const Icon(Icons.check_rounded, color: primaryCoral)
+                        ? const Icon(Icons.check_rounded, color: primaryPurple)
                         : null,
                     onTap: () {
                       setState(() {
@@ -223,7 +247,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
     );
   }
 
-  Future<void> _saveCategory() async {
+  void _saveCategory() {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -232,91 +256,62 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
       return;
     }
 
-    // Variable costs must NOT have a default amount setup
-    final defaultAmt = _costNature == 'variable'
-        ? null
-        : double.tryParse(_amountController.text.trim());
+    if (_selectedHouseId == null || _selectedHouseId!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an account for this category')),
+      );
+      return;
+    }
 
-    final createCategoryUseCase = context.read<CreateCostCategory>();
-    setState(() => _isSubmitting = true);
+    final bloc = context.read<CostCategoryFormBloc>();
+    bloc.add(CostCategoryNameChanged(name));
+    bloc.add(CostCategoryHouseChanged(_selectedHouseId));
+    bloc.add(CostCategoryNatureChanged(_costNature));
+    bloc.add(CostCategoryFoodToggled(_isMealCosting));
 
-    String? iconUrl = _selectedEmoji ?? _selectedImageUrl;
-
-    // Upload picked image file to Supabase storage
     if (_pickedImagePath != null) {
-      try {
-        final supabase = Supabase.instance.client;
-        final file = File(_pickedImagePath!);
-        final bytes = await file.readAsBytes();
-        final ext =
-            _pickedImagePath!.split('.').lastOrNull?.toLowerCase() ?? 'jpg';
-        final fileName =
-            'cat_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}.$ext';
-        final storagePath = 'custom/$fileName';
-
-        await supabase.storage.from('category-icons').uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: FileOptions(
-                contentType: 'image/$ext',
-                upsert: true,
-              ),
-            );
-
-        iconUrl =
-            supabase.storage.from('category-icons').getPublicUrl(storagePath);
-      } catch (e) {
-        debugPrint('Error uploading category image: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not upload image: $e')),
-          );
-        }
-      }
+      bloc.add(CostCategoryImageFilePicked(_pickedImagePath!));
+    } else if (_selectedEmoji != null) {
+      bloc.add(CostCategoryEmojiSelected(_selectedEmoji!));
+    } else if (_selectedImageUrl != null) {
+      bloc.add(CostCategoryPresetImageSelected(_selectedImageUrl!));
     }
 
-    final createData = CreateCostCategoryData(
-      name: name,
-      icon: iconUrl,
-      isFood: _isMealCosting,
-      houseId: _selectedHouseId,
-      defaultAmount: defaultAmt,
-      costNature: _costNature,
-    );
-
-    CostCategory? createdCategory;
-    try {
-      final result = await createCategoryUseCase(createData);
-      createdCategory = result.data;
-    } catch (_) {}
-
-    // Fallback if not returned
-    createdCategory ??= CostCategory(
-      id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      icon: iconUrl,
-      isFood: _isMealCosting,
-      houseId: _selectedHouseId,
-      defaultAmount: defaultAmt,
-      costNature: _costNature,
-    );
-
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      context.pop(createdCategory);
+    if (_costNature != 'variable') {
+      bloc.add(CostCategoryDefaultAmountChanged(double.tryParse(_amountController.text.trim())));
+    } else {
+      bloc.add(const CostCategoryDefaultAmountChanged(null));
     }
+
+    bloc.add(const CostCategorySubmitted());
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          leading: const AppBackButton(icon: Icons.close_rounded),
-          title: const Text('Category Preset'),
-        ),
+    return BlocConsumer<CostCategoryFormBloc, CostCategoryFormState>(
+      listenWhen: (prev, curr) =>
+          prev.status != curr.status ||
+          (prev.errorMessage == null && curr.errorMessage != null),
+      listener: (context, state) {
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage!)),
+          );
+        }
+        if (state.isSuccess && state.createdCategory != null) {
+          context.pop(state.createdCategory);
+        }
+      },
+      builder: (context, state) {
+        final isSubmitting = state.isSubmitting;
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            backgroundColor: backgroundColor,
+            appBar: AppBar(
+              leading: const AppBackButton(icon: Icons.close_rounded),
+              title: const Text('Category Preset'),
+            ),
         body: SafeArea(
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
@@ -429,12 +424,8 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                   width: 58,
                                   height: 58,
                                   decoration: BoxDecoration(
-                                    color: softPeach,
+                                    color: secondaryContainer,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: primaryCoral.withValues(alpha: 0.25),
-                                      width: 1.5,
-                                    ),
                                   ),
                                   child: Center(
                                     child: (_pickedImagePath != null ||
@@ -447,11 +438,12 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                             categoryName:
                                                 _nameController.text.trim(),
                                             size: 46,
+                                            borderRadius: 12,
                                           )
                                         : const Icon(
-                                            Icons.add_a_photo_outlined,
-                                            color: primaryCoral,
-                                            size: 24,
+                                            Icons.category_rounded,
+                                            color: primaryPurple,
+                                            size: 26,
                                           ),
                                   ),
                                 ),
@@ -461,13 +453,11 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(5),
                                     decoration: BoxDecoration(
-                                      color: primaryCoral,
+                                      color: primaryPurple,
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: primaryCoral.withValues(
-                                            alpha: 0.35,
-                                          ),
+                                          color: primaryPurple.withValues(alpha: 0.35),
                                           blurRadius: 4,
                                           offset: const Offset(0, 1),
                                         ),
@@ -512,7 +502,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                       letterSpacing: -0.2,
                                     ),
                                     decoration: const InputDecoration(
-                                      hintText: 'e.g. Electricity & Utilities',
+                                      hintText: 'e.g. Electricity, Groceries...',
                                       hintStyle: TextStyle(
                                         color: Color(0xFFBBB6AF),
                                         fontSize: 16,
@@ -533,14 +523,14 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       ),
 
                       const SizedBox(height: 18),
-                      const Divider(color: Color(0xFFF2ECE4), height: 1),
+                      const Divider(color: borderColor, height: 1),
                       const SizedBox(height: 16),
 
-                      // Category Image Section
+                      // Header row for Icon Selection
                       Row(
                         children: [
                           const Text(
-                            'CATEGORY IMAGE',
+                            'SELECT ICON',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -562,11 +552,11 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                 });
                               },
                               child: const Text(
-                                'Remove',
+                                'Clear',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: primaryCoral,
+                                  color: primaryPurple,
                                 ),
                               ),
                             ),
@@ -574,210 +564,134 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Image picker card
-                      InkWell(
-                        onTap: _pickImage,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: inputBg,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: (_pickedImagePath != null ||
-                                      _selectedImageUrl != null)
-                                  ? primaryCoral.withValues(alpha: 0.35)
-                                  : const Color(0xFFE8E2D9),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
+                      // Compact, modern Icon Palette (5 items per row)
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: _inHousePresets.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            final isCustomPicked = _pickedImagePath != null ||
+                                _selectedImageUrl != null;
+                            return Tooltip(
+                              message: 'Upload custom image',
+                              child: InkWell(
+                                onTap: _pickImage,
+                                borderRadius: BorderRadius.circular(14),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  decoration: BoxDecoration(
+                                    color: isCustomPicked
+                                        ? secondaryContainer
+                                        : inputBg,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: isCustomPicked
+                                        ? Border.all(color: primaryPurple, width: 2)
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: isCustomPicked
+                                        ? CategoryIconView(
+                                            icon: _pickedImagePath ??
+                                                _selectedImageUrl,
+                                            size: 32,
+                                            borderRadius: 8,
+                                          )
+                                        : const Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons
+                                                    .add_photo_alternate_outlined,
+                                                color: primaryPurple,
+                                                size: 22,
+                                              ),
+                                              SizedBox(height: 2),
+                                              Text(
+                                                'Upload',
+                                                style: TextStyle(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: primaryPurple,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final preset = _inHousePresets[index - 1];
+                          final isSelected = _selectedPresetId == preset.id ||
+                              (_pickedImagePath == null &&
+                                  _selectedImageUrl == null &&
+                                  _selectedEmoji == preset.emoji);
+
+                          return Tooltip(
+                            message: preset.name,
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedPresetId = preset.id;
+                                  _selectedEmoji = preset.emoji;
+                                  _selectedImageUrl = null;
+                                  _pickedImagePath = null;
+                                  if (_nameController.text.trim().isEmpty ||
+                                      _inHousePresets.any(
+                                        (p) =>
+                                            p.name ==
+                                            _nameController.text.trim(),
+                                      )) {
+                                    _nameController.text = preset.name;
+                                  }
+                                  _costNature = preset.costNature;
+                                  _isMealCosting = _selectedHouseId == null
+                                      ? false
+                                      : preset.isFood;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
                                 decoration: BoxDecoration(
-                                  color: softPeach,
-                                  borderRadius: BorderRadius.circular(12),
+                                  color: isSelected
+                                      ? primaryPurple.withValues(alpha: 0.12)
+                                      : inputBg,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? primaryPurple
+                                        : Colors.transparent,
+                                    width: isSelected ? 2.2 : 0,
+                                  ),
                                 ),
                                 child: Center(
-                                  child: (_pickedImagePath != null ||
-                                          _selectedImageUrl != null)
-                                      ? CategoryIconView(
-                                          icon: _pickedImagePath ??
-                                              _selectedImageUrl,
-                                          size: 32,
-                                          borderRadius: 8,
-                                        )
-                                      : const Icon(
-                                          Icons.cloud_upload_outlined,
-                                          color: primaryCoral,
-                                          size: 24,
-                                        ),
+                                  child: CategoryIconView(
+                                    icon: preset.emoji,
+                                    categoryName: preset.name,
+                                    backgroundColor:
+                                        CategoryColorHelper.fromHex(
+                                      preset.color,
+                                    ),
+                                    size: 38,
+                                    fallbackEmoji: preset.emoji,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      (_pickedImagePath != null ||
-                                              _selectedImageUrl != null)
-                                          ? 'Custom image selected'
-                                          : 'Upload category icon / image',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: darkText,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      (_pickedImagePath != null ||
-                                              _selectedImageUrl != null)
-                                          ? 'Tap to choose a different image'
-                                          : 'Tap to pick from device gallery',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: subText,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: subText,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       ),
-
-                      // In-House Presets Section
-                      if (_inHousePresets.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        Row(
-                          children: [
-                            const Text(
-                              'OR SELECT IN-HOUSE PRESET',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.9,
-                                color: subText,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '${_inHousePresets.length} in database',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: subText,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-
-                        // Horizontal list of preset cards
-                        SizedBox(
-                          height: 112,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _inHousePresets.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, index) {
-                              final preset = _inHousePresets[index];
-                              final isSelected =
-                                  _selectedPresetId == preset.id ||
-                                  (_pickedImagePath == null &&
-                                      _selectedImageUrl == null &&
-                                      _selectedEmoji == preset.emoji);
-
-                              return InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedPresetId = preset.id;
-                                    _selectedEmoji = preset.emoji;
-                                    _selectedImageUrl = null;
-                                    _pickedImagePath = null;
-                                    if (_nameController.text.trim().isEmpty ||
-                                        _inHousePresets.any(
-                                          (p) =>
-                                              p.name ==
-                                              _nameController.text.trim(),
-                                        )) {
-                                      _nameController.text = preset.name;
-                                    }
-                                    _costNature = preset.costNature;
-                                    _isMealCosting = preset.isFood;
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(16),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  width: 90,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? softPeach : inputBg,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? primaryCoral
-                                          : const Color(0xFFE8E2D9),
-                                      width: isSelected ? 1.8 : 1,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      CategoryIconView(
-                                        icon: preset.emoji,
-                                        categoryName: preset.name,
-                                        backgroundColor:
-                                            CategoryColorHelper.fromHex(
-                                          preset.color,
-                                        ),
-                                        size: 42,
-                                        fallbackEmoji: preset.emoji,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        preset.name,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: isSelected
-                                              ? FontWeight.w700
-                                              : FontWeight.w600,
-                                          color: isSelected
-                                              ? primaryCoral
-                                              : darkText,
-                                        ),
-                                        maxLines: 2,
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -807,7 +721,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: softPeach,
+                          color: secondaryContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Center(
@@ -818,8 +732,8 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
+                          children: [
+                            const Text(
                               'Link to Meal Costing',
                               style: TextStyle(
                                 fontSize: 15,
@@ -827,11 +741,13 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                 color: darkText,
                               ),
                             ),
-                            SizedBox(height: 5),
+                            const SizedBox(height: 5),
                             Text(
-                              'Settled by meal ratio (User Meals × Total Meal Cost ÷ Total Meals)',
+                              _selectedHouseId == null
+                                  ? 'Meal costing is only supported for shared houses with meal tracking.'
+                                  : 'Settled by meal ratio (User Meals × Total Meal Cost ÷ Total Meals)',
                               maxLines: 3,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: subText,
                                 height: 1.35,
@@ -842,11 +758,12 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       ),
                       const SizedBox(width: 14),
                       Switch(
-                        value: _isMealCosting,
-                        onChanged: (val) =>
-                            setState(() => _isMealCosting = val),
+                        value: _selectedHouseId == null ? false : _isMealCosting,
+                        onChanged: _selectedHouseId == null
+                            ? null
+                            : (val) => setState(() => _isMealCosting = val),
                         activeThumbColor: Colors.white,
-                        activeTrackColor: primaryCoral,
+                        activeTrackColor: primaryPurple,
                         inactiveThumbColor: Colors.white,
                         inactiveTrackColor: const Color(0xFFE5DFD9),
                         trackOutlineColor: WidgetStateProperty.all(
@@ -927,7 +844,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                   const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 14),
                                     child: Divider(
-                                      color: Color(0xFFF2ECE4),
+                                      color: borderColor,
                                       height: 1,
                                     ),
                                   ),
@@ -970,7 +887,7 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                                             style: TextStyle(
                                               fontSize: 22,
                                               fontWeight: FontWeight.w800,
-                                              color: primaryCoral,
+                                              color: primaryPurple,
                                             ),
                                           ),
                                         ),
@@ -1014,14 +931,14 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFE85847), Color(0xFFD64433)],
+                      colors: [Color(0xFF7C5CFC), Color(0xFF6C47FF)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(26),
                     boxShadow: [
                       BoxShadow(
-                        color: primaryCoral.withValues(alpha: 0.28),
+                        color: primaryPurple.withValues(alpha: 0.28),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -1033,10 +950,10 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
                       borderRadius: BorderRadius.circular(26),
                     ),
                     child: InkWell(
-                      onTap: _isSubmitting ? null : _saveCategory,
+                      onTap: isSubmitting ? null : _saveCategory,
                       borderRadius: BorderRadius.circular(26),
                       child: Center(
-                        child: _isSubmitting
+                        child: isSubmitting
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
@@ -1063,6 +980,8 @@ class _CostCategoryFormScreenState extends State<CostCategoryFormScreen> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 

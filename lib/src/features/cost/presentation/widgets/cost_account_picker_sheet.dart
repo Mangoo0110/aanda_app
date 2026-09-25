@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 
@@ -25,11 +28,13 @@ class CostAccountPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: colors.surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -40,20 +45,19 @@ class CostAccountPickerSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: Colors.black.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: 16),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               'Select Account',
-              style: TextStyle(
+              style: AppTextStyles.sectionHeader.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1B1D1F),
+                color: colors.textColor,
               ),
             ),
           ),
@@ -68,31 +72,31 @@ class CostAccountPickerSheet extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F4F7),
+                color: colors.tileColor,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.person_rounded,
-                color: Color(0xFF475467),
+                color: colors.primaryColor,
                 size: 20,
               ),
             ),
-            title: const Text(
+            title: Text(
               'Personal Account',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1B1D1F),
+              style: AppTextStyles.rowTitle.copyWith(
+                color: colors.textColor,
               ),
             ),
-            subtitle: const Text(
+            subtitle: Text(
               'Only visible to you',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8C8D8E)),
+              style: AppTextStyles.rowSubtitle.copyWith(
+                color: colors.grey,
+              ),
             ),
             trailing: state.costScope == CostScope.personal
-                ? const Icon(
-                    Icons.check_rounded,
-                    color: Color(0xFF1B1D1F),
+                ? Icon(
+                    Icons.check_circle_rounded,
+                    color: colors.primaryColor,
                     size: 20,
                   )
                 : null,
@@ -106,15 +110,13 @@ class CostAccountPickerSheet extends StatelessWidget {
 
           if (state.availableHouses.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
                 'SHARED HOUSES',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                style: AppTextStyles.badge.copyWith(
+                  color: colors.grey,
                   letterSpacing: 0.8,
-                  color: Color(0xFF8C8D8E),
                 ),
               ),
             ),
@@ -130,31 +132,43 @@ class CostAccountPickerSheet extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDF8F1),
+                    color: isSelected ? colors.tileColor : colors.softGrey,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.home_work_rounded,
-                    color: Color(0xFF1E824C),
-                    size: 20,
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: house.avatarUrl != null && house.avatarUrl!.isNotEmpty
+                      ? Image(
+                          image: getAvatarImageProvider(house.avatarUrl)!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(
+                            Icons.home_work_rounded,
+                            color: isSelected ? colors.primaryColor : colors.grey,
+                            size: 20,
+                          ),
+                        )
+                      : Icon(
+                          Icons.home_work_rounded,
+                          color: isSelected ? colors.primaryColor : colors.grey,
+                          size: 20,
+                        ),
                 ),
                 title: Text(
                   house.name,
-                  style: TextStyle(
-                    fontSize: 15,
+                  style: AppTextStyles.rowTitle.copyWith(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    color: const Color(0xFF1B1D1F),
+                    color: isSelected ? colors.primaryColor : colors.textColor,
                   ),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'Shared house account',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF8C8D8E)),
+                  style: AppTextStyles.rowSubtitle.copyWith(
+                    color: colors.grey,
+                  ),
                 ),
                 trailing: isSelected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: Color(0xFF1B1D1F),
+                    ? Icon(
+                        Icons.check_circle_rounded,
+                        color: colors.primaryColor,
                         size: 20,
                       )
                     : null,

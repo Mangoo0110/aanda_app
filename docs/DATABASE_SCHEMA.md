@@ -1,252 +1,290 @@
-# Aanda — Database Architecture & Schema Specification
+# Aanda — Database Schema Specification
 
-**Platform:** Supabase / PostgreSQL 15+  
-**Repository:** [aanda_app_supabase](https://github.com/Mangoo0110/aanda_app_supabase.git)  
-**Schema Path:** `supabase/migrations/`
+> **Version**: 2.1 (Migration 027)  
+> **Backend**: Supabase (PostgreSQL 15+)  
+> **Status**: Development / Pre-release
 
 ---
 
-## 1. Overview & Entity Relationship Model
-
-Aanda uses a relational PostgreSQL database with Row Level Security (RLS) enforcing multi-tenant isolation per house and per user.
+## 1. Entity-Relationship Overview
 
 ```
-[auth.users] (Supabase Auth)
-     │ 1:1
-     ▼
- [profiles] ─────────────┐
-     │ 1:N               │ 1:N
-     ▼                   ▼
- [house_members] ───► [houses]
-     │                   │
-     │ 1:N               │ 1:N
-     ├───────────────────┼────────────────────────┐
-     ▼                   ▼                        ▼
- [meal_logs]     [billing_cycles]         [cost_categories]
-                         │                        │
-                         │ 1:N                    │ 1:N
-                         ▼                        ▼
-                   [settlements]              [cost_presets]
-                         │                        │
-                         │ 1:N                    │ 1:N
-                         ▼                        ▼
-             [carry_forward_balances]         [costs]
+ [profiles] ──────────────────────────┐
+     │ 1:N                            │ 1:N
+     ▼                                ▼
+ [expense_account_members] ───► [expense_accounts] (Houses / Personal)
+     │                                │
+     │ 1:N                            │ 1:N
+     ├────────────────────────────────┼──────────────────────────────┐
+     ▼                                ▼                              ▼
+ [meal_logs]                  [settlements]                  [cost_categories]
+                                      │                              │
+                                      │ 1:N                          │ 1:N
+                                      ├──────────────┐               ▼
+                                      ▼              ▼            [costs]
+                                  [deposits]      [costs]
+                                  (advance /      (free-floating /
+                                  settlement_due) cycle-linked)
+
+ [category_emojis] (Global Preset Catalog with 15 standard presets)
 ```
 
 ---
 
 ## 2. PostgreSQL Extensions
 
-- `pgcrypto`: cryptographic functions and UUID generation.
+- `pgcrypto`: Cryptographic hashing and UUID generation.
 - `uuid-ossp`: UUID v4 generation for primary keys (`uuid_generate_v4()`).
 
 ---
 
-## 3. Custom Domain Enums
+## 3. Custom Domain Enums & Types
 
 | Type | Allowed Values | Usage |
 |---|---|---|
-| `house_role` | `admin`, `member` | Role within a shared house |
-| `cost_scope` | `personal`, `shared` | Whether expense is private or shared |
-| `cost_type` | `fixed`, `variable` | Rent/Internet vs Groceries/One-offs |
-| `billing_status` | `active`, `calculating`, `closed` | Lifecycle of a billing cycle |
-| `settlement_decision` | `pending`, `carry_forward`, `settled` | Action taken at cycle closure |
+| `member_role` | `admin`, `member` | Role within a shared expense account |
+| `cost_scope` | `personal`, `shared` | Scope of the cost entry |
+| `cost_type` | `fixed`, `variable` | Cost classification (e.g. rent vs groceries) |
+| `cycle_type` | `weekly`, `monthly`, `dynamic` | Billing cycle recurrence style |
+| `cycle_status` | `open`, `closed` | Status of sprint / billing cycle |
+| `account_type` | `personal`, `shared` | Account classification |
+| `deposit_type` | `advance`, `settlement_due`, `adjustment` | Classification of payments and deposits |
 
 ---
 
 ## 4. Tables Specification
 
 ### 4.1 `profiles`
-Extends `auth.users`. Automatically populated via trigger `on_auth_user_created`.
+Extends `auth.users`. Automatically populated via trigger `handle_new_user` on auth signup / confirmation.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `id` | `uuid` | Primary Key, References `auth.users(id)` ON DELETE CASCADE | User ID |
 | `username` | `text` | UNIQUE, NOT NULL | Unique display handle |
-| `full_name` | `text` | Nullable | Full real name |
-| `avatar_url` | `text` | Nullable | Avatar image storage path |
+| `full_name` | `text` | Nullable | Full name |
+| `avatar_url` | `text` | Nullable | Storage URL in `avatars` bucket |
+| `country` | `text` | Nullable | User country |
+| `gender` | `text` | Nullable | User gender |
+| `age_range` | `text` | Nullable | Age demographic bracket |
+| `is_onboarded` | `boolean` | NOT NULL DEFAULT `false` | Onboarding completion flag |
 | `created_at` | `timestamptz` | DEFAULT `now()` | Registration timestamp |
 | `updated_at` | `timestamptz` | DEFAULT `now()` | Profile last updated |
 
-### 4.2 `houses`
-Represents shared living units (mess, flat, shared apartment).
+---
+
+### 4.2 `expense_accounts` (formerly `houses`)
+Represents shared living units (mess, flat, shared apartment) as well as personal ledger accounts.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | House ID |
-| `name` | `text` | NOT NULL | Flat/House name |
-| `currency` | `text` | NOT NULL DEFAULT `BDT` | ISO currency code (BDT, INR, USD, etc.) |
-| `cycle_type` | `text` | NOT NULL DEFAULT `monthly` | `monthly`, `weekly`, or `dynamic` |
-| `invite_code` | `text` | UNIQUE, NOT NULL | 8-character uppercase code |
-| `created_by` | `uuid` | References `profiles(id)` | House founder |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Account ID |
+| `name` | `text` | NOT NULL | Account or house display name |
+| `currency` | `text` | NOT NULL DEFAULT `'BDT'` | ISO currency code (BDT, INR, USD, etc.) |
+| `cycle_type` | `cycle_type` | NOT NULL DEFAULT `'monthly'` | Recurrence model |
+| `account_type` | `account_type` | NOT NULL DEFAULT `'shared'` | `'personal'` or `'shared'` |
+| `invite_code` | `text` | UNIQUE, NOT NULL | 8-character uppercase invite code |
+| `created_by` | `uuid` | References `profiles(id)` | Account creator |
+| `avatar_url` | `text` | Nullable | Storage URL in `avatars` bucket for house logo |
 | `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Last updated timestamp |
 
-### 4.3 `house_members`
-Junction table linking profiles to houses.
+---
+
+### 4.3 `expense_account_members` (formerly `house_members`)
+Junction table linking profiles to expense accounts.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Membership ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House reference |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Membership ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
 | `user_id` | `uuid` | References `profiles(id)` ON DELETE CASCADE | User reference |
-| `role` | `house_role` | NOT NULL DEFAULT `member` | `admin` or `member` |
+| `role` | `member_role` | NOT NULL DEFAULT `'member'` | `'admin'` or `'member'` |
 | `joined_at` | `timestamptz` | DEFAULT `now()` | Join timestamp |
-| `is_active` | `boolean` | NOT NULL DEFAULT `true` | Soft-deactivation flag |
 
-*Unique constraint:* `(house_id, user_id)`
+*Unique constraint:* `(expense_account_id, user_id)`
 
-### 4.4 `billing_cycles`
-Tracks accounting cycles. Cycles can have custom meal weights.
+---
+
+### 4.4 `costs`
+Stores all expense entries (personal and shared). Costs can float freely or be linked to a `cycle_id`. When scope is `shared`, `expense_account_id` is required; for `personal` scope, `expense_account_id` is null.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Cycle ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House reference |
-| `name` | `text` | NOT NULL | Display name (e.g. "September 2026") |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Cost entry ID |
+| `expense_account_id` | `uuid` | Nullable, References `expense_accounts(id)` ON DELETE CASCADE | Required if shared, null if personal |
+| `cycle_id` | `uuid` | Nullable, References `billing_cycles(id)` ON DELETE SET NULL | Optional cycle reference |
+| `paid_by` | `uuid` | NOT NULL References `profiles(id)` | Payer user ID |
+| `category_id` | `uuid` | Nullable References `cost_categories(id)` ON DELETE SET NULL | Category classification |
+| `name` | `text` | NOT NULL | Description/title |
+| `amount` | `numeric(14,2)` | NOT NULL, CHECK `amount > 0` | Cost amount |
+| `cost_type` | `cost_type` | NOT NULL | `'fixed'` or `'variable'` |
+| `cost_scope` | `cost_scope` | NOT NULL | `'personal'` or `'shared'` |
+| `purchase_date`| `date` | NOT NULL DEFAULT `current_date` | Date expense occurred |
+| `note` | `text` | Nullable | Optional notes |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Created timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Updated timestamp |
+
+*Key Indexes:*
+- `costs_account_idx` ON `costs(expense_account_id)`
+- `costs_cycle_idx` ON `costs(cycle_id)`
+- `costs_payer_idx` ON `costs(paid_by)`
+- `costs_date_idx` ON `costs(purchase_date desc)`
+
+---
+
+### 4.5 `category_emojis` & `cost_categories`
+
+#### `category_emojis` (Global Preset Catalog)
+Global standard presets available for selection during cost entry.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Preset ID |
+| `name` | `text` | UNIQUE, NOT NULL | Category name |
+| `emoji` | `text` | NOT NULL | Display emoji |
+| `bg_color` | `text` | NOT NULL DEFAULT `'#3B82F6'` | Hex badge background color |
+| `display_order`| `integer`| NOT NULL DEFAULT `0` | Sort order in picker |
+| `is_food` | `boolean` | NOT NULL DEFAULT `false` | True if cost pools into meal rate |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+
+#### `cost_categories` (Account-Specific Custom Categories)
+Custom categories defined per expense account.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Category ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `name` | `text` | NOT NULL | Category name |
+| `icon` | `text` | Nullable | Icon name or emoji/URL |
+| `is_food` | `boolean` | NOT NULL DEFAULT `false` | If true, cost pools into meal rate |
+| `created_by` | `uuid` | References `profiles(id)` | Creator |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+
+*Unique constraint:* `(expense_account_id, name)`  
+*(Note: Legacy `cost_presets` table was dropped in Migration 027.)*
+
+---
+
+### 4.6 `billing_cycles`
+Billing cycles (sprints) for tracking expenses and meals over discrete timeframes.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Cycle ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `cycle_type` | `cycle_type` | NOT NULL DEFAULT `'monthly'` | Recurrence model |
+| `status` | `cycle_status` | NOT NULL DEFAULT `'open'` | `'open'` or `'closed'` |
 | `start_date` | `date` | NOT NULL | Cycle start date |
-| `end_date` | `date` | NOT NULL | Cycle end date |
-| `status` | `billing_status` | DEFAULT `active` | `active`, `calculating`, `closed` |
-| `breakfast_weight` | `numeric(4,2)` | NOT NULL DEFAULT 1.0 | Weight multiplier for breakfast |
-| `lunch_weight` | `numeric(4,2)` | NOT NULL DEFAULT 1.0 | Weight multiplier for lunch |
-| `dinner_weight` | `numeric(4,2)` | NOT NULL DEFAULT 1.0 | Weight multiplier for dinner |
-| `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
+| `end_date` | `date` | Nullable | Cycle end date |
+| `breakfast_weight`| `numeric(4,2)`| NOT NULL DEFAULT `1.0` | Weight for breakfast |
+| `lunch_weight` | `numeric(4,2)`| NOT NULL DEFAULT `1.0` | Weight for lunch |
+| `dinner_weight`| `numeric(4,2)`| NOT NULL DEFAULT `1.0` | Weight for dinner |
+| `label` | `text` | Nullable | Human-readable label (e.g. "September 2026") |
+| `created_by` | `uuid` | References `profiles(id)` | Creator |
 | `closed_at` | `timestamptz` | Nullable | Closure timestamp |
-
-### 4.5 `cost_categories`
-Custom categories defined per house.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Category ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House reference |
-| `name` | `text` | NOT NULL | Category name (Groceries, Rent, Wifi) |
-| `icon` | `text` | NOT NULL DEFAULT `category` | Icon identifier for UI |
-| `is_food` | `boolean` | NOT NULL DEFAULT `false` | True if included in meal rate pool |
-| `default_type` | `cost_type` | NOT NULL DEFAULT `variable` | Default cost type suggestion |
-| `split_ratios` | `jsonb` | Nullable | Optional custom split ratios per user |
-| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
-
-### 4.6 `cost_presets`
-Quick-fill templates for frequent expenses.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Preset ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House reference |
-| `category_id` | `uuid` | References `cost_categories(id)` ON DELETE CASCADE | Category reference |
-| `name` | `text` | NOT NULL | Preset title (e.g. "Monthly Wifi") |
-| `default_amount` | `numeric(12,2)` | Nullable | Suggested default amount |
-| `cost_type` | `cost_type` | NOT NULL DEFAULT `fixed` | Fixed vs variable |
-| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
-
-### 4.7 `costs`
-Ledger of all money spent.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Entry ID |
-| `house_id` | `uuid` | Nullable, References `houses(id)` ON DELETE CASCADE | Nullable if personal scope |
-| `cycle_id` | `uuid` | Nullable, References `billing_cycles(id)` | Linked billing cycle |
-| `category_id` | `uuid` | Nullable, References `cost_categories(id)` | Category |
-| `paid_by` | `uuid` | NOT NULL References `profiles(id)` | Who paid |
-| `amount` | `numeric(12,2)` | NOT NULL CHECK (`amount > 0`) | Amount spent |
-| `cost_scope` | `cost_scope` | NOT NULL DEFAULT `shared` | `personal` or `shared` |
-| `cost_type` | `cost_type` | NOT NULL DEFAULT `variable` | `fixed` or `variable` |
-| `purchase_date` | `date` | NOT NULL DEFAULT `CURRENT_DATE` | Date spent |
-| `note` | `text` | Nullable | Notes/memo |
 | `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Last updated timestamp |
 
-### 4.8 `meal_logs`
-Daily meal tracking entries. Allows double / fractional meal counts (0.25, 0.5, 1, 1.5, 2, etc.).
+---
 
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Entry ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House |
-| `cycle_id` | `uuid` | References `billing_cycles(id)` ON DELETE CASCADE | Cycle |
-| `user_id` | `uuid` | References `profiles(id)` ON DELETE CASCADE | Member |
-| `date` | `date` | NOT NULL | Meal date |
-| `breakfast` | `numeric(4,2)` | NOT NULL DEFAULT 0.0 CHECK (`>= 0`) | Breakfast count |
-| `lunch` | `numeric(4,2)` | NOT NULL DEFAULT 0.0 CHECK (`>= 0`) | Lunch count |
-| `dinner` | `numeric(4,2)` | NOT NULL DEFAULT 0.0 CHECK (`>= 0`) | Dinner count |
-| `logged_by` | `uuid` | References `profiles(id)` | User who recorded entry |
-| `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
-
-*Unique constraint:* `(house_id, cycle_id, user_id, date)`
-
-### 4.9 `settlements`
-Snapshot of computed month-end numbers.
+### 4.7 `meal_logs`
+Daily meal tallies per user per expense account.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Settlement ID |
-| `cycle_id` | `uuid` | UNIQUE References `billing_cycles(id)` ON DELETE CASCADE | Cycle |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House |
-| `total_food_cost` | `numeric(12,2)` | NOT NULL DEFAULT 0 | Sum of shared food expenses |
-| `total_fixed_cost` | `numeric(12,2)` | NOT NULL DEFAULT 0 | Sum of shared fixed expenses |
-| `total_other_cost` | `numeric(12,2)` | NOT NULL DEFAULT 0 | Sum of shared other variable |
-| `total_meal_count` | `numeric(8,2)` | NOT NULL DEFAULT 0 | Sum of all weighted meals |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Meal log ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `cycle_id` | `uuid` | Nullable References `billing_cycles(id)` ON DELETE CASCADE | Optional cycle link |
+| `user_id` | `uuid` | References `profiles(id)` | Member ID |
+| `log_date` | `date` | NOT NULL | Date logged |
+| `breakfast`| `numeric(3,1)` | NOT NULL DEFAULT 0.0, CHECK `>= 0` | Breakfast meal units |
+| `lunch` | `numeric(3,1)` | NOT NULL DEFAULT 0.0, CHECK `>= 0` | Lunch meal units |
+| `dinner` | `numeric(3,1)` | NOT NULL DEFAULT 0.0, CHECK `>= 0` | Dinner meal units |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+
+*Unique constraint:* `(expense_account_id, user_id, log_date)`
+
+---
+
+### 4.8 `settlements`
+Calculated settlement records across billing cycles or dynamic date ranges.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Settlement ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `cycle_id` | `uuid` | Nullable References `billing_cycles(id)` | Linked cycle |
+| `from_date` | `date` | NOT NULL | Start date of settlement period |
+| `to_date` | `date` | NOT NULL | End date of settlement period |
+| `status` | `text` | NOT NULL DEFAULT `'finalised'` | `'draft'`, `'published'`, or `'finalised'` |
+| `total_food_cost` | `numeric(14,2)` | NOT NULL DEFAULT 0 | Total food expenses |
+| `total_fixed_cost`| `numeric(14,2)` | NOT NULL DEFAULT 0 | Total fixed expenses |
+| `total_other_cost`| `numeric(14,2)` | NOT NULL DEFAULT 0 | Total non-food variable expenses |
+| `total_meal_count`| `numeric(8,2)` | NOT NULL DEFAULT 0 | Sum of weighted meals for all members |
 | `meal_rate` | `numeric(10,4)` | NOT NULL DEFAULT 0 | `total_food_cost / total_meal_count` |
-| `member_summaries` | `jsonb` | NOT NULL DEFAULT `[]` | Array of per-member calculations |
-| `computed_at` | `timestamptz` | DEFAULT `now()` | Computation timestamp |
-| `computed_by` | `uuid` | References `profiles(id)` | Admin who ran settlement |
+| `member_summaries`| `jsonb` | NOT NULL DEFAULT `'[]'` | Detailed per-member JSON breakdown |
+| `computed_at` | `timestamptz` | DEFAULT `now()` | Calculation timestamp |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+
+---
+
+### 4.9 `deposits` (Migration 026)
+Tracks capital movements outside direct cost reimbursements (advances, settlement collections, adjustments).
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Deposit ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `user_id` | `uuid` | References `profiles(id)` ON DELETE CASCADE | Member making deposit/payment |
+| `settlement_id` | `uuid` | Nullable References `settlements(id)` ON DELETE CASCADE | Linked settlement (if due payment) |
+| `cost_id` | `uuid` | Nullable References `costs(id)` ON DELETE SET NULL | Linked cost |
+| `deposit_type` | `deposit_type` | NOT NULL DEFAULT `'advance'` | `'advance'`, `'settlement_due'`, `'adjustment'` |
+| `amount` | `numeric(14,2)` | NOT NULL CHECK (`amount > 0`) | Transaction amount |
+| `note` | `text` | Nullable | Reference / note |
+| `deposit_date` | `date` | NOT NULL DEFAULT `current_date` | Date paid |
+| `recorded_by` | `uuid` | References `profiles(id)` | User who recorded entry |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+
+---
 
 ### 4.10 `carry_forward_balances`
-Rollover balances applied from a closed cycle to the next active cycle.
+Tracks balances rolled forward between cycles.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Record ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House |
-| `from_cycle_id` | `uuid` | References `billing_cycles(id)` | Closed cycle source |
-| `to_cycle_id` | `uuid` | Nullable References `billing_cycles(id)` | Destination cycle |
-| `user_id` | `uuid` | References `profiles(id)` | Member |
-| `amount` | `numeric(12,2)` | NOT NULL | Positive = owes; Negative = owed |
-| `status` | `settlement_decision` | DEFAULT `pending` | `pending`, `carry_forward`, `settled` |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Entry ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
+| `cycle_id` | `uuid` | References `billing_cycles(id)` ON DELETE CASCADE | Cycle reference |
+| `user_id` | `uuid` | References `profiles(id)` | Member reference |
+| `net_balance` | `numeric(14,2)` | NOT NULL DEFAULT `0` | Net balance carried |
 | `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
+
+*Unique constraint:* `(expense_account_id, cycle_id, user_id)`
+
+---
 
 ### 4.11 `house_notes`
-Shared announcement board.
+Expense account bulletin board for announcements and notes.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `uuid` | Primary Key, DEFAULT `uuid_generate_v4()` | Note ID |
-| `house_id` | `uuid` | References `houses(id)` ON DELETE CASCADE | House |
-| `author_id` | `uuid` | References `profiles(id)` | Poster |
+| `id` | `uuid` | Primary Key, DEFAULT `gen_random_uuid()` | Note ID |
+| `expense_account_id` | `uuid` | References `expense_accounts(id)` ON DELETE CASCADE | Account reference |
 | `title` | `text` | NOT NULL | Note title |
-| `content` | `text` | NOT NULL | Note body |
-| `is_pinned` | `boolean` | DEFAULT `false` | Pinned priority |
-| `created_at` | `timestamptz` | DEFAULT `now()` | Creation timestamp |
+| `body` | `text` | NOT NULL | Content |
+| `created_by` | `uuid` | References `profiles(id)` | Author |
+| `created_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
+| `updated_at` | `timestamptz` | DEFAULT `now()` | Timestamp |
 
 ---
 
-## 5. Row-Level Security (RLS) Policies
+## 5. PostgreSQL Security & Helper Functions
 
-Every table has RLS enabled with granular access rules:
-- **Helper Functions:**
-  - `public.is_house_member(p_house_id)`: returns true if `auth.uid()` has active membership in `p_house_id`.
-  - `public.is_house_admin(p_house_id)`: returns true if `auth.uid()` is active admin in `p_house_id`.
-- **Costs:**
-  - Users can read all shared costs in their houses, plus their own personal costs.
-  - Members can insert costs where `paid_by = auth.uid()`.
-  - House Admins can insert costs on behalf of any member.
-- **Meal Logs:**
-  - Any member can view all meal logs in their house.
-  - Members can insert/update their own meal logs.
-  - House Admins can update/correct any member meal log.
-
----
-
-## 6. Edge Functions
-
-### `compute-settlement`
-- Endpoint: `/functions/v1/compute-settlement`
-- Method: `POST`
-- Body: `{ "cycle_id": "uuid" }`
-- Calculates food totals, fixed totals, weighted meal count, meal rate, member food charges, fixed splits, net balances, and upserts the `settlements` record.
-
-### `close-cycle`
-- Endpoint: `/functions/v1/close-cycle`
-- Method: `POST`
-- Body: `{ "cycle_id": "uuid", "carry_forward_decisions": [{ "user_id": "uuid", "decision": "carry_forward" | "settled" }] }`
-- Records carry forward balances, locks the billing cycle as `closed`.
+- `is_expense_account_member(p_account_id uuid)`: Returns boolean indicating if caller is an active member or creator of personal account.
+- `is_expense_account_admin(p_account_id uuid)`: Returns boolean indicating if caller is an admin of the expense account.
+- `is_house_member(p_house_id uuid)`: Backward-compatibility alias calling `is_expense_account_member`.
+- `is_house_admin(p_house_id uuid)`: Backward-compatibility alias calling `is_expense_account_admin`.
+- `handle_new_user()`: Trigger on `auth.users` insert. Automatically populates `public.profiles`.

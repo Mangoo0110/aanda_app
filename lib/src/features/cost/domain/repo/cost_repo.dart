@@ -89,6 +89,9 @@ abstract interface class CostRepo {
 
   /// Creates a new custom cost category preset.
   AsyncRequest<CostCategory> createCategory(CreateCostCategoryData data);
+
+  /// Deletes a custom category by id.
+  AsyncRequest<void> deleteCategory(String categoryId);
 }
 
 class CreateCostCategoryData {

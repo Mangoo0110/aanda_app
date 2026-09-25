@@ -82,4 +82,14 @@ class CostRepoImpl with ErrorHandler implements CostRepo {
       },
     );
   }
+
+  @override
+  AsyncRequest<void> deleteCategory(String categoryId) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.deleteCategory(categoryId);
+        return const SuccessRepoCall(data: null);
+      },
+    );
+  }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_category.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 import 'package:aanda/src/features/cost/presentation/screens/cost_category_form_screen.dart';
@@ -20,16 +22,21 @@ class CostCategoryPickerSheet extends StatelessWidget {
     required CostFormState state,
     required void Function(CostCategory category) onCategorySelected,
   }) {
+    final colors = AppColors.context(context);
+    final bloc = context.read<CostFormBloc>();
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => CostCategoryPickerSheet(
-        state: state,
-        onCategorySelected: onCategorySelected,
+      builder: (ctx) => BlocProvider.value(
+        value: bloc,
+        child: CostCategoryPickerSheet(
+          state: state,
+          onCategorySelected: onCategorySelected,
+        ),
       ),
     );
   }
@@ -63,34 +70,34 @@ class CostCategoryPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.75,
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 36,
+                width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: Colors.black.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Select Category',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1B1D1F),
+                    style: AppTextStyles.sectionHeader.copyWith(
+                      color: colors.textColor,
                     ),
                   ),
                   InkWell(
@@ -105,24 +112,23 @@ class CostCategoryPickerSheet extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F4F4),
+                        color: colors.tileColor,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.add_rounded,
-                            size: 14,
-                            color: Color(0xFF1B1D1F),
+                            size: 16,
+                            color: colors.primaryColor,
                           ),
-                          SizedBox(width: 3),
+                          const SizedBox(width: 4),
                           Text(
                             'New',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1B1D1F),
+                            style: AppTextStyles.badge.copyWith(
+                              color: colors.primaryColor,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -131,16 +137,26 @@ class CostCategoryPickerSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Flexible(
-                child: ListView.builder(
+                child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: state.availableCategories.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    indent: 56,
+                    color: colors.dividerColor,
+                  ),
                   itemBuilder: (ctx, index) {
                     final cat = state.availableCategories[index];
                     final isSel = state.selectedCategory?.id == cat.id;
+                    final isBlocked = state.isPersonal && cat.isFood;
 
-                    return ListTile(
+                    final tile = ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -150,41 +166,100 @@ class CostCategoryPickerSheet extends StatelessWidget {
                         size: 38,
                         fallbackEmoji: '🏷️',
                       ),
-                      title: Text(
-                        cat.name,
-                        style: TextStyle(
-                          fontWeight:
-                              isSel ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: 14,
-                          color: const Color(0xFF1B1D1F),
-                        ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              cat.name,
+                              style: AppTextStyles.rowTitle.copyWith(
+                                fontWeight:
+                                    isSel ? FontWeight.w700 : FontWeight.w600,
+                                color: isSel ? colors.primaryColor : colors.textColor,
+                              ),
+                            ),
+                          ),
+                          if (isBlocked)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Shared House Only',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFE02424),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      subtitle: (cat.costNature != 'variable' &&
-                              cat.defaultAmount != null &&
-                              cat.defaultAmount! > 0)
+                      subtitle: isBlocked
                           ? Text(
-                              'Default: ৳${cat.defaultAmount!.toInt()}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF8C8D8E),
+                              'Meal pool is only for shared houses with meal tracking',
+                              style: AppTextStyles.rowSubtitle.copyWith(
+                                color: const Color(0xFFE02424).withValues(alpha: 0.8),
+                                fontSize: 11,
                               ),
                             )
-                          : null,
-                      trailing: isSel
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: Color(0xFF1B1D1F),
-                              size: 20,
+                          : ((cat.costNature != 'variable' &&
+                                  cat.defaultAmount != null &&
+                                  cat.defaultAmount! > 0)
+                              ? Text(
+                                  'Default: ৳${cat.defaultAmount!.toInt()}',
+                                  style: AppTextStyles.rowSubtitle.copyWith(
+                                    color: colors.grey,
+                                  ),
+                                )
+                              : null),
+                      trailing: isBlocked
+                          ? Icon(
+                              Icons.block_rounded,
+                              color: colors.grey,
+                              size: 18,
                             )
-                          : null,
-                      onTap: () {
-                        context.read<CostFormBloc>().add(
-                              CostFormCategoryChanged(cat),
-                            );
-                        onCategorySelected(cat);
-                        Navigator.of(context).pop();
-                      },
+                          : (isSel
+                              ? Icon(
+                                  Icons.check_circle_rounded,
+                                  color: colors.primaryColor,
+                                  size: 20,
+                                )
+                              : null),
+                      onTap: isBlocked
+                          ? () {
+                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Meal pool category "${cat.name}" cannot be used for personal expenses. Meal pooling is only for shared houses with meal tracking.',
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: const Color(0xFFC81E1E),
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          : () {
+                              context.read<CostFormBloc>().add(
+                                    CostFormCategoryChanged(cat),
+                                  );
+                              onCategorySelected(cat);
+                              Navigator.of(context).pop();
+                            },
                     );
+
+                    if (isBlocked) {
+                      return Opacity(
+                        opacity: 0.42,
+                        child: tile,
+                      );
+                    }
+                    return tile;
                   },
                 ),
               ),

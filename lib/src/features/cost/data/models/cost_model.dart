@@ -58,7 +58,7 @@ class CostModel extends Cost {
       purchaseDate: DateTime.parse(json['purchase_date'] as String),
       createdAt: DateTime.parse(json['created_at'] as String),
       payerName: payerName,
-      houseId: json['house_id'] as String?,
+      houseId: (json['expense_account_id'] ?? json['house_id']) as String?,
       cycleId: json['cycle_id'] as String?,
       settlementId: json['settlement_id'] as String?,
       categoryId: categoryId,
@@ -80,7 +80,7 @@ class CostModel extends Cost {
         '${purchaseDate.month.toString().padLeft(2, '0')}-'
         '${purchaseDate.day.toString().padLeft(2, '0')}',
     'created_at': createdAt.toIso8601String(),
-    if (houseId != null) 'house_id': houseId,
+    if (houseId != null) 'expense_account_id': houseId,
     if (cycleId != null) 'cycle_id': cycleId,
     if (settlementId != null) 'settlement_id': settlementId,
     if (categoryId != null && !categoryId!.startsWith('predefined_'))

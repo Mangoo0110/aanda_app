@@ -17,7 +17,7 @@ class CostRemoteDatasource {
 
   static const _selectQuery = '''
     id,
-    house_id,
+    expense_account_id,
     cycle_id,
     paid_by,
     category_id,
@@ -56,6 +56,8 @@ class CostRemoteDatasource {
               '${endDate.day.toString().padLeft(2, '0')}'
         : null;
 
+    final effectiveHouseId = scope == CostScope.personal ? null : houseId;
+
     // 1. Try Edge Function endpoint first
     try {
       final res = await _supabase.functions.invoke(
@@ -63,7 +65,8 @@ class CostRemoteDatasource {
         body: {
           'action': 'list',
           if (scope != null) 'scope': scope.name,
-          if (houseId != null) 'house_id': houseId,
+          if (effectiveHouseId != null)
+            'expense_account_id': effectiveHouseId,
           if (startStr != null) 'start_date': startStr,
           if (endStr != null) 'end_date': endStr,
         },
@@ -88,8 +91,10 @@ class CostRemoteDatasource {
       query = query.eq('cost_scope', scope.name);
     }
 
-    if (houseId != null) {
-      query = query.eq('house_id', houseId);
+    if (scope == CostScope.personal) {
+      query = query.eq('paid_by', _currentUserId);
+    } else if (effectiveHouseId != null) {
+      query = query.eq('expense_account_id', effectiveHouseId);
     }
 
     if (startStr != null) {
@@ -130,7 +135,7 @@ class CostRemoteDatasource {
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
           if (data.houseId != null && data.houseId!.isNotEmpty)
-            'house_id': data.houseId,
+            'expense_account_id': data.houseId,
           if (data.cycleId != null && data.cycleId!.isNotEmpty)
             'cycle_id': data.cycleId,
           if (isCustomCategory &&
@@ -163,7 +168,7 @@ class CostRemoteDatasource {
           : _currentUserId,
       'purchase_date': dateStr,
       if (data.houseId != null && data.houseId!.isNotEmpty)
-        'house_id': data.houseId,
+        'expense_account_id': data.houseId,
       if (data.cycleId != null && data.cycleId!.isNotEmpty)
         'cycle_id': data.cycleId,
       if (isCustomCategory &&
@@ -203,7 +208,7 @@ class CostRemoteDatasource {
           'cost_type': data.costType.name,
           'cost_scope': data.costScope.name,
           'purchase_date': dateStr,
-          'house_id': (data.houseId != null && data.houseId!.isNotEmpty)
+          'expense_account_id': (data.houseId != null && data.houseId!.isNotEmpty)
               ? data.houseId
               : null,
           'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)
@@ -236,7 +241,7 @@ class CostRemoteDatasource {
       'cost_type': data.costType.name,
       'cost_scope': data.costScope.name,
       'purchase_date': dateStr,
-      'house_id': (data.houseId != null && data.houseId!.isNotEmpty)
+      'expense_account_id': (data.houseId != null && data.houseId!.isNotEmpty)
           ? data.houseId
           : null,
       'cycle_id': (data.cycleId != null && data.cycleId!.isNotEmpty)
@@ -288,7 +293,10 @@ class CostRemoteDatasource {
       try {
         final res = await _supabase.functions.invoke(
           'costs',
-          body: {'action': 'categories', 'house_id': houseId},
+          body: {
+            'action': 'categories',
+            'expense_account_id': houseId,
+          },
         );
         if (res.status == 200 &&
             res.data is Map &&
@@ -307,7 +315,7 @@ class CostRemoteDatasource {
         final rows = await _supabase
             .from('cost_categories')
             .select()
-            .eq('house_id', houseId)
+            .eq('expense_account_id', houseId)
             .order('name');
 
         return (rows as List)
@@ -338,33 +346,29 @@ class CostRemoteDatasource {
         ? null
         : data.defaultAmount;
 
+    final accountId = data.houseId;
+    if (accountId == null || accountId.trim().isEmpty) {
+      throw ArgumentError('An active expense account is required to create a category');
+    }
+
     final payload = {
       'name': data.name,
       'icon': data.icon,
       'is_food': data.isFood,
-      if (data.houseId != null) 'house_id': data.houseId,
+      'expense_account_id': accountId.trim(),
       if (defaultAmt != null) 'default_amount': defaultAmt,
       'cost_nature': data.costNature,
     };
 
-    try {
-      final res = await _supabase
-          .from('cost_categories')
-          .insert(payload)
-          .select()
-          .single();
-      return CostCategoryModel.fromJson(res);
-    } catch (_) {
-      // Fallback: return local entity
-      return CostCategory(
-        id: 'cat_${DateTime.now().millisecondsSinceEpoch}',
-        name: data.name,
-        icon: data.icon,
-        isFood: data.isFood,
-        houseId: data.houseId,
-        defaultAmount: defaultAmt,
-        costNature: data.costNature,
-      );
-    }
+    final res = await _supabase
+        .from('cost_categories')
+        .insert(payload)
+        .select()
+        .single();
+    return CostCategoryModel.fromJson(res);
+  }
+
+  Future<void> deleteCategory(String categoryId) async {
+    await _supabase.from('cost_categories').delete().eq('id', categoryId);
   }
 }

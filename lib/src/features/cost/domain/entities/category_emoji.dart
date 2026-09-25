@@ -34,6 +34,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: true,
       color: '#E11D48',
+      assetUrl: 'assets/images/categories/food.jpg',
     ),
     CategoryEmoji(
       id: 'groceries_bazar',
@@ -43,6 +44,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: true,
       color: '#10B981',
+      assetUrl: 'assets/images/categories/grocery.jpg',
     ),
     CategoryEmoji(
       id: 'snacks_tea',
@@ -52,6 +54,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#D97706',
+      assetUrl: 'assets/images/categories/snacks.jpg',
     ),
     CategoryEmoji(
       id: 'household_supplies',
@@ -61,6 +64,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#06B6D4',
+      assetUrl: 'assets/images/categories/supplies.jpg',
     ),
     CategoryEmoji(
       id: 'transport_fuel',
@@ -70,6 +74,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#0284C7',
+      assetUrl: 'assets/images/categories/transport.jpg',
     ),
     CategoryEmoji(
       id: 'rent_housing',
@@ -79,6 +84,7 @@ class CategoryEmoji {
       costNature: 'fixed',
       isFood: false,
       color: '#0EA5E9',
+      assetUrl: 'assets/images/categories/rent.jpg',
     ),
     CategoryEmoji(
       id: 'electricity_current',
@@ -88,6 +94,7 @@ class CategoryEmoji {
       costNature: 'fixed',
       isFood: false,
       color: '#EAB308',
+      assetUrl: 'assets/images/categories/electricity.jpg',
     ),
     CategoryEmoji(
       id: 'internet_wifi',
@@ -97,6 +104,7 @@ class CategoryEmoji {
       costNature: 'fixed',
       isFood: false,
       color: '#4F46E5',
+      assetUrl: 'assets/images/categories/wifi.jpg',
     ),
     CategoryEmoji(
       id: 'gas_cylinder',
@@ -106,6 +114,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#0D9488',
+      assetUrl: 'assets/images/categories/gas.jpg',
     ),
     CategoryEmoji(
       id: 'maid_cleaning',
@@ -115,6 +124,7 @@ class CategoryEmoji {
       costNature: 'fixed',
       isFood: false,
       color: '#F97316',
+      assetUrl: 'assets/images/categories/maid.jpg',
     ),
     CategoryEmoji(
       id: 'drinking_water',
@@ -124,6 +134,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#0369A1',
+      assetUrl: 'assets/images/categories/water.jpg',
     ),
     CategoryEmoji(
       id: 'maintenance_repairs',
@@ -133,6 +144,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#475569',
+      assetUrl: 'assets/images/categories/maintenance.jpg',
     ),
     CategoryEmoji(
       id: 'health_medicine',
@@ -142,6 +154,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#8B5CF6',
+      assetUrl: 'assets/images/categories/health.jpg',
     ),
     CategoryEmoji(
       id: 'dining_out',
@@ -151,6 +164,7 @@ class CategoryEmoji {
       costNature: 'variable',
       isFood: false,
       color: '#7C3AED',
+      assetUrl: 'assets/images/categories/dining.jpg',
     ),
     CategoryEmoji(
       id: 'waste_society',
@@ -160,6 +174,7 @@ class CategoryEmoji {
       costNature: 'fixed',
       isFood: false,
       color: '#14B8A6',
+      assetUrl: 'assets/images/categories/waste.jpg',
     ),
   ];
 }

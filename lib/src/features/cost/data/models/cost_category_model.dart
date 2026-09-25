@@ -17,7 +17,7 @@ class CostCategoryModel extends CostCategory {
       name: json['name'] as String,
       icon: json['icon'] as String?,
       isFood: (json['is_food'] as bool?) ?? false,
-      houseId: json['house_id'] as String?,
+      houseId: (json['expense_account_id'] ?? json['house_id']) as String?,
       defaultAmount: (json['default_amount'] as num?)?.toDouble(),
       costNature: json['cost_nature'] as String?,
     );
@@ -28,7 +28,7 @@ class CostCategoryModel extends CostCategory {
     'name': name,
     'icon': icon,
     'is_food': isFood,
-    if (houseId != null) 'house_id': houseId,
+    if (houseId != null) 'expense_account_id': houseId,
     if (defaultAmount != null) 'default_amount': defaultAmount,
     if (costNature != null) 'cost_nature': costNature,
   };

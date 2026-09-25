@@ -26,6 +26,44 @@ class CategoryIconView extends StatelessWidget {
   final double? borderRadius;
   final BoxShape shape;
 
+  static const Map<String, String> _presetAssetMap = {
+    'food & dining': 'assets/images/categories/food.jpg',
+    'groceries & bazar': 'assets/images/categories/grocery.jpg',
+    'snacks & tea': 'assets/images/categories/snacks.jpg',
+    'household supplies': 'assets/images/categories/supplies.jpg',
+    'transport & fuel': 'assets/images/categories/transport.jpg',
+    'rent & housing': 'assets/images/categories/rent.jpg',
+    'electricity & current': 'assets/images/categories/electricity.jpg',
+    'internet & wifi': 'assets/images/categories/wifi.jpg',
+    'gas & cylinder': 'assets/images/categories/gas.jpg',
+    'maid & cleaning': 'assets/images/categories/maid.jpg',
+    'dining out & treats': 'assets/images/categories/dining.jpg',
+    'food': 'assets/images/categories/food.jpg',
+    'grocery': 'assets/images/categories/grocery.jpg',
+    'groceries': 'assets/images/categories/grocery.jpg',
+    'snacks': 'assets/images/categories/snacks.jpg',
+    'supplies': 'assets/images/categories/supplies.jpg',
+    'transport': 'assets/images/categories/transport.jpg',
+    'rent': 'assets/images/categories/rent.jpg',
+    'electricity': 'assets/images/categories/electricity.jpg',
+    'wifi': 'assets/images/categories/wifi.jpg',
+    'gas': 'assets/images/categories/gas.jpg',
+    'maid': 'assets/images/categories/maid.jpg',
+    'dining': 'assets/images/categories/dining.jpg',
+    '🍳': 'assets/images/categories/food.jpg',
+    '🛒': 'assets/images/categories/grocery.jpg',
+    '☕': 'assets/images/categories/snacks.jpg',
+    '🧴': 'assets/images/categories/supplies.jpg',
+    '🚗': 'assets/images/categories/transport.jpg',
+    '🏠': 'assets/images/categories/rent.jpg',
+    '💡': 'assets/images/categories/electricity.jpg',
+    '⚡': 'assets/images/categories/electricity.jpg',
+    '📶': 'assets/images/categories/wifi.jpg',
+    '⛽': 'assets/images/categories/gas.jpg',
+    '🧹': 'assets/images/categories/maid.jpg',
+    '🎬': 'assets/images/categories/dining.jpg',
+  };
+
   @override
   Widget build(BuildContext context) {
     final raw = icon?.trim();
@@ -34,6 +72,17 @@ class CategoryIconView extends StatelessWidget {
           icon: raw,
           name: categoryName,
         );
+
+    final resolved = (raw != null &&
+            (raw.startsWith('assets/') ||
+                raw.startsWith('http://') ||
+                raw.startsWith('https://') ||
+                raw.startsWith('/') ||
+                raw.startsWith('file://')))
+        ? raw
+        : (_presetAssetMap[raw] ??
+            _presetAssetMap[categoryName?.toLowerCase().trim()] ??
+            raw);
 
     final isCircle = shape == BoxShape.circle && borderRadius == null;
     final decoration = BoxDecoration(
@@ -44,7 +93,7 @@ class CategoryIconView extends StatelessWidget {
           : BorderRadius.circular(borderRadius ?? (size * 0.26)),
     );
 
-    if (raw == null || raw.isEmpty) {
+    if (resolved == null || resolved.isEmpty) {
       return _buildContainer(
         decoration: decoration,
         child: _buildEmoji(fallbackEmoji),
@@ -52,9 +101,9 @@ class CategoryIconView extends StatelessWidget {
     }
 
     // 1. Network URL with CachedNetworkImage
-    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
       final imageWidget = CachedNetworkImage(
-        imageUrl: raw,
+        imageUrl: resolved,
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -92,9 +141,9 @@ class CategoryIconView extends StatelessWidget {
     }
 
     // 2. Local File (e.g. user selected from gallery before upload)
-    if (raw.startsWith('/') || raw.startsWith('file://')) {
+    if (resolved.startsWith('/') || resolved.startsWith('file://')) {
       final path =
-          raw.startsWith('file://') ? raw.replaceFirst('file://', '') : raw;
+          resolved.startsWith('file://') ? resolved.replaceFirst('file://', '') : resolved;
       final file = File(path);
       final imageWidget = Image.file(
         file,
@@ -120,9 +169,9 @@ class CategoryIconView extends StatelessWidget {
     }
 
     // 3. Bundled Asset
-    if (raw.startsWith('assets/')) {
+    if (resolved.startsWith('assets/')) {
       final imageWidget = Image.asset(
-        raw,
+        resolved,
         width: size,
         height: size,
         fit: BoxFit.cover,
@@ -147,7 +196,7 @@ class CategoryIconView extends StatelessWidget {
     // 4. Emoji or short text
     return _buildContainer(
       decoration: decoration,
-      child: _buildEmoji(raw),
+      child: _buildEmoji(resolved),
     );
   }
 

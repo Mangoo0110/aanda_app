@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
 import 'package:aanda/src/features/cost/presentation/bloc/cost_form/cost_form_bloc.dart';
 
@@ -42,11 +43,12 @@ class CostPayerPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: colors.backgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -63,33 +65,33 @@ class CostPayerPickerSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
               'Paid / Deposited By',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1B1D1F),
+                color: colors.textColor,
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Text(
               'Admin override: select who paid this expense',
-              style: TextStyle(fontSize: 12, color: Color(0xFF8C8D8E)),
+              style: TextStyle(fontSize: 12, color: colors.grey),
             ),
           ),
           const SizedBox(height: 14),
 
           if (state.members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24.0),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
               child: Center(
                 child: Text(
                   'No members found for this house.',
-                  style: TextStyle(color: Color(0xFF8C8D8E)),
+                  style: TextStyle(color: colors.grey),
                 ),
               ),
             )
@@ -102,7 +104,7 @@ class CostPayerPickerSheet extends StatelessWidget {
                 ),
                 leading: CircleAvatar(
                   radius: 18,
-                  backgroundColor: const Color(0xFFFDEEE9),
+                  backgroundColor: colors.tileColor,
                   backgroundImage:
                       m.avatarUrl != null && m.avatarUrl!.isNotEmpty
                           ? NetworkImage(m.avatarUrl!)
@@ -112,8 +114,8 @@ class CostPayerPickerSheet extends StatelessWidget {
                           m.displayName.isNotEmpty
                               ? m.displayName[0].toUpperCase()
                               : '?',
-                          style: const TextStyle(
-                            color: Color(0xFFD85A38),
+                          style: TextStyle(
+                            color: colors.primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         )
@@ -127,7 +129,7 @@ class CostPayerPickerSheet extends StatelessWidget {
                         fontSize: 15,
                         fontWeight:
                             isSelected ? FontWeight.w700 : FontWeight.w600,
-                        color: const Color(0xFF1B1D1F),
+                        color: colors.textColor,
                       ),
                     ),
                     if (m.isAdmin) ...[
@@ -138,15 +140,15 @@ class CostPayerPickerSheet extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF2F4F7),
+                          color: colors.softGrey,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
+                        child: Text(
                           'ADMIN',
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF475467),
+                            color: colors.grey,
                           ),
                         ),
                       ),
@@ -154,9 +156,9 @@ class CostPayerPickerSheet extends StatelessWidget {
                   ],
                 ),
                 trailing: isSelected
-                    ? const Icon(
+                    ? Icon(
                         Icons.check_rounded,
-                        color: Color(0xFF1B1D1F),
+                        color: colors.primaryColor,
                         size: 20,
                       )
                     : null,

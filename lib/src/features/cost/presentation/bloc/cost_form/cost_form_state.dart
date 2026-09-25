@@ -8,6 +8,7 @@ final class CostFormState {
     this.editCostId,
     this.name = '',
     this.amount = 0.0,
+    this.amountStr = '',
     this.costType = CostType.variable,
     this.costScope = CostScope.personal,
     this.selectedCategory,
@@ -29,11 +30,12 @@ final class CostFormState {
   final String? editCostId;
   final String name;
   final double amount;
+  final String amountStr;
   final CostType costType;
   final CostScope costScope;
   final CostCategory? selectedCategory;
   final List<CostCategory> availableCategories;
-  final List<({String id, String name})> availableHouses;
+  final List<({String id, String name, String? avatarUrl})> availableHouses;
   final DateTime purchaseDate;
   final String? selectedHouseId;
   final List<HouseMember> members;
@@ -47,8 +49,11 @@ final class CostFormState {
 
   bool get isSubmitting => status == CostFormStatus.submitting;
   bool get isSuccess => status == CostFormStatus.success;
-  bool get isValid => name.trim().isNotEmpty && amount > 0;
-  ({String id, String name})? get selectedHouse {
+  bool get isPersonal => costScope == CostScope.personal || selectedHouseId == null;
+  bool get isMealPoolConflict => isPersonal && (selectedCategory?.isFood == true);
+  bool get isValid => amount > 0 && !isMealPoolConflict;
+  String get displayAmount => amountStr.isEmpty ? '0' : amountStr;
+  ({String id, String name, String? avatarUrl})? get selectedHouse {
     if (selectedHouseId == null) return null;
     return availableHouses.where((h) => h.id == selectedHouseId).firstOrNull;
   }
@@ -58,12 +63,13 @@ final class CostFormState {
     String? editCostId,
     String? name,
     double? amount,
+    String? amountStr,
     CostType? costType,
     CostScope? costScope,
     CostCategory? selectedCategory,
     bool clearCategory = false,
     List<CostCategory>? availableCategories,
-    List<({String id, String name})>? availableHouses,
+    List<({String id, String name, String? avatarUrl})>? availableHouses,
     DateTime? purchaseDate,
     String? selectedHouseId,
     bool clearHouse = false,
@@ -83,6 +89,7 @@ final class CostFormState {
       editCostId: editCostId ?? this.editCostId,
       name: name ?? this.name,
       amount: amount ?? this.amount,
+      amountStr: amountStr ?? this.amountStr,
       costType: costType ?? this.costType,
       costScope: costScope ?? this.costScope,
       selectedCategory: clearCategory

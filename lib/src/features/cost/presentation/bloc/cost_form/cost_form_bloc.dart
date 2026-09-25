@@ -37,6 +37,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     on<CostFormHouseChanged>(_onHouseChanged);
     on<CostFormPayerChanged>(_onPayerChanged);
     on<CostFormNoteChanged>(_onNoteChanged);
+    on<CostFormKeypadPressed>(_onKeypadPressed);
     on<CostFormSubmitted>(_onSubmitted);
   }
 
@@ -68,8 +69,8 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
         final res = await Supabase.instance.client
             .from('expense_account_members')
             .select(
-                'id, house_id, user_id, role, joined_at, profiles(username, full_name, avatar_url)')
-            .eq('house_id', houseId);
+                'id, expense_account_id, user_id, role, joined_at, profiles(username, full_name, avatar_url)')
+            .eq('expense_account_id', houseId);
         members =
             (res as List).map((r) => HouseMemberModel.fromJson(r)).toList();
       } catch (_) {}
@@ -102,20 +103,31 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
         CostCategory.predefinedCategories;
 
     // Load user's houses
-    List<({String id, String name})> houses = const [];
+    List<({String id, String name, String? avatarUrl})> houses = const [];
     try {
       final res = await Supabase.instance.client
           .from('expense_accounts')
-          .select('id, name')
+          .select('id, name, avatar_url')
           .order('name');
       houses = (res as List)
-          .map((h) => (id: h['id'] as String, name: h['name'] as String))
+          .map((h) => (
+                id: h['id'] as String,
+                name: h['name'] as String,
+                avatarUrl: h['avatar_url'] as String?,
+              ))
           .toList();
     } catch (_) {}
-
-    final initialHouseId = event.initialCost?.houseId ??
-        event.defaultHouseId ??
-        (houses.isNotEmpty ? houses.first.id : null);
+    final isExplicitlyPersonal = event.initialScope == CostScope.personal;
+    final String? initialHouseId;
+    if (event.initialCost != null) {
+      initialHouseId = event.initialCost!.houseId;
+    } else if (isExplicitlyPersonal) {
+      initialHouseId = null;
+    } else if (event.defaultHouseId != null) {
+      initialHouseId = event.defaultHouseId;
+    } else {
+      initialHouseId = houses.isNotEmpty ? houses.first.id : null;
+    }
 
     List<HouseMember> initialMembers = const [];
     bool isUserAdmin = false;
@@ -153,6 +165,9 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
       final matchedCat = categories
           .where((cat) => cat.id == c.categoryId)
           .firstOrNull;
+      final amountStr = c.amount.toStringAsFixed(
+        c.amount.truncateToDouble() == c.amount ? 0 : 2,
+      );
 
       emit(
         state.copyWith(
@@ -160,6 +175,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
           editCostId: c.id,
           name: c.name,
           amount: c.amount,
+          amountStr: amountStr,
           costType: c.costType,
           costScope: c.costScope,
           selectedCategory: matchedCat,
@@ -172,6 +188,10 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
           selectedPayerName: initialPayerName,
           isCurrentUserAdmin: isUserAdmin,
           note: c.note ?? '',
+          errorMessage: ((c.houseId == null || c.costScope == CostScope.personal) &&
+                  matchedCat?.isFood == true)
+              ? 'This expense is in a personal account but has meal pool category "${matchedCat?.name}". Meal pooling is only for shared houses. Please change category.'
+              : null,
         ),
       );
     } else {
@@ -192,7 +212,14 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
                     event.initialCategoryId!.trim().toLowerCase())
             .firstOrNull;
       }
-      targetCategory ??= categories.firstOrNull;
+
+      final isPersonalCost = initialHouseId == null || isExplicitlyPersonal;
+      if (isPersonalCost) {
+        targetCategory ??= categories.where((c) => !c.isFood).firstOrNull ??
+            categories.firstOrNull;
+      } else {
+        targetCategory ??= categories.firstOrNull;
+      }
 
       final costType = (targetCategory?.costNature == 'fixed')
           ? CostType.fixed
@@ -202,11 +229,18 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
               targetCategory!.defaultAmount! > 0)
           ? targetCategory.defaultAmount!
           : 0.0;
+      final initialAmountStr = initialAmount > 0
+          ? (initialAmount % 1 == 0
+              ? initialAmount.toInt().toString()
+              : initialAmount.toString())
+          : '';
 
       final effectiveCategories = (targetCategory != null &&
               !categories.any((c) => c.id == targetCategory!.id))
           ? [targetCategory, ...categories]
           : categories;
+
+      final hasMealConflict = isPersonalCost && targetCategory?.isFood == true;
 
       emit(
         state.copyWith(
@@ -214,15 +248,19 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
           availableHouses: houses,
           selectedCategory: targetCategory,
           costType: costType,
-          amount: initialAmount > 0 ? initialAmount : null,
+          amount: initialAmount,
+          amountStr: initialAmountStr,
           selectedHouseId: initialHouseId,
-          costScope: initialHouseId != null
+          costScope: (initialHouseId != null && !isExplicitlyPersonal)
               ? CostScope.shared
               : CostScope.personal,
           members: initialMembers,
           selectedPayerId: initialPayerId,
           selectedPayerName: initialPayerName,
           isCurrentUserAdmin: isUserAdmin,
+          errorMessage: hasMealConflict
+              ? 'Meal pool category "${targetCategory?.name}" cannot be used for personal expenses. Please select another category.'
+              : null,
         ),
       );
     }
@@ -232,11 +270,19 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormReferenceChanged event,
     Emitter<CostFormState> emit,
   ) {
+    final isPersonal =
+        event.scope == CostScope.personal || event.houseId == null;
+    final hasMealPoolConflict =
+        isPersonal && (state.selectedCategory?.isFood == true);
+
     emit(
       state.copyWith(
         costScope: event.scope,
         selectedHouseId: event.houseId,
         clearHouse: event.houseId == null,
+        errorMessage: hasMealPoolConflict
+            ? 'Meal pool category "${state.selectedCategory?.name}" cannot be used for personal expenses. Please change category.'
+            : null,
       ),
     );
   }
@@ -245,7 +291,19 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormScopeChanged event,
     Emitter<CostFormState> emit,
   ) {
-    emit(state.copyWith(costScope: event.scope));
+    final isPersonal =
+        event.scope == CostScope.personal || state.selectedHouseId == null;
+    final hasMealPoolConflict =
+        isPersonal && (state.selectedCategory?.isFood == true);
+
+    emit(
+      state.copyWith(
+        costScope: event.scope,
+        errorMessage: hasMealPoolConflict
+            ? 'Meal pool category "${state.selectedCategory?.name}" cannot be used for personal expenses. Please change category.'
+            : null,
+      ),
+    );
   }
 
   void _onNameChanged(CostFormNameChanged event, Emitter<CostFormState> emit) {
@@ -256,7 +314,9 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormAmountChanged event,
     Emitter<CostFormState> emit,
   ) {
-    emit(state.copyWith(amount: event.amount, clearError: true));
+    final amt = event.amount;
+    final str = amt % 1 == 0 ? amt.toInt().toString() : amt.toString();
+    emit(state.copyWith(amount: amt, amountStr: str, clearError: true));
   }
 
   void _onTypeChanged(CostFormTypeChanged event, Emitter<CostFormState> emit) {
@@ -267,18 +327,82 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormCategoryChanged event,
     Emitter<CostFormState> emit,
   ) {
+    final isPersonal =
+        state.costScope == CostScope.personal || state.selectedHouseId == null;
+    if (isPersonal && event.category?.isFood == true) {
+      emit(
+        state.copyWith(
+          errorMessage:
+              'Meal pool category "${event.category?.name}" cannot be selected for personal accounts. Meal pooling is only for shared houses.',
+        ),
+      );
+      return;
+    }
+
     final newCostType = event.category?.costNature == 'fixed'
         ? CostType.fixed
         : (event.category?.costNature == 'variable'
             ? CostType.variable
             : state.costType);
+    var amount = state.amount;
+    var amountStr = state.amountStr;
+    if (event.category != null &&
+        event.category!.costNature != 'variable' &&
+        event.category!.defaultAmount != null &&
+        event.category!.defaultAmount! > 0) {
+      final amt = event.category!.defaultAmount!;
+      amount = amt;
+      amountStr = amt % 1 == 0 ? amt.toInt().toString() : amt.toString();
+    }
     emit(
       state.copyWith(
         selectedCategory: event.category,
         costType: newCostType,
+        amount: amount,
+        amountStr: amountStr,
         clearCategory: event.category == null,
+        clearError: true,
       ),
     );
+  }
+
+  void _onKeypadPressed(
+    CostFormKeypadPressed event,
+    Emitter<CostFormState> emit,
+  ) {
+    var str = state.amountStr;
+    final key = event.key;
+
+    if (key == '⌫') {
+      if (str.isNotEmpty) {
+        str = str.substring(0, str.length - 1);
+        if (str.isEmpty) str = '0';
+      }
+    } else if (key == '.') {
+      if (!str.contains('.')) {
+        str = str.isEmpty ? '0.' : '$str.';
+      }
+    } else if (key == '00') {
+      if (str != '0' && str.isNotEmpty) {
+        str += '00';
+      }
+    } else {
+      // Digits 0-9
+      if (str == '0') {
+        str = key;
+      } else {
+        if (str.contains('.')) {
+          final parts = str.split('.');
+          if (parts.length > 1 && parts[1].length >= 2) return;
+        }
+        if (str.length < 9) {
+          str += key;
+        }
+      }
+    }
+
+    final val = double.tryParse(str) ?? 0.0;
+    emit(state.copyWith(amountStr: str, amount: val, clearError: true));
   }
 
   void _onDateChanged(CostFormDateChanged event, Emitter<CostFormState> emit) {
@@ -344,11 +468,28 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
     CostFormSubmitted event,
     Emitter<CostFormState> emit,
   ) async {
-    if (!state.isValid) {
+    final effectiveName = state.name.trim().isNotEmpty
+        ? state.name.trim()
+        : (state.note.trim().isNotEmpty
+            ? state.note.trim()
+            : (state.selectedCategory?.name ?? 'Expense'));
+
+    if (state.isMealPoolConflict) {
       emit(
         state.copyWith(
           status: CostFormStatus.failure,
-          errorMessage: 'Please enter a valid title and amount.',
+          errorMessage:
+              'Meal pool category "${state.selectedCategory?.name}" cannot be used for personal expenses. Meal pooling is only for shared houses with meal tracking. Please change the category.',
+        ),
+      );
+      return;
+    }
+
+    if (state.amount <= 0) {
+      emit(
+        state.copyWith(
+          status: CostFormStatus.failure,
+          errorMessage: 'Please enter an amount greater than 0.',
         ),
       );
       return;
@@ -361,7 +502,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
         request: () => _updateCost(
           UpdateCostData(
             id: state.editCostId!,
-            name: state.name.trim(),
+            name: effectiveName,
             amount: state.amount,
             costType: state.costType,
             costScope: state.costScope,
@@ -399,7 +540,7 @@ final class CostFormBloc extends Bloc<CostFormEvent, CostFormState> {
       final newCost = await handleFutureRequest<Cost>(
         request: () => _addCost(
           CreateCostData(
-            name: state.name.trim(),
+            name: effectiveName,
             amount: state.amount,
             costType: state.costType,
             costScope: state.costScope,

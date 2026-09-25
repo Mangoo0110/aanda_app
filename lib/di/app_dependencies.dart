@@ -36,6 +36,7 @@ import 'package:aanda/src/features/meal/domain/repo/meal_repo.dart';
 import 'package:aanda/src/features/meal/domain/usecases/meal_usecases.dart';
 
 // Settlement
+import 'package:aanda/src/features/settlement/data/datasources/deposit_remote_datasource.dart';
 import 'package:aanda/src/features/settlement/data/datasources/settlement_remote_datasource.dart';
 import 'package:aanda/src/features/settlement/data/repo/settlement_repo_impl.dart';
 import 'package:aanda/src/features/settlement/domain/repo/settlement_repo.dart';
@@ -46,6 +47,13 @@ import 'package:aanda/src/features/dashboard/data/datasources/dashboard_remote_d
 import 'package:aanda/src/features/dashboard/data/repo/dashboard_repo_impl.dart';
 import 'package:aanda/src/features/dashboard/domain/repo/dashboard_repo.dart';
 import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
+
+// Profile
+import 'package:aanda/src/features/profile/data/datasources/profile_remote_datasource.dart';
+import 'package:aanda/src/features/profile/data/repo/profile_repo_impl.dart';
+import 'package:aanda/src/features/profile/domain/repo/profile_repo.dart';
+import 'package:aanda/src/features/profile/domain/usecases/profile_usecases.dart';
+import 'package:aanda/src/features/profile/presentation/cubit/profile_cubit.dart';
 
 final class AppDependencies {
   const AppDependencies._({
@@ -72,6 +80,7 @@ final class AppDependencies {
     required this.deleteCost,
     required this.getCostCategories,
     required this.createCostCategory,
+    required this.deleteCostCategory,
     required this.categoryEmojiRemoteDatasource,
     required this.categoryEmojiLocalDatasource,
     required this.categoryEmojiRepo,
@@ -92,6 +101,8 @@ final class AppDependencies {
     required this.createSprint,
     required this.closeSprint,
     required this.getSprintStats,
+    required this.uploadHouseAvatar,
+    required this.updateHouseAvatar,
     // Meal
     required this.mealDatasource,
     required this.mealRepo,
@@ -104,10 +115,21 @@ final class AppDependencies {
     required this.prepareSettlement,
     required this.finaliseSettlement,
     required this.getSettlements,
+    required this.recordSettlementPayment,
+    required this.finaliseSettlementWithResolutions,
+    required this.depositDatasource,
     // Dashboard
     required this.dashboardDatasource,
     required this.dashboardRepo,
     required this.getDashboardSummary,
+    // Profile
+    required this.profileDatasource,
+    required this.profileRepo,
+    required this.getUserProfile,
+    required this.updateUserProfile,
+    required this.uploadProfileAvatar,
+    required this.markProfileOnboarded,
+    required this.profileCubit,
     // Blocs
     required this.authGuardBloc,
     required this.appThemeCubit,
@@ -140,6 +162,7 @@ final class AppDependencies {
   final DeleteCost deleteCost;
   final GetCostCategories getCostCategories;
   final CreateCostCategory createCostCategory;
+  final DeleteCostCategory deleteCostCategory;
   final CategoryEmojiRemoteDatasource categoryEmojiRemoteDatasource;
   final CategoryEmojiLocalDatasource categoryEmojiLocalDatasource;
   final CategoryEmojiRepo categoryEmojiRepo;
@@ -161,6 +184,8 @@ final class AppDependencies {
   final CreateSprint createSprint;
   final CloseSprint closeSprint;
   final GetSprintStats getSprintStats;
+  final UploadHouseAvatar uploadHouseAvatar;
+  final UpdateHouseAvatar updateHouseAvatar;
 
   // ── Meal ──────────────────────────────────────────────────────────────────
   final MealRemoteDatasource mealDatasource;
@@ -175,11 +200,23 @@ final class AppDependencies {
   final PrepareSettlement prepareSettlement;
   final FinaliseSettlement finaliseSettlement;
   final GetSettlements getSettlements;
+  final RecordSettlementPayment recordSettlementPayment;
+  final FinaliseSettlementWithResolutions finaliseSettlementWithResolutions;
+  final DepositRemoteDatasource depositDatasource;
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   final DashboardRemoteDatasource dashboardDatasource;
   final DashboardRepo dashboardRepo;
   final GetDashboardSummary getDashboardSummary;
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+  final ProfileRemoteDatasource profileDatasource;
+  final ProfileRepo profileRepo;
+  final GetUserProfile getUserProfile;
+  final UpdateUserProfile updateUserProfile;
+  final UploadProfileAvatar uploadProfileAvatar;
+  final MarkProfileOnboarded markProfileOnboarded;
+  final ProfileCubit profileCubit;
 
   // ── App blocs ─────────────────────────────────────────────────────────────
   final AppAuthGuardBloc authGuardBloc;
@@ -211,6 +248,7 @@ final class AppDependencies {
     final deleteCost = DeleteCost(costRepo);
     final getCostCategories = GetCostCategories(costRepo);
     final createCostCategory = CreateCostCategory(costRepo);
+    final deleteCostCategory = DeleteCostCategory(costRepo);
     final categoryEmojiRemoteDatasource = CategoryEmojiRemoteDatasourceImpl(
       supabase: supabase,
     );
@@ -237,6 +275,8 @@ final class AppDependencies {
     final createSprint = CreateSprint(houseRepo);
     final closeSprint = CloseSprint(houseRepo);
     final getSprintStats = GetSprintStats(houseRepo);
+    final uploadHouseAvatar = UploadHouseAvatar(repo: houseRepo);
+    final updateHouseAvatar = UpdateHouseAvatar(repo: houseRepo);
 
     // Meal
     final mealDatasource = MealRemoteDatasource(supabase: supabase);
@@ -251,11 +291,31 @@ final class AppDependencies {
     final prepareSettlement = PrepareSettlement(settlementRepo);
     final finaliseSettlement = FinaliseSettlement(settlementRepo);
     final getSettlements = GetSettlements(settlementRepo);
+    final recordSettlementPayment = RecordSettlementPayment(settlementRepo);
+    final finaliseSettlementWithResolutions =
+        FinaliseSettlementWithResolutions(settlementRepo);
+
+    // Deposit
+    final depositDatasource = DepositRemoteDatasource(supabase: supabase);
 
     // Dashboard
     final dashboardDatasource = DashboardRemoteDatasource(supabase: supabase);
     final dashboardRepo = DashboardRepoImpl(datasource: dashboardDatasource);
     final getDashboardSummary = GetDashboardSummary(dashboardRepo);
+
+    // Profile
+    final profileDatasource = ProfileRemoteDatasource(supabase: supabase);
+    final profileRepo = ProfileRepoImpl(datasource: profileDatasource);
+    final getUserProfile = GetUserProfile(profileRepo);
+    final updateUserProfile = UpdateUserProfile(profileRepo);
+    final uploadProfileAvatar = UploadProfileAvatar(profileRepo);
+    final markProfileOnboarded = MarkProfileOnboarded(profileRepo);
+    final profileCubit = ProfileCubit(
+      getUserProfile: getUserProfile,
+      updateUserProfile: updateUserProfile,
+      uploadProfileAvatar: uploadProfileAvatar,
+      markProfileOnboarded: markProfileOnboarded,
+    );
 
     // Blocs
     final authGuardBloc = AppAuthGuardBloc(watchAuthStatus: watchAuthStatus)
@@ -286,6 +346,7 @@ final class AppDependencies {
       deleteCost: deleteCost,
       getCostCategories: getCostCategories,
       createCostCategory: createCostCategory,
+      deleteCostCategory: deleteCostCategory,
       categoryEmojiRemoteDatasource: categoryEmojiRemoteDatasource,
       categoryEmojiLocalDatasource: categoryEmojiLocalDatasource,
       categoryEmojiRepo: categoryEmojiRepo,
@@ -305,6 +366,8 @@ final class AppDependencies {
       createSprint: createSprint,
       closeSprint: closeSprint,
       getSprintStats: getSprintStats,
+      uploadHouseAvatar: uploadHouseAvatar,
+      updateHouseAvatar: updateHouseAvatar,
       mealDatasource: mealDatasource,
       mealRepo: mealRepo,
       getMealLogs: getMealLogs,
@@ -315,9 +378,19 @@ final class AppDependencies {
       prepareSettlement: prepareSettlement,
       finaliseSettlement: finaliseSettlement,
       getSettlements: getSettlements,
+      recordSettlementPayment: recordSettlementPayment,
+      finaliseSettlementWithResolutions: finaliseSettlementWithResolutions,
+      depositDatasource: depositDatasource,
       dashboardDatasource: dashboardDatasource,
       dashboardRepo: dashboardRepo,
       getDashboardSummary: getDashboardSummary,
+      profileDatasource: profileDatasource,
+      profileRepo: profileRepo,
+      getUserProfile: getUserProfile,
+      updateUserProfile: updateUserProfile,
+      uploadProfileAvatar: uploadProfileAvatar,
+      markProfileOnboarded: markProfileOnboarded,
+      profileCubit: profileCubit,
       authGuardBloc: authGuardBloc,
       appThemeCubit: appThemeCubit,
       houseContextCubit: houseContextCubit,
@@ -326,6 +399,7 @@ final class AppDependencies {
   }
 
   Future<void> dispose() async {
+    await profileCubit.close();
     await authGuardBloc.close();
     await appThemeCubit.close();
     await houseContextCubit.close();
@@ -393,6 +467,9 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<CreateCostCategory>.value(
           value: dependencies.createCostCategory,
         ),
+        RepositoryProvider<DeleteCostCategory>.value(
+          value: dependencies.deleteCostCategory,
+        ),
         RepositoryProvider<CategoryEmojiRepo>.value(
           value: dependencies.categoryEmojiRepo,
         ),
@@ -429,6 +506,12 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<GetSprintStats>.value(
           value: dependencies.getSprintStats,
         ),
+        RepositoryProvider<UploadHouseAvatar>.value(
+          value: dependencies.uploadHouseAvatar,
+        ),
+        RepositoryProvider<UpdateHouseAvatar>.value(
+          value: dependencies.updateHouseAvatar,
+        ),
 
         // Meal
         RepositoryProvider<MealRepo>.value(value: dependencies.mealRepo),
@@ -453,6 +536,15 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<GetSettlements>.value(
           value: dependencies.getSettlements,
         ),
+        RepositoryProvider<RecordSettlementPayment>.value(
+          value: dependencies.recordSettlementPayment,
+        ),
+        RepositoryProvider<FinaliseSettlementWithResolutions>.value(
+          value: dependencies.finaliseSettlementWithResolutions,
+        ),
+        RepositoryProvider<DepositRemoteDatasource>.value(
+          value: dependencies.depositDatasource,
+        ),
 
         // Dashboard
         RepositoryProvider<DashboardRepo>.value(
@@ -461,12 +553,32 @@ class AppDependencyScope extends StatelessWidget {
         RepositoryProvider<GetDashboardSummary>.value(
           value: dependencies.getDashboardSummary,
         ),
+
+        // Profile
+        RepositoryProvider<ProfileRepo>.value(
+          value: dependencies.profileRepo,
+        ),
+        RepositoryProvider<GetUserProfile>.value(
+          value: dependencies.getUserProfile,
+        ),
+        RepositoryProvider<UpdateUserProfile>.value(
+          value: dependencies.updateUserProfile,
+        ),
+        RepositoryProvider<UploadProfileAvatar>.value(
+          value: dependencies.uploadProfileAvatar,
+        ),
+        RepositoryProvider<MarkProfileOnboarded>.value(
+          value: dependencies.markProfileOnboarded,
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AppThemeCubit>.value(value: dependencies.appThemeCubit),
           BlocProvider<AppAuthGuardBloc>.value(
             value: dependencies.authGuardBloc,
+          ),
+          BlocProvider<ProfileCubit>.value(
+            value: dependencies.profileCubit,
           ),
           BlocProvider<HouseContextCubit>.value(
             value: dependencies.houseContextCubit,
