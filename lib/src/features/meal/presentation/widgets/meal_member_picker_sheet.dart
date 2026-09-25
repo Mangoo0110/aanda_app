@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/meal/presentation/bloc/house_meals/house_meals_bloc.dart';
 
@@ -17,11 +19,6 @@ class MealMemberPickerSheet extends StatelessWidget {
   final HouseMealsState state;
   final ValueChanged<String> onSelectMember;
 
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-  static const Color cardColor = Colors.white;
-
   static void show({
     required BuildContext context,
     required List<HouseMember> members,
@@ -29,9 +26,10 @@ class MealMemberPickerSheet extends StatelessWidget {
     required HouseMealsState state,
     required ValueChanged<String> onSelectMember,
   }) {
+    final colors = AppColors.context(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -47,6 +45,10 @@ class MealMemberPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+    final primaryCoral = colors.primaryColor;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return SafeArea(
@@ -71,7 +73,7 @@ class MealMemberPickerSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Select Roommate',
                 style: TextStyle(
                   fontSize: 16,
@@ -98,6 +100,7 @@ class MealMemberPickerSheet extends StatelessWidget {
                       total.truncateToDouble() == total ? 0 : 1,
                     );
 
+                    final mAvatar = getAvatarImageProvider(m.avatarUrl);
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
@@ -106,19 +109,22 @@ class MealMemberPickerSheet extends StatelessWidget {
                             : (isYou
                                 ? const Color(0xFF1B1D1F)
                                 : const Color(0xFFF1F3F5)),
-                        child: Text(
-                          m.displayName.isNotEmpty
-                              ? m.displayName[0].toUpperCase()
-                              : 'M',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: isSelected
-                                ? primaryCoral
-                                : (isYou
-                                    ? Colors.white
-                                    : const Color(0xFF495057)),
-                          ),
-                        ),
+                        backgroundImage: mAvatar,
+                        child: mAvatar == null
+                            ? Text(
+                                m.displayName.isNotEmpty
+                                    ? m.displayName[0].toUpperCase()
+                                    : 'M',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: isSelected
+                                      ? primaryCoral
+                                      : (isYou
+                                          ? Colors.white
+                                          : const Color(0xFF495057)),
+                                ),
+                              )
+                            : null,
                       ),
                       title: Row(
                         children: [
@@ -144,7 +150,7 @@ class MealMemberPickerSheet extends StatelessWidget {
                                 color: primaryCoral.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'You',
                                 style: TextStyle(
                                   fontSize: 9,
@@ -158,13 +164,13 @@ class MealMemberPickerSheet extends StatelessWidget {
                       ),
                       subtitle: Text(
                         '$totalStr meals logged in cycle',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: subText,
                         ),
                       ),
                       trailing: isSelected
-                          ? const Icon(
+                          ? Icon(
                               Icons.check_circle_rounded,
                               color: primaryCoral,
                               size: 20,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
 
@@ -9,56 +11,63 @@ class MemberMealRow extends StatelessWidget {
     required this.meal,
     required this.isYou,
     required this.index,
-    required this.onCycleBrk,
-    required this.onCycleLunch,
-    required this.onCycleDinner,
-    required this.onTapRow,
+    this.onCycleBrk,
+    this.onCycleLunch,
+    this.onCycleDinner,
+    this.onTapRow,
+    this.flexMember = 42,
+    this.flexBrk = 18,
+    this.flexLunch = 18,
+    this.flexDinner = 18,
+    this.useMockFallback = false,
   });
 
   final HouseMember member;
   final MealLog? meal;
   final bool isYou;
   final int index;
-  final VoidCallback onCycleBrk;
-  final VoidCallback onCycleLunch;
-  final VoidCallback onCycleDinner;
-  final VoidCallback onTapRow;
+  final VoidCallback? onCycleBrk;
+  final VoidCallback? onCycleLunch;
+  final VoidCallback? onCycleDinner;
+  final VoidCallback? onTapRow;
+  final int flexMember;
+  final int flexBrk;
+  final int flexLunch;
+  final int flexDinner;
+  final bool useMockFallback;
+
+  String _formatCount(double count) {
+    if (count == 0) return '0';
+    return count % 1 == 0 ? count.toInt().toString() : count.toStringAsFixed(1);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const darkText = Color(0xFF1B1D1F);
-    const subText = Color(0xFF8C8D8E);
-    const primaryCoral = Color(0xFFD85A38);
+    final colors = AppColors.context(context);
+    final darkText = colors.textPrimaryColor;
+    final subText = colors.textSecondaryColor;
+    final primaryCoral = colors.primaryColor;
     const inactiveZero = Color(0xFFC7C9CC);
 
-    final breakfast =
-        meal?.breakfast ?? (index < 3 ? 1.0 : (index == 3 ? 0.0 : 1.0));
-    final lunch = meal?.lunch ?? (index == 3 ? 0.0 : 1.0);
-    final dinner = meal?.dinner ?? 1.0;
+    final breakfast = meal?.breakfast ??
+        (useMockFallback ? (index < 3 ? 1.0 : (index == 3 ? 0.0 : 1.0)) : 0.0);
+    final lunch = meal?.lunch ??
+        (useMockFallback ? (index == 3 ? 0.0 : 1.0) : 0.0);
+    final dinner = meal?.dinner ??
+        (useMockFallback ? 1.0 : 0.0);
 
     final initial = member.displayName.isNotEmpty
         ? member.displayName[0].toUpperCase()
         : 'M';
-
-    // Room subtitle mockup mapping
-    final roomLabels = [
-      'Master Bed',
-      'Room 1B',
-      'Room 2B',
-      'Room 1A',
-      'Room 2A',
-    ];
-    final roomSubtitle = index < roomLabels.length
-        ? roomLabels[index]
-        : 'Roommate';
+    final avatarProvider = getAvatarImageProvider(member.avatarUrl);
 
     // Avatar styling matching mockup
     final Color avatarBg = isYou
-        ? const Color(0xFF1B1D1F)
-        : (initial == 'R' ? const Color(0xFFFDEEE8) : const Color(0xFFF1F3F5));
+        ? darkText
+        : (initial == 'R' ? colors.tileColor : const Color(0xFFF1F3F5));
     final Color avatarTextColor = isYou
         ? Colors.white
-        : (initial == 'R' ? const Color(0xFFD85A38) : const Color(0xFF495057));
+        : (initial == 'R' ? primaryCoral : const Color(0xFF495057));
 
     return InkWell(
       onTap: onTapRow,
@@ -66,9 +75,9 @@ class MemberMealRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // 1. Roommate Column (flex: 42)
+            // 1. Roommate Column
             Expanded(
-              flex: 42,
+              flex: flexMember,
               child: Row(
                 children: [
                   Stack(
@@ -76,14 +85,17 @@ class MemberMealRow extends StatelessWidget {
                       CircleAvatar(
                         radius: 14,
                         backgroundColor: avatarBg,
-                        child: Text(
-                          initial,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: avatarTextColor,
-                          ),
-                        ),
+                        backgroundImage: avatarProvider,
+                        child: avatarProvider == null
+                            ? Text(
+                                initial,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: avatarTextColor,
+                                ),
+                              )
+                            : null,
                       ),
                       if (isYou)
                         Positioned(
@@ -111,12 +123,13 @@ class MemberMealRow extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 member.displayName,
-                                style: const TextStyle(
-                                  fontSize: 13,
+                                style: TextStyle(
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: darkText,
+                                  height: 1,
                                 ),
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -131,7 +144,7 @@ class MemberMealRow extends StatelessWidget {
                                   color: primaryCoral.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'You',
                                   style: TextStyle(
                                     fontSize: 9,
@@ -142,7 +155,7 @@ class MemberMealRow extends StatelessWidget {
                               ),
                             ] else if (member.isAdmin) ...[
                               const SizedBox(width: 4),
-                              const Text(
+                              Text(
                                 'Admin',
                                 style: TextStyle(
                                   fontSize: 10,
@@ -153,13 +166,6 @@ class MemberMealRow extends StatelessWidget {
                             ],
                           ],
                         ),
-                        const SizedBox(height: 1),
-                        Text(
-                          roomSubtitle,
-                          style: const TextStyle(fontSize: 11, color: subText),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
                   ),
@@ -167,20 +173,20 @@ class MemberMealRow extends StatelessWidget {
               ),
             ),
 
-            // 2. BRK Column (flex: 18)
+            // 2. BRK Column
             Expanded(
-              flex: 18,
+              flex: flexBrk,
               child: Center(
                 child: InkWell(
-                  onTap: onCycleBrk,
+                  onTap: onCycleBrk ?? onTapRow,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 6,
                       vertical: 6,
                     ),
                     child: Text(
-                      breakfast.toStringAsFixed(1),
+                      _formatCount(breakfast),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: breakfast > 0
@@ -194,20 +200,20 @@ class MemberMealRow extends StatelessWidget {
               ),
             ),
 
-            // 3. LUNCH Column (flex: 18)
+            // 3. LUNCH Column
             Expanded(
-              flex: 18,
+              flex: flexLunch,
               child: Center(
                 child: InkWell(
-                  onTap: onCycleLunch,
+                  onTap: onCycleLunch ?? onTapRow,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 6,
                       vertical: 6,
                     ),
                     child: Text(
-                      lunch.toStringAsFixed(1),
+                      _formatCount(lunch),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: lunch > 0
@@ -221,20 +227,20 @@ class MemberMealRow extends StatelessWidget {
               ),
             ),
 
-            // 4. DINNER Column (flex: 18)
+            // 4. DINNER Column
             Expanded(
-              flex: 18,
+              flex: flexDinner,
               child: Center(
                 child: InkWell(
-                  onTap: onCycleDinner,
+                  onTap: onCycleDinner ?? onTapRow,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 6,
                       vertical: 6,
                     ),
                     child: Text(
-                      dinner.toStringAsFixed(1),
+                      _formatCount(dinner),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: dinner > 0

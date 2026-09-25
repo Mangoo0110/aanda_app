@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/meal/presentation/bloc/house_meals/house_meals_bloc.dart';
 
@@ -12,16 +13,12 @@ class MealCyclePickerSheet extends StatelessWidget {
 
   final HouseMealsState state;
 
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-  static const Color cardColor = Colors.white;
-
   static void show(BuildContext context, HouseMealsState state) {
     final bloc = context.read<HouseMealsBloc>();
+    final colors = AppColors.context(context);
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -35,6 +32,8 @@ class MealCyclePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    final darkText = colors.textColor;
     final cycles = state.sprints;
     final now = DateTime.now();
 
@@ -56,13 +55,13 @@ class MealCyclePickerSheet extends StatelessWidget {
                   width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.15),
+                    color: colors.dividerColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Select Cycle',
                 style: TextStyle(
                   fontSize: 16,
@@ -88,7 +87,7 @@ class MealCyclePickerSheet extends StatelessWidget {
                     itemCount: displayCycles.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: colors.dividerColor,
                     ),
                     itemBuilder: (ctx, idx) {
                       final cycle = displayCycles[idx];
@@ -128,6 +127,11 @@ class MealCyclePickerSheet extends StatelessWidget {
     required bool isOpen,
     required VoidCallback? onTap,
   }) {
+    final colors = AppColors.context(context);
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+    final primaryCoral = colors.primaryColor;
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
@@ -136,7 +140,7 @@ class MealCyclePickerSheet extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? primaryCoral.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.04),
+              : colors.softGrey,
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -177,10 +181,10 @@ class MealCyclePickerSheet extends StatelessWidget {
       ),
       subtitle: Text(
         dateRange,
-        style: const TextStyle(fontSize: 12, color: subText),
+        style: TextStyle(fontSize: 12, color: subText),
       ),
       trailing: isSelected
-          ? const Icon(Icons.check_rounded, color: primaryCoral, size: 20)
+          ? Icon(Icons.check_rounded, color: primaryCoral, size: 20)
           : null,
       onTap: onTap,
     );

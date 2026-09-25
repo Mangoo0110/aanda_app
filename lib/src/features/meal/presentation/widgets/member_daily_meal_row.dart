@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
 
 class MemberDailyMealRow extends StatelessWidget {
@@ -7,7 +8,7 @@ class MemberDailyMealRow extends StatelessWidget {
     super.key,
     required this.date,
     required this.meal,
-    required this.isToday,
+    this.isToday,
     required this.onCycleBrk,
     required this.onCycleLunch,
     required this.onCycleDinner,
@@ -16,7 +17,7 @@ class MemberDailyMealRow extends StatelessWidget {
 
   final DateTime date;
   final MealLog? meal;
-  final bool isToday;
+  final bool? isToday;
   final VoidCallback onCycleBrk;
   final VoidCallback onCycleLunch;
   final VoidCallback onCycleDinner;
@@ -24,10 +25,13 @@ class MemberDailyMealRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const darkText = Color(0xFF1B1D1F);
-    const subText = Color(0xFF8C8D8E);
-    const primaryCoral = Color(0xFFD85A38);
+    final colors = AppColors.context(context);
+    final darkText = colors.textPrimaryColor;
+    final subText = colors.textSecondaryColor;
+    final primaryCoral = colors.primaryColor;
     const inactiveZero = Color(0xFFC7C9CC);
+
+    final effectiveIsToday = isToday ?? DateUtils.isSameDay(date, DateTime.now());
 
     final breakfast = meal?.breakfast ?? 0.0;
     final lunch = meal?.lunch ?? 0.0;
@@ -58,10 +62,10 @@ class MemberDailyMealRow extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: isToday ? primaryCoral : darkText,
+                              color: effectiveIsToday ? primaryCoral : darkText,
                             ),
                           ),
-                          if (isToday) ...[
+                          if (effectiveIsToday) ...[
                             const SizedBox(width: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -72,7 +76,7 @@ class MemberDailyMealRow extends StatelessWidget {
                                 color: primaryCoral.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'TODAY',
                                 style: TextStyle(
                                   fontSize: 8,
@@ -87,7 +91,7 @@ class MemberDailyMealRow extends StatelessWidget {
                       const SizedBox(height: 1),
                       Text(
                         DateFormat('EEEE').format(date),
-                        style: const TextStyle(fontSize: 10, color: subText),
+                        style: TextStyle(fontSize: 10, color: subText),
                       ),
                     ],
                   ),

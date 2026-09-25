@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
 import 'package:aanda/src/features/meal/presentation/bloc/house_meals/house_meals_bloc.dart';
@@ -25,9 +27,10 @@ class EditMemberMealSheet extends StatefulWidget {
     required DateTime date,
   }) {
     final bloc = context.read<HouseMealsBloc>();
+    final colors = AppColors.context(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -48,9 +51,6 @@ class EditMemberMealSheet extends StatefulWidget {
 }
 
 class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
 
   late double _breakfast;
   late double _lunch;
@@ -66,6 +66,11 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+    final primaryCoral = colors.primaryColor;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -93,7 +98,7 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
                     widget.member.displayName.isNotEmpty
                         ? widget.member.displayName[0].toUpperCase()
                         : 'M',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: primaryCoral,
                     ),
@@ -105,7 +110,7 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
                   children: [
                     Text(
                       widget.member.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: darkText,
@@ -113,7 +118,7 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
                     ),
                     Text(
                       DateFormat('d MMM yyyy').format(widget.date),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: subText,
                       ),
@@ -148,14 +153,17 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
               height: 46,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: primaryCoral,
+                  backgroundColor: const Color(0xFF141414),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 onPressed: () {
+                  final houseCtx = context.read<HouseContextCubit>();
+                  final mealsBloc = context.read<HouseMealsBloc>();
                   Navigator.of(context).pop();
-                  context.read<HouseMealsBloc>().add(
+                  mealsBloc.add(
                         HouseMealEntryChanged(
                           userId: widget.member.userId,
                           logDate: widget.date,
@@ -164,6 +172,7 @@ class _EditMemberMealSheetState extends State<EditMemberMealSheet> {
                           dinner: _dinner,
                         ),
                       );
+                  houseCtx.notifyMealUpdated();
                 },
                 child: const Text(
                   'Update Meals',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 
 class StepperButton extends StatelessWidget {
   const StepperButton({
@@ -12,8 +13,9 @@ class StepperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryCoral = Color(0xFFD85A38);
-    const subText = Color(0xFF8C8D8E);
+    final colors = AppColors.context(context);
+    final primaryColor = colors.primaryColor;
+    final subText = colors.textSecondaryColor;
 
     final enabled = onTap != null;
     return InkWell(
@@ -24,14 +26,14 @@ class StepperButton extends StatelessWidget {
         height: 34,
         decoration: BoxDecoration(
           color: enabled
-              ? primaryCoral.withValues(alpha: 0.1)
-              : Colors.black.withValues(alpha: 0.04),
+              ? primaryColor.withValues(alpha: 0.12)
+              : colors.textColor.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
           size: 18,
-          color: enabled ? primaryCoral : subText.withValues(alpha: 0.4),
+          color: enabled ? primaryColor : subText.withValues(alpha: 0.35),
         ),
       ),
     );

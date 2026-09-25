@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
+import 'package:aanda/src/features/house/domain/entities/member_role.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
 import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
@@ -34,6 +35,8 @@ final class HouseMealsBloc extends Bloc<HouseMealsEvent, HouseMealsState> {
     on<HouseMealsDateSelected>(_onDateSelected);
     on<HouseMealEntryChanged>(_onMealEntryChanged);
     on<HouseMealsCycleChanged>(_onCycleChanged);
+    on<HouseMealsMemberSelected>(_onMemberSelected);
+    on<HouseMealBulkEntryChanged>(_onBulkMealEntryChanged);
   }
 
   final GetHouseMembers _getHouseMembers;
@@ -234,6 +237,28 @@ final class HouseMealsBloc extends Bloc<HouseMealsEvent, HouseMealsState> {
       emit(state.copyWith(
         status: HouseMealsStatus.failure,
         sprints: sprints ?? state.sprints,
+      ));
+    }
+  }
+
+  void _onMemberSelected(
+    HouseMealsMemberSelected event,
+    Emitter<HouseMealsState> emit,
+  ) {
+    emit(state.copyWith(selectedMemberUserId: event.userId));
+  }
+
+  Future<void> _onBulkMealEntryChanged(
+    HouseMealBulkEntryChanged event,
+    Emitter<HouseMealsState> emit,
+  ) async {
+    for (final userId in event.userIds) {
+      add(HouseMealEntryChanged(
+        userId: userId,
+        logDate: event.logDate,
+        breakfast: event.breakfast,
+        lunch: event.lunch,
+        dinner: event.dinner,
       ));
     }
   }

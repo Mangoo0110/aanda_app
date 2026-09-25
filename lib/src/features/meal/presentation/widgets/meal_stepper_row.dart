@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/meal/presentation/widgets/stepper_button.dart';
 
 class MealStepperRow extends StatelessWidget {
@@ -15,11 +16,7 @@ class MealStepperRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const darkText = Color(0xFF1B1D1F);
-    const subText = Color(0xFF8C8D8E);
-    const primaryCoral = Color(0xFFD85A38);
-    const cardColor = Colors.white;
-
+    final colors = AppColors.context(context);
     final displayStr = value == 0.0
         ? '0'
         : value.truncateToDouble() == value
@@ -29,7 +26,7 @@ class MealStepperRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAF5EE),
+        color: colors.softGrey,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -38,10 +35,10 @@ class MealStepperRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: darkText,
+                color: colors.textColor,
               ),
             ),
           ),
@@ -63,7 +60,7 @@ class MealStepperRow extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 44),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: value > 0 ? primaryCoral : cardColor,
+              color: value > 0 ? colors.primaryColor : colors.surfaceColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
@@ -72,7 +69,7 @@ class MealStepperRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: value > 0 ? Colors.white : subText,
+                color: value > 0 ? Colors.white : colors.grey,
               ),
             ),
           ),

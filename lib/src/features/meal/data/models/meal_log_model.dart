@@ -20,7 +20,7 @@ class MealLogModel extends MealLog {
 
     return MealLogModel(
       id: json['id'] as String,
-      houseId: json['house_id'] as String,
+      houseId: (json['expense_account_id'] ?? json['house_id'] ?? '') as String,
       cycleId: json['cycle_id'] as String,
       userId: json['user_id'] as String,
       logDate: DateTime.parse(json['log_date'] as String),
@@ -36,7 +36,7 @@ class MealLogModel extends MealLog {
 
   Map<String, dynamic> toJson() {
     return {
-      'house_id': houseId,
+      'expense_account_id': houseId,
       'cycle_id': cycleId,
       'user_id': userId,
       'log_date': logDate.toIso8601String().substring(0, 10),

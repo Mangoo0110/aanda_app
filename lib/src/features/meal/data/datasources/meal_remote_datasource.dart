@@ -14,7 +14,7 @@ class MealRemoteDatasource {
       final rows = await _supabase
           .from('billing_cycles')
           .select('id')
-          .eq('house_id', houseId)
+          .eq('expense_account_id', houseId)
           .eq('status', 'open')
           .order('start_date', ascending: false)
           .limit(1);
@@ -33,7 +33,7 @@ class MealRemoteDatasource {
     var query = _supabase
         .from('meal_logs')
         .select('*, profiles(id, full_name, username)')
-        .eq('house_id', houseId);
+        .eq('expense_account_id', houseId);
 
     final resolvedCycle = await _resolveCycleId(houseId, cycleId);
     if (resolvedCycle != null && resolvedCycle.isNotEmpty) {
@@ -64,7 +64,7 @@ class MealRemoteDatasource {
     final resolvedCycle = await _resolveCycleId(houseId, cycleId);
 
     final payload = <String, dynamic>{
-      'house_id': houseId,
+      'expense_account_id': houseId,
       'user_id': userId,
       'log_date': dateStr,
       'breakfast': breakfast,
@@ -78,7 +78,7 @@ class MealRemoteDatasource {
 
     final data = await _supabase
         .from('meal_logs')
-        .upsert(payload, onConflict: 'house_id,user_id,log_date')
+        .upsert(payload, onConflict: 'expense_account_id,user_id,log_date')
         .select('*, profiles(id, full_name, username)')
         .single();
 

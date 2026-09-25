@@ -38,3 +38,24 @@ final class HouseMealsCycleChanged extends HouseMealsEvent {
   const HouseMealsCycleChanged(this.sprint);
   final Sprint sprint;
 }
+
+final class HouseMealsMemberSelected extends HouseMealsEvent {
+  const HouseMealsMemberSelected(this.userId);
+  final String userId;
+}
+
+final class HouseMealBulkEntryChanged extends HouseMealsEvent {
+  const HouseMealBulkEntryChanged({
+    required this.userIds,
+    required this.logDate,
+    required this.breakfast,
+    required this.lunch,
+    required this.dinner,
+  });
+
+  final List<String> userIds;
+  final DateTime logDate;
+  final double breakfast;
+  final double lunch;
+  final double dinner;
+}

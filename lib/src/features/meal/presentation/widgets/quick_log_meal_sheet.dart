@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/meal/presentation/bloc/house_meals/house_meals_bloc.dart';
 import 'package:aanda/src/features/meal/presentation/widgets/meal_stepper_row.dart';
@@ -20,10 +22,11 @@ class QuickLogMealSheet extends StatefulWidget {
     final state = bloc.state;
     final members = state.members;
     if (members.isEmpty) return;
+    final colors = AppColors.context(context);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -43,10 +46,6 @@ class QuickLogMealSheet extends StatefulWidget {
 }
 
 class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-
   double _breakfast = 1.0;
   double _lunch = 1.0;
   double _dinner = 1.0;
@@ -61,6 +60,11 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+    final primaryCoral = colors.primaryColor;
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -87,7 +91,7 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Log Meals',
                   style: TextStyle(
                     fontSize: 16,
@@ -97,7 +101,7 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
                 ),
                 Text(
                   DateFormat('d MMM yyyy').format(widget.selectedDate),
-                  style: const TextStyle(fontSize: 12, color: subText),
+                  style: TextStyle(fontSize: 12, color: subText),
                 ),
               ],
             ),
@@ -117,7 +121,7 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
                 decoration: BoxDecoration(
                   color: _applyToAll
                       ? primaryCoral.withValues(alpha: 0.1)
-                      : const Color(0xFFFAF5EE),
+                      : colors.softGrey,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -145,7 +149,7 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
             const SizedBox(height: 14),
 
             if (!_applyToAll) ...[
-              const Text(
+              Text(
                 'Select Roommate',
                 style: TextStyle(
                   fontSize: 12,
@@ -156,9 +160,19 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 initialValue: _selectedUserId,
+                dropdownColor: colors.surfaceColor,
+                focusColor: Colors.transparent,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textColor,
+                ),
+                iconEnabledColor: colors.textColor,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: const Color(0xFFFAF5EE),
+                  fillColor: colors.softGrey,
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -167,15 +181,27 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: primaryCoral,
+                      width: 1.2,
+                    ),
+                  ),
                 ),
                 items: widget.members.map((m) {
                   return DropdownMenuItem(
                     value: m.userId,
                     child: Text(
                       m.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        color: colors.textColor,
                       ),
                     ),
                   );
@@ -216,27 +242,28 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
               height: 46,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: primaryCoral,
+                  backgroundColor: const Color(0xFF141414),
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 onPressed: () {
+                  final houseCtx = context.read<HouseContextCubit>();
+                  final mealsBloc = context.read<HouseMealsBloc>();
                   Navigator.of(context).pop();
                   if (_applyToAll) {
-                    for (final m in widget.members) {
-                      context.read<HouseMealsBloc>().add(
-                            HouseMealEntryChanged(
-                              userId: m.userId,
-                              logDate: widget.selectedDate,
-                              breakfast: _breakfast,
-                              lunch: _lunch,
-                              dinner: _dinner,
-                            ),
-                          );
-                    }
+                    mealsBloc.add(
+                          HouseMealBulkEntryChanged(
+                            userIds: widget.members.map((m) => m.userId).toList(),
+                            logDate: widget.selectedDate,
+                            breakfast: _breakfast,
+                            lunch: _lunch,
+                            dinner: _dinner,
+                          ),
+                        );
                   } else {
-                    context.read<HouseMealsBloc>().add(
+                    mealsBloc.add(
                           HouseMealEntryChanged(
                             userId: _selectedUserId,
                             logDate: widget.selectedDate,
@@ -246,6 +273,7 @@ class _QuickLogMealSheetState extends State<QuickLogMealSheet> {
                           ),
                         );
                   }
+                  houseCtx.notifyMealUpdated();
                 },
                 child: const Text(
                   'Save Meals',
