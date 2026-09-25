@@ -1,3 +1,4 @@
+import 'package:aanda/src/features/cost/data/models/cost_model.dart';
 import 'package:aanda/src/features/dashboard/data/models/dashboard_activity_model.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_summary.dart';
 
@@ -8,12 +9,20 @@ class DashboardSummaryModel extends DashboardSummary {
     required super.totalHouseSpent,
     required super.myHouseContribution,
     required super.activities,
+    super.recentCosts = const [],
   });
 
   factory DashboardSummaryModel.fromJson(Map<String, dynamic> json) {
     final rawActivities = json['activities'] as List<dynamic>? ?? const [];
     final activities = rawActivities
         .map((a) => DashboardActivityModel.fromJson(a as Map<String, dynamic>))
+        .toList();
+
+    final rawCosts = json['recent_costs'] as List<dynamic>? ??
+        json['costs'] as List<dynamic>? ??
+        const [];
+    final recentCosts = rawCosts
+        .map((c) => CostModel.fromJson(c as Map<String, dynamic>))
         .toList();
 
     return DashboardSummaryModel(
@@ -23,6 +32,7 @@ class DashboardSummaryModel extends DashboardSummary {
       myHouseContribution:
           (json['my_house_contribution'] as num?)?.toDouble() ?? 0.0,
       activities: activities,
+      recentCosts: recentCosts,
     );
   }
 

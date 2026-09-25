@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aanda/src/features/cost/data/models/cost_model.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/dashboard/data/models/dashboard_activity_model.dart';
 import 'package:aanda/src/features/dashboard/data/models/dashboard_summary_model.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_activity.dart';
@@ -9,6 +11,29 @@ class DashboardRemoteDatasource {
     : _supabase = supabase;
 
   final SupabaseClient _supabase;
+
+  static const _costSelectQuery = '''
+    id,
+    expense_account_id,
+    cycle_id,
+    paid_by,
+    category_id,
+    name,
+    amount,
+    cost_type,
+    cost_scope,
+    note,
+    purchase_date,
+    created_at,
+    profiles (
+      username,
+      full_name
+    ),
+    cost_categories (
+      name,
+      icon
+    )
+  ''';
 
   String get _currentUserId =>
       _supabase.auth.currentUser?.id ?? (throw Exception('Not authenticated'));
@@ -31,7 +56,7 @@ class DashboardRemoteDatasource {
         body: {
           'action': 'summary',
           'month': targetMonth,
-          if (houseId != null) 'house_id': houseId,
+          if (houseId != null) 'expense_account_id': houseId,
           if (cycleId != null) 'cycle_id': cycleId,
           if (startDate != null)
             'start_date': startDate.toIso8601String().substring(0, 10),
@@ -92,7 +117,7 @@ class DashboardRemoteDatasource {
     // 1. Personal costs for current user within period
     final personalQuery = _supabase
         .from('costs')
-        .select('id, name, amount, purchase_date, created_at')
+        .select(_costSelectQuery)
         .eq('paid_by', _currentUserId)
         .eq('cost_scope', 'personal');
 
@@ -106,10 +131,15 @@ class DashboardRemoteDatasource {
 
     double personalSpent = 0;
     final List<DashboardActivityModel> activities = [];
+    final List<Cost> allCosts = [];
 
     for (final r in personalRows) {
       final amt = (r['amount'] as num?)?.toDouble() ?? 0.0;
       personalSpent += amt;
+
+      try {
+        allCosts.add(CostModel.fromJson(r));
+      } catch (_) {}
 
       final pDate =
           DateTime.tryParse(r['purchase_date'] as String? ?? '') ??
@@ -131,22 +161,22 @@ class DashboardRemoteDatasource {
     double totalHouseSpent = 0;
     double myHouseContribution = 0;
 
+    final sharedRows = <dynamic>[];
     if (houseId != null) {
       final sharedQuery = _supabase
           .from('costs')
-          .select(
-            'id, house_id, cycle_id, paid_by, name, amount, purchase_date, created_at, profiles(username, full_name)',
-          )
-          .eq('house_id', houseId)
+          .select(_costSelectQuery)
+          .eq('expense_account_id', houseId)
           .eq('cost_scope', 'shared');
 
-      final sharedRows = cycleId != null
+      final queriedShared = cycleId != null
           ? await sharedQuery.or(
               'cycle_id.eq.$cycleId,and(purchase_date.gte.$startIso,purchase_date.lte.$endIso)',
             )
           : await sharedQuery
               .gte('purchase_date', startIso)
               .lte('purchase_date', endIso);
+      sharedRows.addAll(queriedShared);
 
       for (final r in sharedRows) {
         final amt = (r['amount'] as num?)?.toDouble() ?? 0.0;
@@ -155,6 +185,10 @@ class DashboardRemoteDatasource {
         if (payerId == _currentUserId) {
           myHouseContribution += amt;
         }
+
+        try {
+          allCosts.add(CostModel.fromJson(r as Map<String, dynamic>));
+        } catch (_) {}
 
         final profile = r['profiles'] as Map<String, dynamic>?;
         final payerName = payerId == _currentUserId
@@ -185,7 +219,7 @@ class DashboardRemoteDatasource {
             .select(
               'id, user_id, cycle_id, log_date, breakfast, lunch, dinner, created_at, updated_at, profiles(username, full_name)',
             )
-            .eq('house_id', houseId);
+            .eq('expense_account_id', houseId);
 
         final mealRows = cycleId != null
             ? await mealQuery
@@ -244,12 +278,17 @@ class DashboardRemoteDatasource {
     // Sort descending by timestamp
     activities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
+    // Sort costs descending by purchase date
+    allCosts.sort((a, b) => b.purchaseDate.compareTo(a.purchaseDate));
+    final recentCosts = allCosts.take(10).toList();
+
     return DashboardSummaryModel(
       month: targetMonth,
       personalSpent: personalSpent,
       totalHouseSpent: totalHouseSpent,
       myHouseContribution: myHouseContribution,
       activities: activities.take(15).toList(),
+      recentCosts: recentCosts,
     );
   }
 }

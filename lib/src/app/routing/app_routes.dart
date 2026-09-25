@@ -1,6 +1,10 @@
 class AppRoutes {
   const AppRoutes._();
 
+  static const splash = '/splash';
+  static const profileOnboarding = '/profile-onboarding';
+  static const profileEdit = '/profile-edit';
+
   // ── Auth ──────────────────────────────────────────────────────────────────
   static const auth = '/auth';
   static const authLogin = '/auth/login';
@@ -8,9 +12,11 @@ class AppRoutes {
   static const authForgotPassword = '/auth/forgot-password';
   static const authResetPassword = '/auth/reset-password';
 
-  // ── Home / Expenses & Houses ──────────────────────────────────────────────
   static const home = '/home';
   static const costs = '/costs';
+  static const mealsTab = '/meals-tab';
+  static const settlement = '/settlement';
+  static const account = '/account';
   static const costAdd = '/costs/add';
   static const costCategoryAdd = '/costs/categories/new';
   static const houseCreate = '/houses/create';

@@ -22,6 +22,7 @@ part 'tab_bar_theme.dart';
 part 'text_theme.dart';
 part 'text_selection_theme.dart';
 part 'slider_theme.dart';
+part 'app_text_styles.dart';
 
 class AppTheme {
   AppTheme();
@@ -73,6 +74,40 @@ class AppTheme {
       checkboxTheme: DCheckboxTheme.lightCheckboxTheme,
       cardTheme: DCardTheme.lightCardTheme,
       bottomNavigationBarTheme: DBottomNavigationBarThemes.lightBottomNavTheme,
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colors.surfaceColor,
+        indicatorColor: Colors.transparent,
+        elevation: 0,
+        height: 62,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: colors.textColor,
+              fontFamily: 'Public Sans',
+            );
+          }
+          return TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: colors.grey,
+            fontFamily: 'Public Sans',
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(
+              color: colors.textColor,
+              size: 20,
+            );
+          }
+          return IconThemeData(
+            color: colors.grey,
+            size: 20,
+          );
+        }),
+      ),
       tabBarTheme: DTabBarTheme.lightTabBarTheme,
       listTileTheme: ListTileThemeData(
         iconColor: colors.iconColor,
@@ -89,6 +124,12 @@ class AppTheme {
       iconButtonTheme: AppButtonThemes.icon(colors),
       floatingActionButtonTheme: FloatingActionButtonThemes.lightTheme,
       sliderTheme: AppSliderTheme.lightTheme,
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (BuildContext context) => const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 18,
+        ),
+      ),
     );
   }
 
@@ -141,6 +182,40 @@ class AppTheme {
       cardTheme: DCardTheme.darkCardTheme,
       tabBarTheme: DTabBarTheme.darkTabBarTheme,
       bottomNavigationBarTheme: DBottomNavigationBarThemes.darkBottomNavTheme,
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colors.surfaceColor,
+        indicatorColor: Colors.transparent,
+        elevation: 0,
+        height: 62,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: colors.textColor,
+              fontFamily: 'Public Sans',
+            );
+          }
+          return TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: colors.grey,
+            fontFamily: 'Public Sans',
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(
+              color: colors.textColor,
+              size: 20,
+            );
+          }
+          return IconThemeData(
+            color: colors.grey,
+            size: 20,
+          );
+        }),
+      ),
       dividerTheme: DDividerTheme.darkDividerTheme,
       listTileTheme: ListTileThemeData(
         iconColor: colors.iconColor,
@@ -156,6 +231,12 @@ class AppTheme {
       iconButtonTheme: AppButtonThemes.icon(colors),
       floatingActionButtonTheme: FloatingActionButtonThemes.darkTheme,
       sliderTheme: AppSliderTheme.darkTheme,
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (BuildContext context) => const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 18,
+        ),
+      ),
     );
   }
 }

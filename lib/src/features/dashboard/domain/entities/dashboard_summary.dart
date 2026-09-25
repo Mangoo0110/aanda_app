@@ -1,3 +1,4 @@
+import 'package:aanda/src/features/cost/domain/entities/cost.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_activity.dart';
 
 class DashboardSummary {
@@ -7,6 +8,7 @@ class DashboardSummary {
     required this.totalHouseSpent,
     required this.myHouseContribution,
     required this.activities,
+    this.recentCosts = const [],
   });
 
   final String month;
@@ -14,4 +16,5 @@ class DashboardSummary {
   final double totalHouseSpent;
   final double myHouseContribution;
   final List<DashboardActivity> activities;
+  final List<Cost> recentCosts;
 }

@@ -3,6 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/features/cost/presentation/widgets/cost_creation_journey_sheet.dart';
+import 'package:aanda/src/features/settlement/presentation/widgets/record_deposit_sheet.dart';
+import 'package:aanda/src/core/shared/widget/app_nav_sheet_tile.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
 
 class DashboardQuickActionsSheet extends StatelessWidget {
   const DashboardQuickActionsSheet({
@@ -22,10 +27,6 @@ class DashboardQuickActionsSheet extends StatelessWidget {
   final String? houseName;
   final bool? isAdmin;
 
-  static const Color cardColor = Colors.white;
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-
   static void show({
     required BuildContext context,
     required bool isPersonal,
@@ -35,9 +36,11 @@ class DashboardQuickActionsSheet extends StatelessWidget {
     String? houseName,
     bool? isAdmin,
   }) {
+    final colors = AppColors.context(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      isScrollControlled: true,
+      backgroundColor: colors.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -54,55 +57,62 @@ class DashboardQuickActionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final colors = AppColors.context(context);
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.85;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxSheetHeight),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.15),
+                  color: colors.dividerColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
+            Text(
               'Quick Actions',
-              style: TextStyle(
+              style: AppTextStyles.sectionHeader.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: darkText,
+                color: colors.textColor,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Choose what you want to record',
-              style: TextStyle(fontSize: 12, color: subText),
+            Text(
+              'Choose what you want to record or create',
+              style: AppTextStyles.rowSubtitle.copyWith(color: colors.grey),
             ),
             const SizedBox(height: 16),
-            _buildTile(
-              context: context,
-              emoji: '📝',
+            AppNavSheetTile(
+              icon: Icons.receipt_long_rounded,
               title: 'Add Expense',
               subtitle: 'Record personal or shared house cost',
               onTap: () async {
                 Navigator.of(context).pop();
-                final res = await context.push(AppRoutes.costAdd);
-                if (res == true) onRefresh();
+                await CostCreationJourneySheet.start(
+                  context,
+                  preferredHouseId: isPersonal ? null : houseId,
+                );
+                onRefresh();
               },
             ),
-            const SizedBox(height: 10),
-            _buildTile(
-              context: context,
-              emoji: '🏷️',
+            const SizedBox(height: 8),
+            AppNavSheetTile(
+              icon: Icons.category_rounded,
               title: 'New Expense Category',
-              subtitle: 'Create a custom category for expenses',
+              subtitle: 'Create a custom category preset',
               onTap: () async {
                 Navigator.of(context).pop();
                 await context.push(AppRoutes.costCategoryAdd);
@@ -110,23 +120,37 @@ class DashboardQuickActionsSheet extends StatelessWidget {
               },
             ),
             if (!isPersonal) ...[
-              const SizedBox(height: 10),
-              _buildTile(
-                context: context,
-                emoji: '🍲',
-                title: 'Meal Log (Add Meal)',
+              const SizedBox(height: 8),
+              AppNavSheetTile(
+                icon: Icons.restaurant_menu_rounded,
+                title: 'Log Meals',
                 subtitle: 'Record breakfast, lunch & dinner for today',
                 onTap: () {
                   Navigator.of(context).pop();
                   onNavigateToMeals();
                 },
               ),
-              const SizedBox(height: 10),
-              _buildTile(
-                context: context,
-                emoji: '⚖️',
+              const SizedBox(height: 8),
+              AppNavSheetTile(
+                icon: Icons.payments_rounded,
+                title: 'Record Member Deposit',
+                subtitle: 'Add cash advance or deposit from house member',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  if (houseId != null) {
+                    RecordDepositSheet.show(
+                      context: context,
+                      houseId: houseId!,
+                      onDepositSaved: onRefresh,
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              AppNavSheetTile(
+                icon: Icons.account_balance_rounded,
                 title: 'Start Settlement',
-                subtitle: 'Settle shared costs for a date range',
+                subtitle: 'Settle shared costs for this cycle',
                 onTap: () {
                   Navigator.of(context).pop();
                   if (houseId != null) {
@@ -141,12 +165,11 @@ class DashboardQuickActionsSheet extends StatelessWidget {
                 },
               ),
             ],
-            const SizedBox(height: 10),
-            _buildTile(
-              context: context,
-              emoji: '🏠',
+            const SizedBox(height: 8),
+            AppNavSheetTile(
+              icon: Icons.add_home_rounded,
               title: 'Create Shared House',
-              subtitle: 'Start a new house/flat with flatmates',
+              subtitle: 'Start a new house or flat with flatmates',
               onTap: () async {
                 Navigator.of(context).pop();
                 final res = await context.push(AppRoutes.houseCreate);
@@ -158,12 +181,11 @@ class DashboardQuickActionsSheet extends StatelessWidget {
                 }
               },
             ),
-            const SizedBox(height: 10),
-            _buildTile(
-              context: context,
-              emoji: '🔑',
+            const SizedBox(height: 8),
+            AppNavSheetTile(
+              icon: Icons.group_add_rounded,
               title: 'Join House with Code',
-              subtitle: 'Enter an invite code shared by flatmates',
+              subtitle: 'Enter an invite code shared by housemates',
               onTap: () async {
                 Navigator.of(context).pop();
                 final res = await context.push(AppRoutes.houseJoin);
@@ -176,60 +198,8 @@ class DashboardQuickActionsSheet extends StatelessWidget {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTile({
-    required BuildContext context,
-    required String emoji,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFAF5EE),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: darkText,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 12, color: subText),
-                  ),
-                ],
-              ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: subText,
-              size: 22,
-            ),
-          ],
+          ),
         ),
       ),
     );

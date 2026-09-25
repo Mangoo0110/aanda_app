@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
@@ -10,12 +11,14 @@ part 'house_context_state.dart';
 /// Global cubit that loads the user's house list once and provides the
 /// currently selected house to all screens. Screens can call [selectHouse]
 /// to switch context, eliminating repeated raw Supabase calls.
+/// Persists the selected expense tracking account locally across app launches.
 final class HouseContextCubit extends Cubit<HouseContextState> {
   HouseContextCubit({required GetMyHouses getMyHouses})
     : _getMyHouses = getMyHouses,
       super(const HouseContextState());
 
   final GetMyHouses _getMyHouses;
+  static const String _prefKeySelectedAccount = 'selected_expense_account_id';
 
   /// Load houses from the repository. Called once after login.
   Future<void> load() async {
@@ -36,20 +39,39 @@ final class HouseContextCubit extends Cubit<HouseContextState> {
     );
 
     if (houses != null) {
-      final keepPersonal = state.isPersonalView;
+      final prefs = await SharedPreferences.getInstance();
+      final savedAccountId = prefs.getString(_prefKeySelectedAccount);
+
       final personal = houses.where((h) => h.isPersonal).firstOrNull;
       final shared = houses.where((h) => h.isShared).toList();
-      final selected = !keepPersonal &&
-              state.selectedHouse != null &&
-              shared.any((h) => h.id == state.selectedHouse!.id)
-          ? state.selectedHouse
-          : (!keepPersonal ? shared.firstOrNull : personal);
+
+      House? selected;
+      bool isPersonal = true;
+
+      if (savedAccountId != null && savedAccountId != 'personal') {
+        final matchingShared =
+            shared.where((h) => h.id == savedAccountId).firstOrNull;
+        if (matchingShared != null) {
+          selected = matchingShared;
+          isPersonal = false;
+        } else {
+          selected = personal ?? shared.firstOrNull;
+          isPersonal = selected?.isPersonal ?? true;
+        }
+      } else if (savedAccountId == 'personal') {
+        selected = personal ?? shared.firstOrNull;
+        isPersonal = true;
+      } else {
+        selected = personal ?? shared.firstOrNull;
+        isPersonal = selected?.isPersonal ?? true;
+      }
+
       emit(
         state.copyWith(
           status: HouseContextStatus.loaded,
           houses: houses,
           selectedHouse: selected,
-          isPersonalView: keepPersonal,
+          isPersonalView: isPersonal,
         ),
       );
     }
@@ -61,22 +83,64 @@ final class HouseContextCubit extends Cubit<HouseContextState> {
     await load();
   }
 
-  /// Select a shared house — switches away from personal view.
+  /// Select a shared house — switches away from personal view and persists selection.
   void selectHouse(House house) {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_prefKeySelectedAccount, house.id);
+    });
     emit(state.copyWith(selectedHouse: house, isPersonalView: false));
   }
 
-  /// Switch to personal account view.
+  /// Switch to personal account view and persists selection.
   void selectPersonal() {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_prefKeySelectedAccount, 'personal');
+    });
     emit(state.copyWith(
       selectedHouse: state.personalAccount,
       isPersonalView: true,
     ));
   }
 
-  /// Notify that a new house was created/joined — prepend and select it.
+  /// Notify that a new house was created/joined — prepend, select, and persist it.
   void onHouseJoined(House house) {
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString(_prefKeySelectedAccount, house.id);
+    });
     final updated = [house, ...state.houses.where((h) => h.id != house.id)];
-    emit(state.copyWith(houses: updated, selectedHouse: house));
+    emit(state.copyWith(
+      houses: updated,
+      selectedHouse: house,
+      isPersonalView: false,
+    ));
+  }
+
+  /// Updates the avatar for a house and emits updated state immediately.
+  void updateHouseAvatar(String houseId, String avatarUrl) {
+    final updatedHouses = state.houses.map((h) {
+      if (h.id == houseId) {
+        return h.copyWith(avatarUrl: avatarUrl);
+      }
+      return h;
+    }).toList();
+
+    final updatedSelected = state.selectedHouse?.id == houseId
+        ? state.selectedHouse?.copyWith(avatarUrl: avatarUrl)
+        : state.selectedHouse;
+
+    emit(state.copyWith(
+      houses: updatedHouses,
+      selectedHouse: updatedSelected,
+    ));
+  }
+
+  /// Broadcasts that an expense was created, updated, or deleted.
+  void notifyCostUpdated() {
+    emit(state.copyWith(costUpdateCounter: state.costUpdateCounter + 1));
+  }
+
+  /// Broadcasts that meal records were logged or updated.
+  void notifyMealUpdated() {
+    emit(state.copyWith(mealUpdateCounter: state.mealUpdateCounter + 1));
   }
 }

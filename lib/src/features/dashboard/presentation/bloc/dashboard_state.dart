@@ -11,6 +11,10 @@ final class DashboardState {
     this.cycles = const [],
     this.selectedCycle,
     this.errorMessage,
+    this.todayMealLogs = const [],
+    this.houseMembers = const [],
+    this.isTodayMealsLoading = false,
+    this.recentCosts = const [],
   }) : selectedMonth =
            selectedMonth ?? DateTime(DateTime.now().year, DateTime.now().month);
 
@@ -21,6 +25,10 @@ final class DashboardState {
   final List<Sprint> cycles;
   final Sprint? selectedCycle;
   final String? errorMessage;
+  final List<MealLog> todayMealLogs;
+  final List<HouseMember> houseMembers;
+  final bool isTodayMealsLoading;
+  final List<Cost> recentCosts;
 
   bool get isLoading => status == DashboardStatus.loading;
 
@@ -29,6 +37,8 @@ final class DashboardState {
   double get myHouseContribution => summary?.myHouseContribution ?? 0.0;
   double get myTotalSpent => myHouseContribution + personalSpent;
   List<DashboardActivity> get activities => summary?.activities ?? const [];
+  List<Cost> get effectiveRecentCosts =>
+      recentCosts.isNotEmpty ? recentCosts : (summary?.recentCosts ?? const []);
 
   DashboardState copyWith({
     DashboardStatus? status,
@@ -41,6 +51,10 @@ final class DashboardState {
     bool clearCycle = false,
     String? errorMessage,
     bool clearError = false,
+    List<MealLog>? todayMealLogs,
+    List<HouseMember>? houseMembers,
+    bool? isTodayMealsLoading,
+    List<Cost>? recentCosts,
   }) {
     return DashboardState(
       status: status ?? this.status,
@@ -54,6 +68,10 @@ final class DashboardState {
           ? null
           : (selectedCycle ?? this.selectedCycle),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      todayMealLogs: todayMealLogs ?? this.todayMealLogs,
+      houseMembers: houseMembers ?? this.houseMembers,
+      isTodayMealsLoading: isTodayMealsLoading ?? this.isTodayMealsLoading,
+      recentCosts: recentCosts ?? this.recentCosts,
     );
   }
 }

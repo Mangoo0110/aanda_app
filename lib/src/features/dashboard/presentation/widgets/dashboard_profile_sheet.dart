@@ -3,8 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/auth/domain/usecases/auth_usecases.dart';
+import 'package:aanda/src/features/profile/presentation/cubit/profile_cubit.dart';
 
 class DashboardProfileSheet extends StatelessWidget {
   const DashboardProfileSheet({
@@ -16,19 +20,15 @@ class DashboardProfileSheet extends StatelessWidget {
   final VoidCallback onManageHouses;
   final VoidCallback onNavigateToMeals;
 
-  static const Color cardColor = Colors.white;
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-
   static void show({
     required BuildContext context,
     required VoidCallback onManageHouses,
     required VoidCallback onNavigateToMeals,
   }) {
+    final colors = AppColors.context(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: colors.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -41,8 +41,14 @@ class DashboardProfileSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
     final user = Supabase.instance.client.auth.currentUser;
     final email = user?.email ?? 'User';
+    final profile = context.watch<ProfileCubit>().state.profile;
+    final avatarProvider = getAvatarImageProvider(profile?.avatarUrl);
+    final displayName = (profile?.fullName?.isNotEmpty == true)
+        ? profile!.fullName!
+        : email;
 
     return SafeArea(
       child: Padding(
@@ -61,37 +67,50 @@ class DashboardProfileSheet extends StatelessWidget {
             const SizedBox(height: 20),
             CircleAvatar(
               radius: 30,
-              backgroundColor: const Color(0xFFF2D1B3),
-              child: Text(
-                email.isNotEmpty ? email[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF5D3A1A),
-                ),
-              ),
+              backgroundColor: colors.tileColor,
+              backgroundImage: avatarProvider,
+              child: avatarProvider == null
+                  ? Text(
+                      email.isNotEmpty ? email[0].toUpperCase() : 'U',
+                      style: AppTextStyles.amountLarge.copyWith(
+                        color: colors.primaryColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(height: 10),
             Text(
-              email,
-              style: const TextStyle(
+              displayName,
+              style: AppTextStyles.rowTitle.copyWith(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: darkText,
+                color: colors.textColor,
               ),
             ),
+            if (profile?.country != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                profile!.country!,
+                style: AppTextStyles.rowSubtitle.copyWith(
+                  fontSize: 12,
+                  color: colors.grey,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
-            Divider(height: 1, color: Colors.black.withValues(alpha: 0.06)),
+            Divider(height: 1, color: colors.dividerColor),
             const SizedBox(height: 10),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.home_work_rounded,
-                color: primaryCoral,
+                color: colors.primaryColor,
               ),
-              title: const Text(
+              title: Text(
                 'Manage Houses',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.textColor,
+                ),
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -100,28 +119,32 @@ class DashboardProfileSheet extends StatelessWidget {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.receipt_long_rounded,
-                color: primaryCoral,
+                color: colors.primaryColor,
               ),
-              title: const Text(
+              title: Text(
                 'Expenses Ledger',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.textColor,
+                ),
               ),
               onTap: () {
                 Navigator.of(context).pop();
-                context.push(AppRoutes.costs);
+                context.go(AppRoutes.costs);
               },
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.restaurant_menu_rounded,
-                color: primaryCoral,
+                color: colors.primaryColor,
               ),
-              title: const Text(
+              title: Text(
                 'Meal Log (Daily Ledger)',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.textColor,
+                ),
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -130,13 +153,15 @@ class DashboardProfileSheet extends StatelessWidget {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.vpn_key_rounded,
-                color: primaryCoral,
+                color: colors.primaryColor,
               ),
-              title: const Text(
+              title: Text(
                 'Change Password',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.textColor,
+                ),
               ),
               onTap: () {
                 Navigator.of(context).pop();
@@ -145,16 +170,14 @@ class DashboardProfileSheet extends StatelessWidget {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.logout_rounded,
-                color: Colors.redAccent,
+                color: colors.unsettledColor,
               ),
-              title: const Text(
+              title: Text(
                 'Log Out',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.redAccent,
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.unsettledColor,
                 ),
               ),
               onTap: () async {
@@ -163,19 +186,17 @@ class DashboardProfileSheet extends StatelessWidget {
                 await logout(const NoParams());
               },
             ),
-            const Divider(height: 1),
+            Divider(height: 1, color: colors.dividerColor),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(
+              leading: Icon(
                 Icons.delete_forever_rounded,
-                color: Color(0xFF8C8D8E),
+                color: colors.grey,
               ),
-              title: const Text(
+              title: Text(
                 'Delete Account',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Color(0xFF8C8D8E),
+                style: AppTextStyles.rowTitle.copyWith(
+                  color: colors.grey,
                 ),
               ),
               onTap: () {
@@ -190,12 +211,13 @@ class DashboardProfileSheet extends StatelessWidget {
   }
 
   static void _showDeleteAccountConfirmation(BuildContext context) {
+    final colors = AppColors.context(context);
     bool isDeleting = false;
     String? errorMessage;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -207,7 +229,6 @@ class DashboardProfileSheet extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Handle bar
                 Container(
                   width: 38,
                   height: 4,
@@ -217,39 +238,36 @@ class DashboardProfileSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Icon
                 Container(
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEEEC),
+                    color: colors.unsettledColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.delete_forever_rounded,
-                    color: Color(0xFFD85A38),
+                    color: colors.unsettledColor,
                     size: 30,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Delete Account?',
-                  style: TextStyle(
+                  style: AppTextStyles.sectionHeader.copyWith(
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: darkText,
+                    color: colors.textColor,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Your login access will be immediately revoked. '
                   'Shared expense and meal history you\'ve contributed '
                   'to will be preserved for your housemates.\n\n'
                   'This cannot be undone.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: subText,
+                  style: AppTextStyles.rowSubtitle.copyWith(
+                    color: colors.grey,
                     height: 1.5,
                   ),
                 ),
@@ -259,16 +277,13 @@ class DashboardProfileSheet extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFEEEC),
+                      color: colors.unsettledColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFFD85A38).withValues(alpha: 0.4),
-                      ),
                     ),
                     child: Text(
                       errorMessage!,
-                      style: const TextStyle(
-                        color: Color(0xFFD85A38),
+                      style: TextStyle(
+                        color: colors.unsettledColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -312,7 +327,7 @@ class DashboardProfileSheet extends StatelessWidget {
                             }
                           },
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFD85A38),
+                      backgroundColor: colors.unsettledColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -332,6 +347,7 @@ class DashboardProfileSheet extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -343,11 +359,10 @@ class DashboardProfileSheet extends StatelessWidget {
                     onPressed: isDeleting
                         ? null
                         : () => Navigator.of(sheetCtx).pop(),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: subText,
+                      style: AppTextStyles.rowSubtitle.copyWith(
+                        color: colors.grey,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

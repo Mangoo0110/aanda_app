@@ -9,6 +9,8 @@ final class HouseContextState {
     this.selectedHouse,
     this.isPersonalView = true,
     this.errorMessage,
+    this.costUpdateCounter = 0,
+    this.mealUpdateCounter = 0,
   });
 
   final HouseContextStatus status;
@@ -17,6 +19,8 @@ final class HouseContextState {
   /// True when the user has selected "My Personal Account" view.
   final bool isPersonalView;
   final String? errorMessage;
+  final int costUpdateCounter;
+  final int mealUpdateCounter;
 
   bool get isLoading => status == HouseContextStatus.loading;
   bool get hasHouses => houses.isNotEmpty;
@@ -44,6 +48,8 @@ final class HouseContextState {
     bool? isPersonalView,
     String? errorMessage,
     bool clearError = false,
+    int? costUpdateCounter,
+    int? mealUpdateCounter,
   }) {
     return HouseContextState(
       status: status ?? this.status,
@@ -53,6 +59,8 @@ final class HouseContextState {
           : (selectedHouse ?? this.selectedHouse),
       isPersonalView: isPersonalView ?? this.isPersonalView,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      costUpdateCounter: costUpdateCounter ?? this.costUpdateCounter,
+      mealUpdateCounter: mealUpdateCounter ?? this.mealUpdateCounter,
     );
   }
 }

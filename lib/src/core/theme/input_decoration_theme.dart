@@ -14,14 +14,14 @@ class DInputDecorationTheme {
     hoverColor: AppColors.light().textColor,
     hintStyle: TextStyle(color: AppColors.light().hintColor),
     labelStyle: TextStyle(color: AppColors.light().labelColor),
-    outlineBorder: BorderSide(color: AppColors.light().textColor),
+    outlineBorder: BorderSide.none,
     floatingLabelStyle: TextStyle(color: AppColors.light().primaryColor),
     border: OutlineInputBorder(
-      borderSide: BorderSide(color: AppColors.light().enabledBorderColor),
+      borderSide: BorderSide.none,
       borderRadius: AppSizes.textFieldBorderRadius,
     ),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: AppColors.light().enabledBorderColor),
+      borderSide: BorderSide.none,
       borderRadius: AppSizes.textFieldBorderRadius,
     ),
     focusedBorder: OutlineInputBorder(
@@ -44,13 +44,13 @@ class DInputDecorationTheme {
     hoverColor: AppColors.dark().textColor,
     hintStyle: TextStyle(color: AppColors.dark().hintColor),
     labelStyle: TextStyle(color: AppColors.dark().labelColor),
-    outlineBorder: BorderSide(color: AppColors.dark().textColor),
+    outlineBorder: BorderSide.none,
     border: OutlineInputBorder(
-      borderSide: BorderSide(color: AppColors.dark().enabledBorderColor),
+      borderSide: BorderSide.none,
       borderRadius: AppSizes.textFieldBorderRadius,
     ),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: AppColors.dark().enabledBorderColor),
+      borderSide: BorderSide.none,
       borderRadius: AppSizes.textFieldBorderRadius,
     ),
     focusedBorder: OutlineInputBorder(

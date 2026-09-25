@@ -25,7 +25,7 @@ class DCardTheme {
     margin: const EdgeInsets.symmetric(horizontal: 0),
     shape: RoundedRectangleBorder(
       borderRadius: AppSizes.bigRectangleTileRadius,
-      side: BorderSide(color: AppColors.dark().dividerColor),
+      side: BorderSide.none,
     ),
     clipBehavior: Clip.antiAlias,
     surfaceTintColor: Colors.transparent,

@@ -2,20 +2,20 @@ part of 'app_theme.dart';
 
 class FloatingActionButtonThemes {
   static FloatingActionButtonThemeData lightTheme =
-      FloatingActionButtonThemeData(
-        backgroundColor: AppColors.light().primaryColor,
-        foregroundColor: AppColors.light().buttonContentColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 2.0,
-        iconSize: AppSizes.largeIconSize,
+      const FloatingActionButtonThemeData(
+        backgroundColor: Color(0xFF141414),
+        foregroundColor: Colors.white,
+        shape: CircleBorder(),
+        elevation: 4.0,
+        iconSize: 26,
       );
 
   static FloatingActionButtonThemeData darkTheme =
-      FloatingActionButtonThemeData(
-        backgroundColor: AppColors.dark().primaryColor,
-        foregroundColor: AppColors.dark().buttonContentColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 2.0,
-        iconSize: AppSizes.largeIconSize,
+      const FloatingActionButtonThemeData(
+        backgroundColor: Colors.white,
+        foregroundColor: Color(0xFF141414),
+        shape: CircleBorder(),
+        elevation: 4.0,
+        iconSize: 26,
       );
 }

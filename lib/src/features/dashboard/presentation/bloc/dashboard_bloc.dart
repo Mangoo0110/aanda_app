@@ -2,11 +2,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/core/utils/debug/debug_service.dart';
 import 'package:aanda/src/core/utils/helpers/handle_future_request.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost.dart';
+import 'package:aanda/src/features/cost/domain/entities/cost_scope.dart';
+import 'package:aanda/src/features/cost/domain/usecases/cost_usecases.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_activity.dart';
 import 'package:aanda/src/features/dashboard/domain/entities/dashboard_summary.dart';
 import 'package:aanda/src/features/dashboard/domain/usecases/dashboard_usecases.dart';
+import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 import 'package:aanda/src/features/house/domain/usecases/house_usecases.dart';
+import 'package:aanda/src/features/meal/domain/entities/meal_log.dart';
+import 'package:aanda/src/features/meal/domain/usecases/meal_usecases.dart';
 
 part 'dashboard_event.dart';
 part 'dashboard_state.dart';
@@ -15,8 +21,14 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardBloc({
     required GetDashboardSummary getDashboardSummary,
     required GetSprints getSprints,
+    required GetHouseMembers getHouseMembers,
+    required GetMealLogs getMealLogs,
+    GetCosts? getCosts,
   })  : _getDashboardSummary = getDashboardSummary,
         _getSprints = getSprints,
+        _getHouseMembers = getHouseMembers,
+        _getMealLogs = getMealLogs,
+        _getCosts = getCosts,
         super(DashboardState()) {
     on<DashboardStarted>(_onStarted);
     on<DashboardRefreshRequested>(_onRefresh);
@@ -27,6 +39,9 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   final GetDashboardSummary _getDashboardSummary;
   final GetSprints _getSprints;
+  final GetHouseMembers _getHouseMembers;
+  final GetMealLogs _getMealLogs;
+  final GetCosts? _getCosts;
 
   Future<void> _onStarted(
     DashboardStarted event,
@@ -63,6 +78,9 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         clearHouse: true,
         cycles: [],
         clearCycle: true,
+        todayMealLogs: [],
+        houseMembers: [],
+        isTodayMealsLoading: false,
       ));
       await _load(emit);
       return;
@@ -88,19 +106,59 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
     final cycles = sprintsRes ?? [];
     // Select active cycle: prefer 'open' cycle, else the first cycle
-    final activeCycle = cycles.isNotEmpty
-        ? cycles.firstWhere(
-            (c) => c.status == SprintStatus.open,
-            orElse: () => cycles.first,
-          )
-        : null;
+    Sprint? activeCycle;
+    if (cycles.isNotEmpty) {
+      for (final c in cycles) {
+        if (c.status == SprintStatus.open) {
+          activeCycle = c;
+          break;
+        }
+      }
+      activeCycle ??= cycles.first;
+    }
 
     emit(state.copyWith(
       selectedHouseId: houseId,
       cycles: cycles,
       selectedCycle: activeCycle,
       clearCycle: activeCycle == null,
+      isTodayMealsLoading: activeCycle != null,
     ));
+
+    // Fetch members and today's meals if in shared house with active cycle
+    if (activeCycle != null) {
+      final cycle = activeCycle;
+      final membersRes = await handleFutureRequest<List<HouseMember>>(
+        request: () => _getHouseMembers(houseId),
+        debugger: ControllerDebugger(),
+      );
+      final members = membersRes ?? [];
+
+      final today = DateTime.now();
+      final mealsRes = await handleFutureRequest<List<MealLog>>(
+        request: () => _getMealLogs(
+          GetMealLogsParams(
+            houseId: houseId,
+            cycleId: cycle.id,
+            date: today,
+          ),
+        ),
+        debugger: ControllerDebugger(),
+      );
+      final todayMeals = mealsRes ?? [];
+
+      emit(state.copyWith(
+        houseMembers: members,
+        todayMealLogs: todayMeals,
+        isTodayMealsLoading: false,
+      ));
+    } else {
+      emit(state.copyWith(
+        houseMembers: [],
+        todayMealLogs: [],
+        isTodayMealsLoading: false,
+      ));
+    }
 
     await _load(emit);
   }
@@ -143,11 +201,49 @@ final class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           state.copyWith(
             status: DashboardStatus.loaded,
             summary: data,
+            recentCosts: data.recentCosts,
             clearError: true,
           ),
         );
       },
     );
+
+    if (_getCosts != null && summary != null) {
+      DateTime startDate;
+      DateTime endDate;
+      if (cycle != null) {
+        startDate = cycle.startDate;
+        final sprintEnd = cycle.endDate ?? DateTime.now();
+        endDate = DateTime(
+          sprintEnd.year,
+          sprintEnd.month,
+          sprintEnd.day,
+          23,
+          59,
+          59,
+        );
+      } else {
+        final month = state.selectedMonth;
+        startDate = DateTime(month.year, month.month, 1);
+        endDate = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+      }
+
+      final isPersonal = state.selectedHouseId == null;
+      final costsRes = await handleFutureRequest<List<Cost>>(
+        request: () => _getCosts(
+          GetCostsParams(
+            startDate: startDate,
+            endDate: endDate,
+            houseId: isPersonal ? null : state.selectedHouseId,
+            scope: isPersonal ? CostScope.personal : CostScope.shared,
+          ),
+        ),
+        debugger: ControllerDebugger(),
+      );
+      if (costsRes != null) {
+        emit(state.copyWith(recentCosts: costsRes.take(10).toList()));
+      }
+    }
 
     if (summary == null && state.status == DashboardStatus.loading) {
       emit(state.copyWith(status: DashboardStatus.failure));

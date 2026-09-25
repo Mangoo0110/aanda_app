@@ -5,189 +5,159 @@ class DTextTheme {
 
   // Light Theme Text Styles
   static TextTheme lightTextTheme = TextTheme(
-    displayLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    displayLarge: TextStyle(
       fontSize: 57,
       fontWeight: FontWeight.bold,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    displayMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    displayMedium: TextStyle(
       fontSize: 45,
       fontWeight: FontWeight.w600,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    displaySmall: const TextStyle(fontFamily: 'Roboto').copyWith(
+    displaySmall: TextStyle(
       fontSize: 36,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    headlineLarge: TextStyle(
       fontSize: 32,
       fontWeight: FontWeight.bold,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    headlineMedium: TextStyle(
       fontSize: 28,
       fontWeight: FontWeight.w600,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineSmall: const TextStyle(fontFamily: 'Roboto').copyWith(
+    headlineSmall: TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    titleLarge: TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.bold,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    titleMedium: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleSmall: const TextStyle(fontFamily: 'Roboto').copyWith(
+    titleSmall: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodyLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    bodyLarge: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodyMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    bodyMedium: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodySmall: const TextStyle(fontFamily: 'Roboto').copyWith(
+    bodySmall: TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    labelLarge: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.bold,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    labelMedium: TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelSmall: const TextStyle(fontFamily: 'Roboto').copyWith(
+    labelSmall: TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.normal,
       color: AppColors.light().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
   );
 
   // Dark Theme Text Styles
   static TextTheme get darkTextTheme => TextTheme(
-    displayLarge: const TextStyle(fontFamily: 'Roboto').copyWith(
+    displayLarge: TextStyle(
       fontSize: 57,
       fontWeight: FontWeight.bold,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    displayMedium: const TextStyle(fontFamily: 'Roboto').copyWith(
+    displayMedium: TextStyle(
       fontSize: 45,
       fontWeight: FontWeight.w600,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    displaySmall: const TextStyle().copyWith(
+    displaySmall: TextStyle(
       fontSize: 36,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineLarge: const TextStyle().copyWith(
+    headlineLarge: TextStyle(
       fontSize: 32,
       fontWeight: FontWeight.bold,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineMedium: const TextStyle().copyWith(
+    headlineMedium: TextStyle(
       fontSize: 28,
       fontWeight: FontWeight.w600,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    headlineSmall: const TextStyle().copyWith(
+    headlineSmall: TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleLarge: const TextStyle().copyWith(
+    titleLarge: TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w800,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleMedium: const TextStyle().copyWith(
+    titleMedium: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    titleSmall: const TextStyle().copyWith(
+    titleSmall: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodyLarge: const TextStyle().copyWith(
+    bodyLarge: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodyMedium: const TextStyle().copyWith(
+    bodyMedium: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    bodySmall: const TextStyle().copyWith(
+    bodySmall: TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelLarge: const TextStyle().copyWith(
+    labelLarge: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.bold,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelMedium: const TextStyle().copyWith(
+    labelMedium: TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
-    labelSmall: const TextStyle().copyWith(
+    labelSmall: TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.normal,
       color: AppColors.dark().textColor,
-      overflow: TextOverflow.ellipsis,
     ),
   );
 }

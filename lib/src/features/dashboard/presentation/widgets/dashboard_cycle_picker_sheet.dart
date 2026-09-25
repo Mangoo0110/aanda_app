@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
@@ -12,16 +14,12 @@ class DashboardCyclePickerSheet extends StatelessWidget {
 
   final DashboardState state;
 
-  static const Color cardColor = Colors.white;
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-
   static void show(BuildContext context, DashboardState state) {
+    final colors = AppColors.context(context);
     final bloc = context.read<DashboardBloc>();
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: cardColor,
+      backgroundColor: colors.surfaceColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -35,6 +33,7 @@ class DashboardCyclePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
     final cycles = state.cycles;
     final selectedCycle = state.selectedCycle;
 
@@ -60,22 +59,22 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Select Cycle',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: darkText,
+                style: AppTextStyles.sectionHeader.copyWith(
+                  color: colors.textColor,
                 ),
               ),
               const SizedBox(height: 14),
               if (cycles.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: Text(
                       'No cycles recorded yet for this house.',
-                      style: TextStyle(color: subText, fontSize: 13),
+                      style: AppTextStyles.rowSubtitle.copyWith(
+                        color: colors.grey,
+                      ),
                     ),
                   ),
                 )
@@ -86,7 +85,7 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                     itemCount: cycles.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: colors.dividerColor,
                     ),
                     itemBuilder: (ctx, index) {
                       final cycle = cycles[index];
@@ -109,21 +108,23 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             vertical: 12,
-                            horizontal: 8,
+                            horizontal: 4,
                           ),
                           child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 18,
                                 backgroundColor: isSelected
-                                    ? primaryCoral.withValues(alpha: 0.15)
-                                    : Colors.black.withValues(alpha: 0.05),
+                                    ? colors.tileColor
+                                    : colors.softGrey,
                                 child: Icon(
                                   isOpen
                                       ? Icons.timelapse_rounded
                                       : Icons.lock_clock_rounded,
                                   size: 18,
-                                  color: isSelected ? primaryCoral : subText,
+                                  color: isSelected
+                                      ? colors.primaryColor
+                                      : colors.grey,
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -135,12 +136,13 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                                       children: [
                                         Text(
                                           cycle.label,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
+                                          style: AppTextStyles.rowTitle.copyWith(
                                             color: isSelected
-                                                ? primaryCoral
-                                                : darkText,
+                                                ? colors.primaryColor
+                                                : colors.textColor,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w600,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -151,19 +153,18 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isOpen
-                                                ? const Color(0xFFE8F5E9)
-                                                : const Color(0xFFEEEEEE),
+                                                ? colors.positiveColor
+                                                    .withValues(alpha: 0.12)
+                                                : colors.softGrey,
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
                                           child: Text(
                                             isOpen ? 'ACTIVE' : 'CLOSED',
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w800,
+                                            style: AppTextStyles.badge.copyWith(
                                               color: isOpen
-                                                  ? const Color(0xFF2E7D32)
-                                                  : const Color(0xFF757575),
+                                                  ? colors.positiveColor
+                                                  : colors.grey,
                                             ),
                                           ),
                                         ),
@@ -172,18 +173,17 @@ class DashboardCyclePickerSheet extends StatelessWidget {
                                     const SizedBox(height: 3),
                                     Text(
                                       '$startFormatted – $endFormatted',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: subText,
+                                      style: AppTextStyles.rowSubtitle.copyWith(
+                                        color: colors.grey,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(
+                                Icon(
                                   Icons.check_circle_rounded,
-                                  color: primaryCoral,
+                                  color: colors.primaryColor,
                                   size: 20,
                                 ),
                             ],
