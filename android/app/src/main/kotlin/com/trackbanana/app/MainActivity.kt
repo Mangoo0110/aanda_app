@@ -1,4 +1,4 @@
-package com.example.aanda
+package com.trackbanana.app
 
 import io.flutter.embedding.android.FlutterActivity
 
