@@ -16,6 +16,7 @@ final class HouseCreateState {
   final String? errorMessage;
 
   bool get isSubmitting => status == HouseCreateStatus.submitting;
+  bool get isSuccess => status == HouseCreateStatus.success;
 
   HouseCreateState copyWith({
     String? name,

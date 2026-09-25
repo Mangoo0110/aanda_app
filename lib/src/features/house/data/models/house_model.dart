@@ -9,6 +9,7 @@ class HouseModel extends House {
     required super.createdAt,
     super.accountType,
     super.members,
+    super.avatarUrl,
   });
 
   factory HouseModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class HouseModel extends House {
       accountType: json['account_type'] == 'personal'
           ? AccountType.personal
           : AccountType.shared,
+      avatarUrl: json['avatar_url'] as String?,
     );
   }
 
@@ -40,6 +42,7 @@ class HouseModel extends House {
           ? AccountType.personal
           : AccountType.shared,
       members: members,
+      avatarUrl: json['avatar_url'] as String?,
     );
   }
 
@@ -49,5 +52,27 @@ class HouseModel extends House {
     'created_by': createdBy,
     'created_at': createdAt.toIso8601String(),
     'account_type': accountType.name,
+    if (avatarUrl != null) 'avatar_url': avatarUrl,
   };
+
+  @override
+  HouseModel copyWith({
+    String? id,
+    String? name,
+    String? createdBy,
+    DateTime? createdAt,
+    AccountType? accountType,
+    List<HouseMember>? members,
+    String? avatarUrl,
+  }) {
+    return HouseModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      accountType: accountType ?? this.accountType,
+      members: members ?? this.members,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+    );
+  }
 }

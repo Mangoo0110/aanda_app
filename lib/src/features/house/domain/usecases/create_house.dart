@@ -4,8 +4,9 @@ import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/domain/repo/house_repo.dart';
 
 class CreateHouseParams {
-  const CreateHouseParams({required this.name});
+  const CreateHouseParams({required this.name, this.avatarUrl});
   final String name;
+  final String? avatarUrl;
 }
 
 final class CreateHouse implements AsyncUsecase<House, CreateHouseParams> {
@@ -14,5 +15,5 @@ final class CreateHouse implements AsyncUsecase<House, CreateHouseParams> {
 
   @override
   AsyncRequest<House> call(CreateHouseParams params) =>
-      _repo.createHouse(name: params.name);
+      _repo.createHouse(name: params.name, avatarUrl: params.avatarUrl);
 }

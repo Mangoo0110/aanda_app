@@ -6,7 +6,7 @@ import 'package:aanda/src/features/house/domain/entities/sprint.dart';
 
 abstract interface class HouseRepo {
   /// Creates a new house; the caller becomes the admin.
-  AsyncRequest<House> createHouse({required String name});
+  AsyncRequest<House> createHouse({required String name, String? avatarUrl});
 
   /// Joins a house by its invite code.
   AsyncRequest<House> joinHouse({required String inviteCode});
@@ -34,6 +34,19 @@ abstract interface class HouseRepo {
 
   /// Returns a single house with full member list.
   AsyncRequest<House> getHouseDetail({required String houseId});
+
+  /// Uploads an avatar image for a shared house.
+  AsyncRequest<String> uploadHouseAvatar({
+    required String houseId,
+    required List<int> fileBytes,
+    required String fileExtension,
+  });
+
+  /// Updates the house's avatar URL.
+  AsyncRequest<void> updateHouseAvatar({
+    required String houseId,
+    required String avatarUrl,
+  });
 
   /// Returns all sprints for [houseId].
   AsyncRequest<List<Sprint>> getSprints({required String houseId});

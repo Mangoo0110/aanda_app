@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/house/domain/entities/house_member.dart';
 import 'package:aanda/src/features/house/domain/entities/member_role.dart';
 
@@ -20,6 +21,7 @@ class HouseMemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.context(context);
+    final avatarProvider = getAvatarImageProvider(member.avatarUrl);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -28,16 +30,19 @@ class HouseMemberTile extends StatelessWidget {
           CircleAvatar(
             radius: 17,
             backgroundColor: colors.primaryColor.withValues(alpha: 0.1),
-            child: Text(
-              member.displayName.isNotEmpty
-                  ? member.displayName[0].toUpperCase()
-                  : 'M',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: colors.primaryColor,
-              ),
-            ),
+            backgroundImage: avatarProvider,
+            child: avatarProvider == null
+                ? Text(
+                    member.displayName.isNotEmpty
+                        ? member.displayName[0].toUpperCase()
+                        : 'M',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: colors.primaryColor,
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -41,10 +41,9 @@ class AccountOverviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.borderColor.withValues(alpha: 0.4)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

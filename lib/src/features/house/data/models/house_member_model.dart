@@ -30,7 +30,7 @@ class HouseMemberModel extends HouseMember {
     final profile = json['profiles'] as Map<String, dynamic>?;
     return HouseMemberModel(
       id: json['id'] as String,
-      houseId: json['house_id'] as String,
+      houseId: (json['expense_account_id'] ?? json['house_id'] ?? '') as String,
       userId: json['user_id'] as String,
       role: MemberRoleX.fromString(json['role'] as String),
       joinedAt: DateTime.parse(json['joined_at'] as String),

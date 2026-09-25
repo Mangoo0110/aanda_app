@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aanda/src/features/house/data/models/house_invite_model.dart';
 import 'package:aanda/src/features/house/data/models/house_member_model.dart';
@@ -20,10 +21,17 @@ class HouseRemoteDatasource {
 
   // ── Houses ─────────────────────────────────────────────────────────────────
 
-  Future<House> createHouse({required String name}) async {
+  Future<House> createHouse({required String name, String? avatarUrl}) async {
+    final insertData = <String, dynamic>{
+      'name': name,
+      'created_by': _currentUserId,
+      'account_type': 'shared',
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    };
+
     final data = await _supabase
         .from('expense_accounts')
-        .insert({'name': name, 'created_by': _currentUserId, 'account_type': 'shared'})
+        .insert(insertData)
         .select()
         .single();
 
@@ -31,7 +39,7 @@ class HouseRemoteDatasource {
 
     // Insert the creator as admin member.
     await _supabase.from('expense_account_members').insert({
-      'house_id': house.id,
+      'expense_account_id': house.id,
       'user_id': _currentUserId,
       'role': 'admin',
     });
@@ -57,7 +65,7 @@ class HouseRemoteDatasource {
     final existing = await _supabase
         .from('expense_account_members')
         .select('id')
-        .eq('house_id', house.id)
+        .eq('expense_account_id', house.id)
         .eq('user_id', _currentUserId)
         .maybeSingle();
 
@@ -66,7 +74,7 @@ class HouseRemoteDatasource {
     }
 
     await _supabase.from('expense_account_members').insert({
-      'house_id': house.id,
+      'expense_account_id': house.id,
       'user_id': _currentUserId,
       'role': 'member',
     });
@@ -77,7 +85,7 @@ class HouseRemoteDatasource {
   Future<List<House>> getMyHouses() async {
     final rows = await _supabase
         .from('expense_account_members')
-        .select('house_id, expense_accounts(*)')
+        .select('expense_account_id, expense_accounts(*)')
         .eq('user_id', _currentUserId);
 
     return rows
@@ -94,6 +102,41 @@ class HouseRemoteDatasource {
 
     final members = await getHouseMembers(houseId: houseId);
     return HouseModel.fromJsonWithMembers(houseData, members);
+  }
+
+  Future<String> uploadHouseAvatar({
+    required String houseId,
+    required List<int> fileBytes,
+    required String fileExtension,
+  }) async {
+    final ext = fileExtension.replaceAll('.', '').toLowerCase();
+    final path = 'houses/$houseId/avatar.$ext';
+    final mime = ext == 'png'
+        ? 'image/png'
+        : (ext == 'webp' ? 'image/webp' : 'image/jpeg');
+
+    await _supabase.storage.from('avatars').uploadBinary(
+      path,
+      Uint8List.fromList(fileBytes),
+      fileOptions: FileOptions(upsert: true, contentType: mime),
+    );
+
+    final rawUrl = _supabase.storage.from('avatars').getPublicUrl(path);
+    return '$rawUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  Future<void> updateHouseAvatarUrl({
+    required String houseId,
+    required String avatarUrl,
+  }) async {
+    try {
+      await _supabase
+          .from('expense_accounts')
+          .update({'avatar_url': avatarUrl})
+          .eq('id', houseId);
+    } catch (e) {
+      debugPrint('updateHouseAvatarUrl warning: $e');
+    }
   }
 
   // ── Invites ────────────────────────────────────────────────────────────────
@@ -123,7 +166,7 @@ class HouseRemoteDatasource {
     final rows = await _supabase
         .from('expense_account_members')
         .select('*, profiles(username, full_name, avatar_url)')
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .order('joined_at');
 
     return rows.map((r) => HouseMemberModel.fromJson(r)).toList();
@@ -133,7 +176,7 @@ class HouseRemoteDatasource {
     await _supabase
         .from('expense_account_members')
         .delete()
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .eq('user_id', _currentUserId);
   }
 
@@ -144,7 +187,7 @@ class HouseRemoteDatasource {
     await _supabase
         .from('expense_account_members')
         .delete()
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .eq('user_id', userId);
   }
 
@@ -154,12 +197,16 @@ class HouseRemoteDatasource {
     final rows = await _supabase
         .from('billing_cycles')
         .select()
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .order('start_date', ascending: false);
 
     if (rows.isEmpty) {
-      final initial = await ensureRunningSprint(houseId: houseId);
-      return [initial];
+      try {
+        final initial = await ensureRunningSprint(houseId: houseId);
+        return [initial];
+      } catch (_) {
+        return [];
+      }
     }
 
     return rows.map((r) => SprintModel.fromJson(r)).toList();
@@ -169,7 +216,7 @@ class HouseRemoteDatasource {
     final openRows = await _supabase
         .from('billing_cycles')
         .select()
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .eq('status', 'open')
         .order('start_date', ascending: false)
         .limit(1);
@@ -182,7 +229,7 @@ class HouseRemoteDatasource {
     final allRows = await _supabase
         .from('billing_cycles')
         .select('id')
-        .eq('house_id', houseId);
+        .eq('expense_account_id', houseId);
     final count = allRows.length;
 
     final now = DateTime.now();
@@ -206,7 +253,7 @@ class HouseRemoteDatasource {
     final data = await _supabase
         .from('billing_cycles')
         .insert({
-          'house_id': houseId,
+          'expense_account_id': houseId,
           'label': label,
           'start_date': startDate.toIso8601String().substring(0, 10),
           if (endDate != null)
@@ -254,7 +301,7 @@ class HouseRemoteDatasource {
     final costs = await _supabase
         .from('costs')
         .select('amount, paid_by, cost_type, cost_categories(is_food)')
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .eq('cost_scope', 'shared')
         .gte('purchase_date', startStr)
         .lte('purchase_date', endStr);
@@ -279,7 +326,7 @@ class HouseRemoteDatasource {
     var mealQuery = _supabase
         .from('meal_logs')
         .select('user_id, breakfast, lunch, dinner')
-        .eq('house_id', houseId)
+        .eq('expense_account_id', houseId)
         .gte('log_date', startStr)
         .lte('log_date', endStr);
 

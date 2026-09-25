@@ -43,11 +43,15 @@ class MinimalSprintBar extends StatelessWidget {
                         ? colors.primaryColor
                         : colors.surfaceColor,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? colors.primaryColor
-                          : colors.borderColor.withValues(alpha: 0.4),
-                    ),
+                    boxShadow: isSelected
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -91,9 +95,6 @@ class MinimalSprintBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colors.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: colors.primaryColor.withValues(alpha: 0.3),
-                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

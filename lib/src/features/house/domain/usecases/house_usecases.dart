@@ -11,3 +11,5 @@ export 'join_house.dart';
 export 'leave_house.dart';
 export 'regenerate_invite_code.dart';
 export 'remove_member.dart';
+export 'upload_house_avatar.dart';
+export 'update_house_avatar.dart';

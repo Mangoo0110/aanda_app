@@ -3,6 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/bloc/house_context/house_context_cubit.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
+
+import 'package:aanda/src/features/house/presentation/widgets/facebook_account_switcher_sheet.dart';
 
 /// Reusable modal bottom sheet to switch between Personal account and shared houses,
 /// or navigate to create/join houses.
@@ -14,30 +18,17 @@ class AccountPickerSheet extends StatelessWidget {
 
   final VoidCallback? onAccountSelected;
 
-  static const Color cardColor = Colors.white;
-  static const Color primaryCoral = Color(0xFFD85A38);
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-
   static Future<void> show(
     BuildContext context, {
     VoidCallback? onAccountSelected,
   }) {
-    return showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: cardColor,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) => AccountPickerSheet(
-        onAccountSelected: onAccountSelected,
-      ),
-    );
+    return FacebookAccountSwitcherSheet.show(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -60,12 +51,11 @@ class AccountPickerSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Switch Account',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: darkText,
+                style: AppTextStyles.sectionHeader.copyWith(
+                  fontSize: 18,
+                  color: colors.textColor,
                 ),
               ),
               const SizedBox(height: 14),
@@ -82,33 +72,37 @@ class AccountPickerSheet extends StatelessWidget {
                           contentPadding: EdgeInsets.zero,
                           leading: CircleAvatar(
                             backgroundColor: isPersonalSelected
-                                ? primaryCoral.withValues(alpha: 0.15)
-                                : Colors.black.withValues(alpha: 0.05),
+                                ? colors.tileColor
+                                : colors.softGrey,
                             child: Icon(
                               Icons.person_rounded,
                               size: 18,
                               color: isPersonalSelected
-                                  ? primaryCoral
-                                  : darkText,
+                                  ? colors.primaryColor
+                                  : colors.grey,
                             ),
                           ),
                           title: Text(
                             'My Personal Account',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
+                            style: AppTextStyles.rowTitle.copyWith(
                               color: isPersonalSelected
-                                  ? primaryCoral
-                                  : darkText,
+                                  ? colors.primaryColor
+                                  : colors.textColor,
+                              fontWeight: isPersonalSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
                             ),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'Only your personal expenses',
-                            style: TextStyle(fontSize: 11, color: subText),
+                            style: AppTextStyles.rowSubtitle.copyWith(
+                              color: colors.grey,
+                            ),
                           ),
                           trailing: isPersonalSelected
-                              ? const Icon(
+                              ? Icon(
                                   Icons.check_circle_rounded,
-                                  color: primaryCoral,
+                                  color: colors.primaryColor,
                                   size: 20,
                                 )
                               : null,
@@ -120,7 +114,7 @@ class AccountPickerSheet extends StatelessWidget {
                         ),
                         Divider(
                           height: 1,
-                          color: Colors.black.withValues(alpha: 0.06),
+                          color: colors.dividerColor,
                         ),
                         if (houseCtxState.hasSharedHouses) ...[
                           // —— Shared houses ——
@@ -132,30 +126,35 @@ class AccountPickerSheet extends StatelessWidget {
                               contentPadding: EdgeInsets.zero,
                               leading: CircleAvatar(
                                 backgroundColor: isSelected
-                                    ? primaryCoral.withValues(alpha: 0.15)
-                                    : Colors.black.withValues(alpha: 0.05),
+                                    ? colors.tileColor
+                                    : colors.softGrey,
                                 child: Text(
                                   h.name.isNotEmpty
                                       ? h.name[0].toUpperCase()
                                       : 'H',
-                                  style: TextStyle(
+                                  style: AppTextStyles.rowTitle.copyWith(
+                                    color: isSelected
+                                        ? colors.primaryColor
+                                        : colors.grey,
                                     fontWeight: FontWeight.w700,
-                                    color: isSelected ? primaryCoral : darkText,
                                   ),
                                 ),
                               ),
                               title: Text(
                                 h.name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected ? primaryCoral : darkText,
+                                style: AppTextStyles.rowTitle.copyWith(
+                                  color: isSelected
+                                      ? colors.primaryColor
+                                      : colors.textColor,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
                                 ),
                               ),
                               subtitle: Text(
                                 '${h.members.length} member${h.members.length == 1 ? '' : 's'}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: subText,
+                                style: AppTextStyles.rowSubtitle.copyWith(
+                                  color: colors.grey,
                                 ),
                               ),
                               trailing: Row(
@@ -166,7 +165,7 @@ class AccountPickerSheet extends StatelessWidget {
                                       Icons.restaurant_rounded,
                                       size: 20,
                                     ),
-                                    color: primaryCoral,
+                                    color: colors.primaryColor,
                                     tooltip: 'Open Meals',
                                     onPressed: () {
                                       Navigator.of(context).pop();
@@ -174,9 +173,9 @@ class AccountPickerSheet extends StatelessWidget {
                                     },
                                   ),
                                   if (isSelected)
-                                    const Icon(
+                                    Icon(
                                       Icons.check_circle_rounded,
-                                      color: primaryCoral,
+                                      color: colors.primaryColor,
                                       size: 20,
                                     ),
                                 ],
@@ -189,12 +188,14 @@ class AccountPickerSheet extends StatelessWidget {
                             );
                           }),
                         ] else ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 14),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             child: Center(
                               child: Text(
                                 'No shared houses joined yet.',
-                                style: TextStyle(fontSize: 12, color: subText),
+                                style: AppTextStyles.rowSubtitle.copyWith(
+                                  color: colors.grey,
+                                ),
                               ),
                             ),
                           ),
@@ -207,9 +208,9 @@ class AccountPickerSheet extends StatelessWidget {
               const SizedBox(height: 16),
               Divider(
                 height: 1,
-                color: Colors.black.withValues(alpha: 0.06),
+                color: colors.dividerColor,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -217,8 +218,9 @@ class AccountPickerSheet extends StatelessWidget {
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Create House'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: primaryCoral,
-                        side: const BorderSide(color: primaryCoral),
+                        foregroundColor: colors.primaryColor,
+                        side: BorderSide(color: colors.primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -239,7 +241,8 @@ class AccountPickerSheet extends StatelessWidget {
                       icon: const Icon(Icons.group_add_rounded, size: 18),
                       label: const Text('Join House'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: primaryCoral,
+                        backgroundColor: colors.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

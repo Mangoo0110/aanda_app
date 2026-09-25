@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 import 'package:aanda/src/features/house/presentation/bloc/house_list/house_list_bloc.dart';
@@ -30,6 +31,7 @@ class _HouseListScreenState extends State<HouseListScreen> {
       backgroundColor: colors.appBackgroundColor,
       appBar: AppBar(
         backgroundColor: colors.appBackgroundColor,
+        leading: const AppBackButton(),
         title: Text('My Houses', style: TextStyle(color: colors.textColor)),
         actions: [
           IconButton(

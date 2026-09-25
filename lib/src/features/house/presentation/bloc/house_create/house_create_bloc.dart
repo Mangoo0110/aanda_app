@@ -8,14 +8,18 @@ part 'house_create_event.dart';
 part 'house_create_state.dart';
 
 final class HouseCreateBloc extends Bloc<HouseCreateEvent, HouseCreateState> {
-  HouseCreateBloc({required CreateHouse createHouse})
-    : _createHouse = createHouse,
-      super(const HouseCreateState()) {
+  HouseCreateBloc({
+    required CreateHouse createHouse,
+    required UploadHouseAvatar uploadHouseAvatar,
+  })  : _createHouse = createHouse,
+        _uploadHouseAvatar = uploadHouseAvatar,
+        super(const HouseCreateState()) {
     on<HouseCreateNameChanged>(_onNameChanged);
     on<HouseCreateSubmitted>(_onSubmitted);
   }
 
   final CreateHouse _createHouse;
+  final UploadHouseAvatar _uploadHouseAvatar;
 
   void _onNameChanged(
     HouseCreateNameChanged event,
@@ -29,6 +33,16 @@ final class HouseCreateBloc extends Bloc<HouseCreateEvent, HouseCreateState> {
     Emitter<HouseCreateState> emit,
   ) async {
     final name = state.name.trim();
+
+    if (event.avatarBytes == null || event.avatarBytes!.isEmpty) {
+      emit(
+        state.copyWith(
+          errorMessage: 'Please select a profile photo for the shared house.',
+        ),
+      );
+      return;
+    }
+
     if (name.length < 2) {
       emit(
         state.copyWith(
@@ -42,8 +56,35 @@ final class HouseCreateBloc extends Bloc<HouseCreateEvent, HouseCreateState> {
       state.copyWith(status: HouseCreateStatus.submitting, clearError: true),
     );
 
+    // 1. Upload house avatar first
+    String? avatarUrl;
+    final uploadRes = await _uploadHouseAvatar(
+      UploadHouseAvatarParams(
+        houseId: 'house_${DateTime.now().millisecondsSinceEpoch}',
+        fileBytes: event.avatarBytes!,
+        fileExtension: event.avatarExtension ?? 'jpg',
+      ),
+    );
+
+    if (uploadRes.success && uploadRes.data != null) {
+      avatarUrl = uploadRes.data;
+    } else {
+      emit(
+        state.copyWith(
+          status: HouseCreateStatus.failure,
+          errorMessage: uploadRes.message.isNotEmpty
+              ? uploadRes.message
+              : 'Failed to upload house photo. Please try again.',
+        ),
+      );
+      return;
+    }
+
+    // 2. Create house with uploaded avatarUrl
     final result = await handleFutureRequest<House>(
-      request: () => _createHouse(CreateHouseParams(name: name)),
+      request: () => _createHouse(
+        CreateHouseParams(name: name, avatarUrl: avatarUrl),
+      ),
       debugger: ControllerDebugger(),
       onError: (failure) {
         emit(

@@ -20,7 +20,7 @@ class SprintModel extends Sprint {
     final endDateStr = json['end_date'] as String?;
     return SprintModel(
       id: json['id'] as String,
-      houseId: json['house_id'] as String,
+      houseId: (json['expense_account_id'] ?? json['house_id'] ?? '') as String,
       label: (json['label'] as String?)?.isNotEmpty == true
           ? json['label'] as String
           : 'Cycle',
@@ -40,7 +40,7 @@ class SprintModel extends Sprint {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'house_id': houseId,
+      'expense_account_id': houseId,
       'label': label,
       'start_date': startDate.toIso8601String().substring(0, 10),
       if (endDate != null)

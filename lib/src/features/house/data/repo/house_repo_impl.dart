@@ -15,10 +15,13 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
   final HouseRemoteDatasource _datasource;
 
   @override
-  AsyncRequest<House> createHouse({required String name}) {
+  AsyncRequest<House> createHouse({required String name, String? avatarUrl}) {
     return asyncTryCatch(
       tryFunc: () async {
-        final house = await _datasource.createHouse(name: name);
+        final house = await _datasource.createHouse(
+          name: name,
+          avatarUrl: avatarUrl,
+        );
         return SuccessRepoCall(data: house);
       },
     );
@@ -60,6 +63,40 @@ class HouseRepoImpl with ErrorHandler implements HouseRepo {
       tryFunc: () async {
         final house = await _datasource.getHouseDetail(houseId: houseId);
         return SuccessRepoCall(data: house);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<String> uploadHouseAvatar({
+    required String houseId,
+    required List<int> fileBytes,
+    required String fileExtension,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final url = await _datasource.uploadHouseAvatar(
+          houseId: houseId,
+          fileBytes: fileBytes,
+          fileExtension: fileExtension,
+        );
+        return SuccessRepoCall(data: url);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<void> updateHouseAvatar({
+    required String houseId,
+    required String avatarUrl,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        await _datasource.updateHouseAvatarUrl(
+          houseId: houseId,
+          avatarUrl: avatarUrl,
+        );
+        return const SuccessRepoCall();
       },
     );
   }

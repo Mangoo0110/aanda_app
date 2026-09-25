@@ -1,10 +1,20 @@
 part of 'house_create_bloc.dart';
 
-sealed class HouseCreateEvent {}
+sealed class HouseCreateEvent {
+  const HouseCreateEvent();
+}
 
 final class HouseCreateNameChanged extends HouseCreateEvent {
-  HouseCreateNameChanged(this.name);
+  const HouseCreateNameChanged(this.name);
   final String name;
 }
 
-final class HouseCreateSubmitted extends HouseCreateEvent {}
+final class HouseCreateSubmitted extends HouseCreateEvent {
+  const HouseCreateSubmitted({
+    this.avatarBytes,
+    this.avatarExtension,
+  });
+
+  final List<int>? avatarBytes;
+  final String? avatarExtension;
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/house/presentation/bloc/house_join/house_join_bloc.dart';
 
@@ -36,6 +37,7 @@ class _HouseJoinScreenState extends State<HouseJoinScreen> {
           backgroundColor: colors.appBackgroundColor,
           appBar: AppBar(
             backgroundColor: colors.appBackgroundColor,
+            leading: const AppBackButton(),
             title: Text(
               'Join House',
               style: TextStyle(color: colors.textColor),
