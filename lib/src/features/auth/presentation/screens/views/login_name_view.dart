@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/presentation/bloc/login/login_bloc.dart';
 
@@ -41,7 +42,7 @@ class _LoginNameViewState extends State<LoginNameView> {
           appBar: AppBar(
             backgroundColor: colors.appBackgroundColor,
             elevation: 0,
-            leading: BackButton(onPressed: () => context.go(AppRoutes.auth)),
+            leading: AppBackButton(onPressed: () => context.go(AppRoutes.auth)),
             title: Text('Sign In', style: TextStyle(color: colors.textColor)),
           ),
           body: SafeArea(

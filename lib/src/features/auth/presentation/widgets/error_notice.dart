@@ -16,7 +16,6 @@ class ErrorNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.errorColor.withAlpha(28),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.errorColor.withAlpha(80)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(8.0),

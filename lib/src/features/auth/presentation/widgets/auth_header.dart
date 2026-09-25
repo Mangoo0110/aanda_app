@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 
 class AuthHeader extends StatelessWidget {
   const AuthHeader({super.key, required this.title, this.onBackPressed});
@@ -12,10 +13,9 @@ class AuthHeader extends StatelessWidget {
       height: 40,
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Back',
+          AppBackButton(
+            margin: const EdgeInsets.only(left: 16, right: 12),
             onPressed: onBackPressed,
-            icon: const Icon(Icons.arrow_back_rounded),
           ),
           Expanded(
             child: Text(

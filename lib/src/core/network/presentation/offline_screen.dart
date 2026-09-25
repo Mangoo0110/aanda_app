@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:aanda/src/core/constants/assets.dart';
 import 'package:aanda/src/core/network/cubit/network_status_cubit.dart';
 import 'package:aanda/src/core/network/cubit/network_status_state.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
 
 class OfflineScreen extends StatelessWidget {
   const OfflineScreen({super.key});
 
-  static const Color backgroundColor = Color(0xFFFFF7EE);
-  static const Color primaryCoral = Color(0xFFE05344);
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF7A7875);
-
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
+    final backgroundColor = colors.appBackgroundColor;
+    final primaryCoral = colors.primaryColor;
+    final darkText = colors.textColor;
+    final subText = colors.grey;
+
     return BlocBuilder<NetworkStatusCubit, NetworkStatusState>(
       builder: (context, state) {
         return Scaffold(
@@ -30,11 +33,11 @@ class OfflineScreen extends StatelessWidget {
                     width: 170,
                     height: 170,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: colors.surfaceColor,
                       borderRadius: BorderRadius.circular(32),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFD85A38).withValues(alpha: 0.08),
+                          color: colors.primaryColor.withValues(alpha: 0.08),
                           blurRadius: 28,
                           offset: const Offset(0, 10),
                         ),
@@ -42,9 +45,9 @@ class OfflineScreen extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.asset(
-                      'assets/images/offline_cloud.jpg',
+                      Assets.offlineCloud,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Center(
+                      errorBuilder: (_, __, ___) => Center(
                         child: Icon(
                           Icons.wifi_off_rounded,
                           size: 72,
@@ -57,7 +60,7 @@ class OfflineScreen extends StatelessWidget {
                   const SizedBox(height: 32),
 
                   // 2. Title
-                  const Text(
+                  Text(
                     "You're Offline",
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -71,7 +74,7 @@ class OfflineScreen extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // 3. Description
-                  const Text(
+                  Text(
                     'No internet connection found. Please check your Wi-Fi or mobile data to access your shared expenses and meals.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -142,7 +145,7 @@ class OfflineScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Reconnecting automatically when online...',
                         style: TextStyle(
                           fontSize: 12,

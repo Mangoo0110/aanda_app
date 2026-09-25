@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/core/usecases/base_usecase.dart';
 import 'package:aanda/src/features/auth/domain/entities/auth_status.dart';
@@ -102,15 +103,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
       appBar: AppBar(
         backgroundColor: colors.appBackgroundColor,
         elevation: 0,
-        leading: BackButton(
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go(AppRoutes.authLogin);
-            }
-          },
-        ),
+        leading: const AppBackButton(fallbackRoute: AppRoutes.authLogin),
         title: Text(
           'Set New Password',
           style: TextStyle(color: colors.textColor),
@@ -128,15 +121,12 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEEEC),
+                    color: colors.tileColor,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFD85A38).withValues(alpha: 0.2),
-                    ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.vpn_key_rounded,
-                    color: Color(0xFFD85A38),
+                    color: colors.primaryColor,
                     size: 36,
                   ),
                 ),
@@ -210,9 +200,6 @@ class _ResetPasswordViewState extends State<ResetPasswordView> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFEEEC),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFD85A38).withValues(alpha: 0.3),
-                    ),
                   ),
                   child: Text(
                     _errorMessage!,

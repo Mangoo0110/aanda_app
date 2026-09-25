@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/domain/usecases/send_password_reset_email.dart';
 import 'package:aanda/src/features/auth/domain/usecases/verify_password_reset_otp.dart';
@@ -136,7 +137,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
       appBar: AppBar(
         backgroundColor: colors.appBackgroundColor,
         elevation: 0,
-        leading: BackButton(
+        leading: AppBackButton(
           onPressed: () {
             if (_codeSent) {
               setState(() {
@@ -174,15 +175,12 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFEEEC),
+              color: colors.tileColor,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFFD85A38).withValues(alpha: 0.2),
-              ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.lock_reset_rounded,
-              color: Color(0xFFD85A38),
+              color: colors.primaryColor,
               size: 38,
             ),
           ),
@@ -260,15 +258,12 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFEEEC),
+              color: colors.tileColor,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFFD85A38).withValues(alpha: 0.2),
-              ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.mark_email_read_rounded,
-              color: Color(0xFFD85A38),
+              color: colors.primaryColor,
               size: 38,
             ),
           ),

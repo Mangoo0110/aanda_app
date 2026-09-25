@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/shared/widget/app_back_button.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
 import 'package:aanda/src/features/auth/presentation/bloc/register/register_bloc.dart';
 
@@ -56,7 +57,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
           appBar: AppBar(
             backgroundColor: colors.appBackgroundColor,
             elevation: 0,
-            leading: BackButton(onPressed: () => context.go(AppRoutes.auth)),
+            leading: AppBackButton(onPressed: () => context.go(AppRoutes.auth)),
             title: Text(
               'Create Account',
               style: TextStyle(color: colors.textColor),
@@ -173,7 +174,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
       appBar: AppBar(
         backgroundColor: colors.appBackgroundColor,
         elevation: 0,
-        leading: BackButton(
+        leading: AppBackButton(
           onPressed: () => context.read<RegisterBloc>().add(
             RegisterEditEmailRequested(),
           ),
@@ -192,13 +193,13 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                   width: 88,
                   height: 88,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD85A38).withValues(alpha: 0.12),
+                    color: colors.primaryColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(28),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.mark_email_unread_rounded,
                     size: 46,
-                    color: Color(0xFFD85A38),
+                    color: colors.primaryColor,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -263,8 +264,8 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                     ),
                     child: Text(
                       state.errorMessage!,
-                      style: const TextStyle(
-                        color: Color(0xFFD85A38),
+                      style: TextStyle(
+                        color: colors.errorColor,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -281,7 +282,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                   child: FilledButton(
                     onPressed: () => context.go(AppRoutes.authLogin),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFD85A38),
+                      backgroundColor: colors.primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

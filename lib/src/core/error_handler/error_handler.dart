@@ -202,6 +202,7 @@ mixin class ErrorHandler {
       case 'amount':
         return 'an amount';
       case 'house_id':
+      case 'expense_account_id':
         return 'a shared house';
       case 'paid_by':
         return 'the member who paid';
