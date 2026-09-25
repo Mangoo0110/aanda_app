@@ -15,17 +15,26 @@ final class SettlementBloc extends Bloc<SettlementEvent, SettlementState> {
     required ComputeSettlement computeSettlement,
     required FinaliseSettlement finaliseSettlement,
     required GetSettlements getSettlements,
+    RecordSettlementPayment? recordSettlementPayment,
+    FinaliseSettlementWithResolutions? finaliseSettlementWithResolutions,
   })  : _prepareSettlement = prepareSettlement,
         _computeSettlement = computeSettlement,
         _finaliseSettlement = finaliseSettlement,
         _getSettlements = getSettlements,
+        _recordSettlementPayment = recordSettlementPayment,
+        _finaliseSettlementWithResolutions = finaliseSettlementWithResolutions,
         super(const SettlementState()) {
     on<SettlementStarted>(_onStarted);
     on<SettlementDateRangeSet>(_onDateRangeSet);
     on<SettlementCostToggled>(_onCostToggled);
     on<SettlementCategoryToggled>(_onCategoryToggled);
     on<SettlementPreviewRequested>(_onPreviewRequested);
+    on<SettlementPublishRequested>(_onPublishRequested);
+    on<SettlementDepositRecordRequested>(_onDepositRecordRequested);
     on<SettlementFinaliseRequested>(_onFinaliseRequested);
+    on<SettlementFinaliseWithResolutionsRequested>(
+      _onFinaliseWithResolutionsRequested,
+    );
     on<SettlementHistoryRequested>(_onHistoryRequested);
     on<SettlementReset>(_onReset);
   }
@@ -34,6 +43,8 @@ final class SettlementBloc extends Bloc<SettlementEvent, SettlementState> {
   final ComputeSettlement _computeSettlement;
   final FinaliseSettlement _finaliseSettlement;
   final GetSettlements _getSettlements;
+  final RecordSettlementPayment? _recordSettlementPayment;
+  final FinaliseSettlementWithResolutions? _finaliseSettlementWithResolutions;
 
   Future<void> _onStarted(
     SettlementStarted event,
@@ -155,6 +166,109 @@ final class SettlementBloc extends Bloc<SettlementEvent, SettlementState> {
       phase: SettlementPhase.summary,
       clearError: true,
     ));
+  }
+
+  Future<void> _onPublishRequested(
+    SettlementPublishRequested event,
+    Emitter<SettlementState> emit,
+  ) async {
+    final costIds = state.includedCostIds;
+    if (costIds.isEmpty) return;
+
+    emit(state.copyWith(isLoading: true, clearError: true));
+
+    final settlement = await handleFutureRequest<Settlement>(
+      request: () => _computeSettlement(
+        ComputeSettlementParams(
+          houseId: state.houseId,
+          fromDate: state.fromDate!,
+          toDate: state.toDate!,
+          costIds: costIds,
+          save: true,
+          status: 'published',
+        ),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(state.copyWith(isLoading: false, errorMessage: failure.message));
+      },
+    );
+
+    if (settlement == null) return;
+
+    emit(state.copyWith(
+      isLoading: false,
+      previewSettlement: settlement,
+      phase: SettlementPhase.summary,
+      clearError: true,
+    ));
+  }
+
+  Future<void> _onDepositRecordRequested(
+    SettlementDepositRecordRequested event,
+    Emitter<SettlementState> emit,
+  ) async {
+    final settlement = state.previewSettlement;
+    if (settlement == null || settlement.settlementId == null) return;
+    if (_recordSettlementPayment == null) return;
+
+    emit(state.copyWith(isLoading: true, clearError: true));
+
+    final updated = await handleFutureRequest<Settlement>(
+      request: () => _recordSettlementPayment(
+        RecordSettlementPaymentParams(
+          settlementId: settlement.settlementId!,
+          userId: event.userId,
+          amount: event.amount,
+          note: event.note,
+        ),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(state.copyWith(isLoading: false, errorMessage: failure.message));
+      },
+    );
+
+    if (updated != null) {
+      emit(state.copyWith(
+        isLoading: false,
+        previewSettlement: updated,
+        clearError: true,
+      ));
+    }
+  }
+
+  Future<void> _onFinaliseWithResolutionsRequested(
+    SettlementFinaliseWithResolutionsRequested event,
+    Emitter<SettlementState> emit,
+  ) async {
+    final settlement = state.previewSettlement;
+    if (settlement == null || settlement.settlementId == null) return;
+    if (_finaliseSettlementWithResolutions == null) return;
+
+    emit(state.copyWith(isFinalising: true, clearError: true));
+
+    final finalised = await handleFutureRequest<Settlement>(
+      request: () => _finaliseSettlementWithResolutions(
+        FinaliseSettlementWithResolutionsParams(
+          settlementId: settlement.settlementId!,
+          resolutions: event.resolutions,
+        ),
+      ),
+      debugger: ControllerDebugger(),
+      onError: (failure) {
+        emit(state.copyWith(isFinalising: false, errorMessage: failure.message));
+      },
+    );
+
+    if (finalised != null) {
+      emit(state.copyWith(
+        isFinalising: false,
+        finalSettlement: finalised,
+        phase: SettlementPhase.done,
+        clearError: true,
+      ));
+    }
   }
 
   Future<void> _onFinaliseRequested(

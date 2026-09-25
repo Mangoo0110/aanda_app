@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/utils/helpers/avatar_image_provider.dart';
 import 'package:aanda/src/features/settlement/domain/entities/settlement.dart';
 
 /// Read-only settlement breakdown sheet — used from settlement history.
@@ -55,7 +56,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.receipt_long_rounded, color: colors.primaryColor),
+                  Icon(Icons.receipt_long_rounded, color: colors.textColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -73,16 +74,24 @@ class SettlementBreakdownSheet extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.12),
+                      color: settlement.status == SettlementStatus.published
+                          ? Colors.orange.withValues(alpha: 0.12)
+                          : Colors.green.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'FINALISED',
+                    child: Text(
+                      settlement.status == SettlementStatus.published
+                          ? 'COLLECTION OPEN'
+                          : (settlement.status == SettlementStatus.draft
+                              ? 'DRAFT'
+                              : 'FINALISED'),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.5,
-                        color: Colors.green,
+                        color: settlement.status == SettlementStatus.published
+                            ? Colors.orange.shade800
+                            : Colors.green,
                       ),
                     ),
                   ),
@@ -97,7 +106,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: colors.primaryColor.withValues(alpha: 0.08),
+                  color: colors.softGrey,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -105,7 +114,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                     Icon(
                       Icons.date_range_rounded,
                       size: 14,
-                      color: colors.primaryColor,
+                      color: colors.textColor,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -113,15 +122,15 @@ class SettlementBreakdownSheet extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: colors.primaryColor,
+                        color: colors.textColor,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
-              // Totals card
+              // Key metrics card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -160,7 +169,9 @@ class SettlementBreakdownSheet extends StatelessWidget {
 
               const SizedBox(height: 20),
               Text(
-                'Member Balances',
+                settlement.memberSummaries.length == 1
+                    ? 'Personal Summary'
+                    : 'Member Balances',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -173,9 +184,28 @@ class SettlementBreakdownSheet extends StatelessWidget {
                 final net = m.netBalance;
                 final isDue = net > 0.01;
                 final isRefund = net < -0.01;
-                final balanceColor = isDue
-                    ? colors.errorColor
-                    : (isRefund ? Colors.teal : colors.grey);
+
+                final Color balanceColor;
+                final Color badgeBg;
+                final String statusText;
+                final String amountText;
+
+                if (isDue) {
+                  balanceColor = colors.errorColor;
+                  badgeBg = colors.errorColor.withValues(alpha: 0.1);
+                  statusText = 'To Pay';
+                  amountText = '-৳ ${currFmt.format(net.abs())}';
+                } else if (isRefund) {
+                  balanceColor = Colors.green.shade700;
+                  badgeBg = Colors.green.withValues(alpha: 0.1);
+                  statusText = 'To Receive';
+                  amountText = '+৳ ${currFmt.format(net.abs())}';
+                } else {
+                  balanceColor = colors.grey;
+                  badgeBg = colors.softGrey;
+                  statusText = 'Settled';
+                  amountText = '৳ 0.00';
+                }
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
@@ -183,26 +213,26 @@ class SettlementBreakdownSheet extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.appBackgroundColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: colors.borderColor.withValues(alpha: 0.4),
-                    ),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 16,
                         backgroundColor:
-                            colors.primaryColor.withValues(alpha: 0.1),
-                        child: Text(
-                          m.displayName.isNotEmpty
-                              ? m.displayName[0].toUpperCase()
-                              : 'M',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: colors.primaryColor,
-                          ),
-                        ),
+                            colors.textColor.withValues(alpha: 0.08),
+                        backgroundImage: getAvatarImageProvider(m.avatarUrl),
+                        child: m.avatarUrl == null || m.avatarUrl!.isEmpty
+                            ? Text(
+                                m.displayName.isNotEmpty
+                                    ? m.displayName[0].toUpperCase()
+                                    : 'M',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textColor,
+                                ),
+                              )
+                            : null,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -218,7 +248,7 @@ class SettlementBreakdownSheet extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              '${m.totalMeals.toStringAsFixed(1)} meals  ·  Paid ৳${currFmt.format(m.totalPaid)}',
+                              'Share ৳${currFmt.format(m.totalOwed)}  ·  Net Dep ৳${currFmt.format(m.netDeposit)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: colors.grey,
@@ -226,10 +256,23 @@ class SettlementBreakdownSheet extends StatelessWidget {
                             ),
                             if (m.carryForwardIn.abs() > 0.01)
                               Text(
-                                'Carry fwd: ৳${currFmt.format(m.carryForwardIn)}',
+                                m.carryForwardIn > 0
+                                    ? 'Prior debt: -৳${currFmt.format(m.carryForwardIn)}'
+                                    : 'Prior credit: +৳${currFmt.format(m.carryForwardIn.abs())}',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   color: colors.grey,
+                                ),
+                              ),
+                            if (m.resolutionType != null)
+                              Text(
+                                m.resolutionType == BalanceResolutionType.carryForward
+                                    ? '→ Carried forward to next'
+                                    : '→ Misc: ${m.resolutionReason ?? ""}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.textColor.withOpacity(0.7),
                                 ),
                               ),
                           ],
@@ -238,18 +281,27 @@ class SettlementBreakdownSheet extends StatelessWidget {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            isDue
-                                ? 'Owes'
-                                : (isRefund ? 'Gets back' : 'Settled'),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: balanceColor,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: balanceColor,
+                              ),
                             ),
                           ),
+                          const SizedBox(height: 3),
                           Text(
-                            '৳ ${currFmt.format(net.abs())}',
+                            amountText,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
@@ -303,7 +355,7 @@ class _MetricRow extends StatelessWidget {
           style: TextStyle(
             fontSize: isHighlighted ? 17 : 14,
             fontWeight: FontWeight.w800,
-            color: isHighlighted ? colors.primaryColor : colors.textColor,
+            color: colors.textColor,
           ),
         ),
       ],

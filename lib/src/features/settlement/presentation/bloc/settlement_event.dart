@@ -31,7 +31,27 @@ final class SettlementCategoryToggled extends SettlementEvent {
 
 final class SettlementPreviewRequested extends SettlementEvent {}
 
+final class SettlementPublishRequested extends SettlementEvent {}
+
+final class SettlementDepositRecordRequested extends SettlementEvent {
+  SettlementDepositRecordRequested({
+    required this.userId,
+    required this.amount,
+    this.note,
+  });
+  final String userId;
+  final double amount;
+  final String? note;
+}
+
 final class SettlementFinaliseRequested extends SettlementEvent {}
+
+final class SettlementFinaliseWithResolutionsRequested extends SettlementEvent {
+  SettlementFinaliseWithResolutionsRequested({
+    required this.resolutions,
+  });
+  final List<MemberResolutionParams> resolutions;
+}
 
 final class SettlementHistoryRequested extends SettlementEvent {
   SettlementHistoryRequested({required this.houseId});

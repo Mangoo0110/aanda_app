@@ -10,6 +10,7 @@ class ComputeSettlementParams {
     required this.toDate,
     required this.costIds,
     this.save = false,
+    this.status,
     this.label,
   });
 
@@ -18,6 +19,7 @@ class ComputeSettlementParams {
   final DateTime toDate;
   final List<String> costIds;
   final bool save;
+  final String? status;
   final String? label;
 }
 
@@ -35,6 +37,7 @@ final class ComputeSettlement
       toDate: params.toDate,
       costIds: params.costIds,
       save: params.save,
+      status: params.status,
       label: params.label,
     );
   }

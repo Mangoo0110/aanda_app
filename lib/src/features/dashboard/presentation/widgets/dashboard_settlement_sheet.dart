@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:aanda/src/app/routing/app_routes.dart';
+import 'package:aanda/src/core/theme/app_colors.dart';
+import 'package:aanda/src/core/theme/app_theme.dart';
 import 'package:aanda/src/features/house/domain/entities/house.dart';
 
 class DashboardSettlementSheet extends StatelessWidget {
@@ -12,15 +14,12 @@ class DashboardSettlementSheet extends StatelessWidget {
 
   final House? house;
 
-  static const Color cardColor = Colors.white;
-  static const Color darkText = Color(0xFF1B1D1F);
-  static const Color subText = Color(0xFF8C8D8E);
-  static const Color primaryCoral = Color(0xFFD85A38);
-
   static void show(BuildContext context, House? house) {
+    final colors = AppColors.context(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: cardColor,
+      isScrollControlled: true,
+      backgroundColor: colors.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -30,17 +29,23 @@ class DashboardSettlementSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.context(context);
     final houseName = house?.name ?? 'Shared House';
     final houseId = house?.id;
     final now = DateTime.now();
     final dateStr = DateFormat('d MMM yyyy, h:mm a').format(now);
+    final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.85;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxSheetHeight),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
@@ -56,34 +61,34 @@ class DashboardSettlementSheet extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: primaryCoral.withValues(alpha: 0.1),
+                    color: colors.softGrey,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Center(
-                    child: Text('⚖️', style: TextStyle(fontSize: 20)),
+                  child: Icon(
+                    Icons.account_balance_rounded,
+                    color: colors.textColor,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'End Cycle & Settle',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: darkText,
+                        style: AppTextStyles.sectionHeader.copyWith(
+                          color: colors.textColor,
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         houseName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: subText,
+                        style: AppTextStyles.rowSubtitle.copyWith(
+                          color: colors.grey,
                         ),
                       ),
                     ],
@@ -95,7 +100,7 @@ class DashboardSettlementSheet extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAF5EE),
+                color: colors.softGrey,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -103,28 +108,26 @@ class DashboardSettlementSheet extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline_rounded,
                         size: 16,
-                        color: primaryCoral,
+                        color: colors.textColor,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Calculation Snapshot: $dateStr',
-                        style: const TextStyle(
+                        style: AppTextStyles.rowTitle.copyWith(
+                          color: colors.textColor,
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: darkText,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Settling ends the current cycle, tallies total expenses and meal share from the start date to right now, resolves member balances, and starts a fresh new cycle.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subText,
+                  Text(
+                    'Settling ends the current cycle, tallies total expenses from the start date to right now, resolves balances, and starts a fresh new cycle.',
+                    style: AppTextStyles.rowSubtitle.copyWith(
+                      color: colors.grey,
                       height: 1.4,
                     ),
                   ),
@@ -145,7 +148,8 @@ class DashboardSettlementSheet extends StatelessWidget {
                   ),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: primaryCoral,
+                  backgroundColor: colors.textColor,
+                  foregroundColor: colors.invertTextColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -153,7 +157,13 @@ class DashboardSettlementSheet extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context).pop();
                   if (houseId != null) {
-                    context.push(AppRoutes.houseDetail(houseId));
+                    context.push(
+                      AppRoutes.settlementStart(houseId),
+                      extra: {
+                        'houseName': houseName,
+                        'isAdmin': true,
+                      },
+                    );
                   }
                 },
               ),
@@ -163,16 +173,18 @@ class DashboardSettlementSheet extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(
-                    color: subText,
+                  style: AppTextStyles.rowSubtitle.copyWith(
+                    color: colors.grey,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
           ],
+            ),
+          ),
         ),
       ),
     );

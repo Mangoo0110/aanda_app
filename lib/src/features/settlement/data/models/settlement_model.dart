@@ -5,6 +5,7 @@ class MemberSettlementSummaryModel extends MemberSettlementSummary {
     required super.userId,
     required super.username,
     required super.fullName,
+    super.avatarUrl,
     required super.totalMeals,
     required super.weightedMeals,
     required super.foodCharge,
@@ -14,6 +15,12 @@ class MemberSettlementSummaryModel extends MemberSettlementSummary {
     required super.totalOwed,
     required super.carryForwardIn,
     required super.netBalance,
+    super.advanceDeposits,
+    super.settlementDeposits,
+    super.finalBalance,
+    super.resolutionType,
+    super.resolutionReason,
+    super.carryForwardReference,
   });
 
   factory MemberSettlementSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -21,6 +28,7 @@ class MemberSettlementSummaryModel extends MemberSettlementSummary {
       userId: json['user_id'] as String? ?? '',
       username: json['username'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String?,
       totalMeals: (json['total_meals'] as num?)?.toDouble() ?? 0.0,
       weightedMeals: (json['weighted_meals'] as num?)?.toDouble() ?? 0.0,
       foodCharge: (json['food_charge'] as num?)?.toDouble() ?? 0.0,
@@ -30,7 +38,41 @@ class MemberSettlementSummaryModel extends MemberSettlementSummary {
       totalOwed: (json['total_owed'] as num?)?.toDouble() ?? 0.0,
       carryForwardIn: (json['carry_forward_in'] as num?)?.toDouble() ?? 0.0,
       netBalance: (json['net_balance'] as num?)?.toDouble() ?? 0.0,
+      advanceDeposits: (json['advance_deposits'] as num?)?.toDouble() ?? 0.0,
+      settlementDeposits:
+          (json['settlement_deposits'] as num?)?.toDouble() ?? 0.0,
+      finalBalance: (json['final_balance'] as num?)?.toDouble() ?? 0.0,
+      resolutionType: BalanceResolutionTypeX.fromString(
+        json['resolution_type'] as String?,
+      ),
+      resolutionReason: json['resolution_reason'] as String?,
+      carryForwardReference: json['carry_forward_reference'] as String?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'user_id': userId,
+      'username': username,
+      'full_name': fullName,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      'total_meals': totalMeals,
+      'weighted_meals': weightedMeals,
+      'food_charge': foodCharge,
+      'fixed_share': fixedShare,
+      'other_share': otherShare,
+      'total_paid': totalPaid,
+      'total_owed': totalOwed,
+      'carry_forward_in': carryForwardIn,
+      'net_balance': netBalance,
+      'advance_deposits': advanceDeposits,
+      'settlement_deposits': settlementDeposits,
+      'final_balance': finalBalance,
+      if (resolutionType != null) 'resolution_type': resolutionType!.value,
+      if (resolutionReason != null) 'resolution_reason': resolutionReason,
+      if (carryForwardReference != null)
+        'carry_forward_reference': carryForwardReference,
+    };
   }
 }
 
@@ -60,9 +102,11 @@ class SettlementModel extends Settlement {
         .toList();
 
     final statusStr = json['status'] as String? ?? 'finalised';
-    final status = statusStr == 'draft'
-        ? SettlementStatus.draft
-        : SettlementStatus.finalised;
+    final status = switch (statusStr) {
+      'draft' => SettlementStatus.draft,
+      'published' => SettlementStatus.published,
+      _ => SettlementStatus.finalised,
+    };
 
     DateTime parseDate(dynamic v) {
       if (v == null) return DateTime.now();
@@ -71,7 +115,7 @@ class SettlementModel extends Settlement {
     }
 
     return SettlementModel(
-      houseId: json['house_id'] as String? ?? '',
+      houseId: (json['expense_account_id'] ?? json['house_id'] ?? '') as String,
       cycleId: json['cycle_id'] as String?,
       fromDate: parseDate(json['from_date']),
       toDate: parseDate(json['to_date']),

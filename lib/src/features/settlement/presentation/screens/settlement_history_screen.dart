@@ -111,8 +111,13 @@ class _SettlementHistoryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surfaceColor,
           borderRadius: BorderRadius.circular(16),
-          border:
-              Border.all(color: colors.borderColor.withValues(alpha: 0.4)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -120,12 +125,12 @@ class _SettlementHistoryCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: colors.primaryColor.withValues(alpha: 0.1),
+                color: colors.softGrey,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 Icons.receipt_long_rounded,
-                color: colors.primaryColor,
+                color: colors.textColor,
                 size: 22,
               ),
             ),
@@ -144,7 +149,9 @@ class _SettlementHistoryCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${settlement.memberSummaries.length} members  ·  ${settlement.includedCostIds.length} costs',
+                    settlement.memberSummaries.length == 1
+                        ? 'Personal settlement  ·  ${settlement.includedCostIds.length} costs'
+                        : '${settlement.memberSummaries.length} members  ·  ${settlement.includedCostIds.length} costs',
                     style: TextStyle(fontSize: 12, color: colors.grey),
                   ),
                 ],

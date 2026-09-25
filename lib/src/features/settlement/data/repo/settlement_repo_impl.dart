@@ -37,6 +37,7 @@ class SettlementRepoImpl with ErrorHandler implements SettlementRepo {
     required DateTime toDate,
     required List<String> costIds,
     bool save = false,
+    String? status,
     String? label,
   }) {
     return asyncTryCatch(
@@ -47,8 +48,56 @@ class SettlementRepoImpl with ErrorHandler implements SettlementRepo {
           toDate: toDate,
           costIds: costIds,
           save: save,
+          status: status,
           label: label,
         );
+        return SuccessRepoCall(data: settlement);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Settlement> recordSettlementPayment({
+    required String settlementId,
+    required String userId,
+    required double amount,
+    String? note,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final settlement = await _datasource.recordSettlementPayment(
+          settlementId: settlementId,
+          userId: userId,
+          amount: amount,
+          note: note,
+        );
+        return SuccessRepoCall(data: settlement);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Settlement> finaliseSettlementWithResolutions({
+    required String settlementId,
+    required List<MemberResolutionParams> resolutions,
+  }) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final settlement = await _datasource.finaliseSettlementWithResolutions(
+          settlementId: settlementId,
+          resolutions: resolutions,
+        );
+        return SuccessRepoCall(data: settlement);
+      },
+    );
+  }
+
+  @override
+  AsyncRequest<Settlement?> getPublishedSettlement({required String houseId}) {
+    return asyncTryCatch(
+      tryFunc: () async {
+        final settlement =
+            await _datasource.getPublishedSettlement(houseId: houseId);
         return SuccessRepoCall(data: settlement);
       },
     );
@@ -65,3 +114,4 @@ class SettlementRepoImpl with ErrorHandler implements SettlementRepo {
     );
   }
 }
+
